@@ -17,6 +17,13 @@ for (const w of weights) {
   html = html.split(`/fonts/thmanyahsans-${w}.woff2`).join(`data:font/woff2;base64,${b64}`)
 }
 
+// نسخة مستقلة كاملة (مستند HTML كامل بالخطوط مضمّنة) — تُفتح مباشرة بأي متصفح
+// بدون خادم أو تسجيل دخول. نحذف روابط الأصول الخارجية (الأيقونة) لتفادي طلبات فاشلة.
+const standalone = html
+  .replace(/<link[^>]*rel="icon"[^>]*>/gi, '')
+  .replace(/<link[^>]*rel="preload"[^>]*fonts[^>]*>/gi, '')
+writeFileSync(path.join(root, 'dist-single', 'tafalna-standalone.html'), standalone)
+
 // (2) استخراج محتوى <head> و<body> ودمجهما كشظية
 const headInner = (html.match(/<head[^>]*>([\s\S]*?)<\/head>/i)?.[1] ?? '')
   // نحذف وسوم preload الخاصة بالخط ووسوم charset/viewport (يوفّرها هيكل الـ Artifact)

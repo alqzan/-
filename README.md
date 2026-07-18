@@ -49,6 +49,7 @@
 | الإطار | React 18 + TypeScript |
 | البناء | Vite |
 | التنسيق | Tailwind CSS (RTL) |
+| الخط | خط ثمانية Thmanyah Sans (مستضاف محليًا في `public/fonts/`) |
 | التوجيه | React Router |
 | الحالة/التخزين | طبقة `dataService` فوق `localStorage` |
 | PWA | vite-plugin-pwa |
@@ -82,7 +83,10 @@ npm install     # تثبيت الاعتماديات
 npm run dev     # تشغيل بيئة التطوير (http://localhost:5173)
 npm run build   # بناء نسخة الإنتاج
 npm run preview # معاينة نسخة الإنتاج
+npm run build:single # نسخة بملف HTML واحد مكتفٍ ذاتيًا (للمشاركة كرابط)
 ```
+
+> خط ثمانية مُستضاف محليًا؛ ملف الترخيص في `public/fonts/ThmanyahFont-LICENSE.pdf`.
 
 ## 🗺️ الخطوات القادمة
 

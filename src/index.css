@@ -2,6 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===== خط ثمانية Thmanyah Sans (مستضاف محليًا) ===== */
+@font-face {
+  font-family: 'Thmanyah Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/thmanyahsans-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Thmanyah Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/thmanyahsans-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Thmanyah Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/thmanyahsans-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Thmanyah Sans';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('/fonts/thmanyahsans-Black.woff2') format('woff2');
+}
+
 @layer base {
   :root {
     color-scheme: light;

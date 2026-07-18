@@ -6,6 +6,7 @@ node_modules
 # build
 dist
 dist-ssr
+dist-single
 *.local
 
 # logs

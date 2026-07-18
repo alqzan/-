@@ -12,10 +12,20 @@ document.documentElement.setAttribute('lang', 'ar')
 // حتى يعمل التنقّل بدون خادم. غير ذلك: توجيه المسار العادي.
 const Router = import.meta.env.VITE_HASH_ROUTER ? HashRouter : BrowserRouter
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <Router>
-      <App />
-    </Router>
-  </React.StrictMode>,
-)
+function mount() {
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <Router>
+        <App />
+      </Router>
+    </React.StrictMode>,
+  )
+}
+
+// نؤخّر التركيب حتى يجهز الـ DOM — يهمّ عند تشغيل السكربت كسكربت كلاسيكي
+// (نسخة الملف الواحد) حيث يُنفّذ قبل اكتمال بناء الصفحة.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', mount)
+} else {
+  mount()
+}

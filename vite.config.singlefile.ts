@@ -20,5 +20,12 @@ export default defineConfig({
     assetsInlineLimit: 100 * 1024 * 1024, // ادمج كل الأصول (بما فيها الخطوط) كـ base64
     cssCodeSplit: false,
     reportCompressedSize: false,
+    // سكربت كلاسيكي (IIFE) بدل ES module حتى يعمل في معاينات الملفات على الجوال
+    // (مثل Quick Look في iOS) وعند الفتح المباشر عبر file://
+    target: 'es2015',
+    modulePreload: false,
+    rollupOptions: {
+      output: { format: 'iife', inlineDynamicImports: true },
+    },
   },
 })

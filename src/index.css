@@ -97,6 +97,45 @@
   .section-title {
     @apply text-sage-700 font-bold text-lg mb-3;
   }
+
+  .book-title {
+    @apply text-sage-700 font-bold text-lg mb-3 pb-1 border-b border-cream-300;
+  }
+}
+
+/* ===== وضع الطباعة: كتاب الذكريات ===== */
+@media print {
+  body {
+    background: #fff;
+  }
+
+  /* نخفي كل ما ليس جزءًا من الكتاب: التنقّل، الترويسات، الأزرار */
+  nav,
+  header:not(.memory-book header) {
+    display: none !important;
+  }
+
+  .app-container {
+    max-width: none;
+    background: #fff;
+  }
+
+  .screen {
+    padding: 0;
+  }
+
+  .memory-book {
+    color: #000;
+  }
+
+  .memory-book img {
+    max-height: 9cm;
+    object-fit: contain;
+  }
+
+  section {
+    break-inside: auto;
+  }
 }
 
 /* حركة ظهور لطيفة */

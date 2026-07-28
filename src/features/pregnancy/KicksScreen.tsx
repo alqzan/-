@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, EmptyState } from '../../components/ui'
+import { useConfirm } from '../../components/Confirm'
 import { FootIcon, TrashIcon } from '../../components/icons'
 import { addKickSession, deleteKickSession, uid, useAppData } from '../../data/dataService'
 import { formatDate, formatDuration, formatTime } from '../../lib/format'
@@ -20,6 +21,7 @@ export default function KicksScreen() {
   const data = useAppData()
   const [active, setActive] = useState<{ startedAt: number; count: number } | null>(loadActive)
   const [, tick] = useState(0)
+  const { confirm, dialog } = useConfirm()
 
   // مؤقّت حيّ للجلسة النشطة
   useEffect(() => {
@@ -118,8 +120,14 @@ export default function KicksScreen() {
                   </div>
                 </div>
                 <button
-                  onClick={() => deleteKickSession(k.id)}
-                  className="text-sage-300 hover:text-peach-500 p-2"
+                  onClick={() =>
+                    confirm({
+                      title: 'حذف هذه الجلسة؟',
+                      confirmLabel: 'حذف',
+                      onConfirm: () => deleteKickSession(k.id),
+                    })
+                  }
+                  className="text-sage-300 hover:text-red-600 p-2"
                   aria-label="حذف"
                 >
                   <TrashIcon className="w-5 h-5" />
@@ -129,6 +137,8 @@ export default function KicksScreen() {
           })}
         </div>
       )}
+
+      {dialog}
     </>
   )
 }

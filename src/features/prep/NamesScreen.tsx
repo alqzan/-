@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, EmptyState, Field, Segmented, Sheet, cx } from '../../components/ui'
+import { useConfirm } from '../../components/Confirm'
 import { HeartFillIcon, HeartIcon, PlusIcon, TrashIcon } from '../../components/icons'
 import { addName, deleteName, toggleNameVote, useAppData } from '../../data/dataService'
 import type { Gender, NameIdea, Parent } from '../../data/types'
@@ -13,6 +14,7 @@ export default function NamesScreen() {
   const data = useAppData()
   const [open, setOpen] = useState(false)
   const [filter, setFilter] = useState<'all' | Gender>('all')
+  const { confirm, dialog } = useConfirm()
 
   const filtered = data.names.filter((n) => filter === 'all' || n.gender === filter)
   const sorted = [...filtered].sort((a, b) => totalVotes(b) - totalVotes(a))
@@ -93,8 +95,14 @@ export default function NamesScreen() {
                     </button>
                   ))}
                   <button
-                    onClick={() => deleteName(n.id)}
-                    className="text-sage-300 hover:text-peach-500 p-1"
+                    onClick={() =>
+                      confirm({
+                        title: `حذف الاسم «${n.name}»؟`,
+                        confirmLabel: 'حذف',
+                        onConfirm: () => deleteName(n.id),
+                      })
+                    }
+                    className="text-sage-300 hover:text-red-600 p-1"
                     aria-label="حذف"
                   >
                     <TrashIcon className="w-5 h-5" />
@@ -107,6 +115,7 @@ export default function NamesScreen() {
       )}
 
       <AddNameSheet open={open} onClose={() => setOpen(false)} />
+      {dialog}
     </>
   )
 }

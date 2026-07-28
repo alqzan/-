@@ -3,6 +3,7 @@ import {
   type ButtonHTMLAttributes,
   type ReactNode,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { CloseIcon, PlusIcon } from './icons'
 
 // ============ أدوات مساعدة ============
@@ -193,19 +194,31 @@ export function Sheet({
   children: ReactNode
 }) {
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden'
-      return () => {
-        document.body.style.overflow = ''
-      }
+    if (!open) return
+    document.body.style.overflow = 'hidden'
+    // الإغلاق بمفتاح Escape (لوحة مفاتيح/ديسكتوب)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
     }
-  }, [open])
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = ''
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open, onClose])
 
   if (!open) return null
-  return (
+  // نُخرج النافذة إلى <body> بـ Portal: شاشة التطبيق تُنشئ stacking context
+  // بسبب حركة الظهور، فكان الشريط السفلي يغطّي أسفل النافذة وأزرارها.
+  return createPortal(
     <div className="fixed inset-0 z-40 flex items-end justify-center">
       <div className="absolute inset-0 bg-sage-900/40 animate-in" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-cream-50 rounded-t-3xl p-5 pb-8 shadow-2xl animate-in max-h-[85vh] overflow-y-auto">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="relative w-full max-w-md bg-cream-50 rounded-t-3xl p-5 pb-8 shadow-2xl animate-in max-h-[85vh] overflow-y-auto"
+      >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-sage-800">{title}</h3>
           <button
@@ -218,7 +231,8 @@ export function Sheet({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

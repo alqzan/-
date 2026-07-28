@@ -72,6 +72,8 @@ export interface Photo {
   caption?: string
   date: string
   author: Parent
+  /** مميّزة بالقلب — تظهر في «المفضلة» وفي كتاب الذكريات */
+  favorite?: boolean
 }
 
 export interface JournalEntry {
@@ -101,6 +103,8 @@ export interface Milestone {
   achievedAt: string | null
   /** معلم افتراضي من التطبيق أم مضاف من الوالدين */
   builtIn: boolean
+  /** ذكرى مكتوبة عن اللحظة */
+  note?: string
 }
 
 // ===== التجهيزات =====
@@ -161,6 +165,17 @@ export interface GrowthEntry {
   headCm?: number
 }
 
+/** جرعة تطعيم في الجدول الاسترشادي */
+export interface VaccineDose {
+  id: string
+  name: string
+  /** العمر المستحق بالأشهر (0 = عند الولادة) */
+  dueMonths: number
+  /** تاريخ الإعطاء — null = لم تُعطَ بعد */
+  givenAt: string | null
+  builtIn: boolean
+}
+
 // ===== الحاوية الكاملة للبيانات =====
 
 export interface AppData {
@@ -177,9 +192,10 @@ export interface AppData {
   milestones: Milestone[]
   names: NameIdea[]
   checklist: ChecklistItem[]
-  // رعاية المولود (فارغة الآن)
+  // رعاية المولود
   feedings: Feeding[]
   diapers: Diaper[]
   sleep: SleepEntry[]
   growth: GrowthEntry[]
+  vaccines: VaccineDose[]
 }

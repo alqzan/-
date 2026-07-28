@@ -1,24 +1,34 @@
 import { useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, EmptyState, Field, Sheet, cx } from '../../components/ui'
-import { CapsuleIcon, PlusIcon, TrashIcon } from '../../components/icons'
-import { addCapsule, deleteCapsule, openCapsule, useAppData } from '../../data/dataService'
+import { useConfirm } from '../../components/Confirm'
+import { CapsuleIcon, EditIcon, PlusIcon, TrashIcon } from '../../components/icons'
+import {
+  addCapsule,
+  deleteCapsule,
+  openCapsule,
+  updateCapsule,
+  useAppData,
+} from '../../data/dataService'
 import type { Parent, TimeCapsule } from '../../data/types'
 import { formatDate, parentLabel } from '../../lib/format'
 
 export default function CapsulesScreen() {
   const data = useAppData()
   const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<TimeCapsule | null>(null)
+  const { confirm, dialog } = useConfirm()
 
   const sorted = [...data.capsules].sort(
     (a, b) => new Date(a.openAt).getTime() - new Date(b.openAt).getTime(),
   )
+  const locked = sorted.filter((c) => new Date(c.openAt).getTime() > Date.now()).length
 
   return (
     <>
       <ScreenHeader
         title="الكبسولة الزمنية"
-        subtitle="رسائل تُفتح في المستقبل"
+        subtitle={locked ? `${locked} رسالة تنتظر موعدها` : 'رسائل تُفتح في المستقبل'}
         back
         action={
           <button
@@ -48,19 +58,51 @@ export default function CapsulesScreen() {
       ) : (
         <div className="space-y-3">
           {sorted.map((c) => (
-            <CapsuleCard key={c.id} c={c} />
+            <CapsuleCard
+              key={c.id}
+              c={c}
+              onEdit={() => setEditing(c)}
+              onDelete={() =>
+                confirm({
+                  title: 'حذف هذه الكبسولة؟',
+                  message: 'الرسالة تُحذف نهائيًا حتى لو لم يحن موعد فتحها بعد.',
+                  confirmLabel: 'حذف الكبسولة',
+                  onConfirm: () => deleteCapsule(c.id),
+                })
+              }
+            />
           ))}
         </div>
       )}
 
-      <AddCapsuleSheet open={open} onClose={() => setOpen(false)} />
+      <CapsuleSheet open={open} onClose={() => setOpen(false)} />
+      <CapsuleSheet
+        open={!!editing}
+        capsule={editing ?? undefined}
+        onClose={() => setEditing(null)}
+      />
+      {dialog}
     </>
   )
 }
 
-function CapsuleCard({ c }: { c: TimeCapsule }) {
+/** الأيام المتبقية حتى موعد الفتح */
+function daysUntil(iso: string): number {
+  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000)
+}
+
+function CapsuleCard({
+  c,
+  onEdit,
+  onDelete,
+}: {
+  c: TimeCapsule
+  onEdit: () => void
+  onDelete: () => void
+}) {
   const canOpen = new Date(c.openAt).getTime() <= Date.now()
   const revealed = c.isOpened
+  const left = daysUntil(c.openAt)
 
   return (
     <Card className={cx(!canOpen && 'bg-gradient-to-bl from-sage-100 to-sky-100')}>
@@ -86,38 +128,67 @@ function CapsuleCard({ c }: { c: TimeCapsule }) {
               🎉 افتح الكبسولة
             </Button>
           ) : (
-            <p className="text-sm text-sage-400 mt-2">الرسالة مقفلة حتى موعدها…</p>
+            <p className="text-sm text-sage-500 mt-2">
+              مقفلة — باقٍ {left} {left === 1 ? 'يوم' : 'يومًا'} 🔒
+            </p>
           )}
         </div>
-        <button
-          onClick={() => deleteCapsule(c.id)}
-          className="text-sage-300 hover:text-peach-500 p-1"
-          aria-label="حذف"
-        >
-          <TrashIcon className="w-5 h-5" />
-        </button>
+        <div className="flex flex-col">
+          {!canOpen && (
+            <button onClick={onEdit} className="text-sage-300 hover:text-sage-600 p-1" aria-label="تعديل">
+              <EditIcon className="w-5 h-5" />
+            </button>
+          )}
+          <button onClick={onDelete} className="text-sage-300 hover:text-red-600 p-1" aria-label="حذف">
+            <TrashIcon className="w-5 h-5" />
+          </button>
+        </div>
       </div>
     </Card>
   )
 }
 
-function AddCapsuleSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [title, setTitle] = useState('')
-  const [message, setMessage] = useState('')
-  const [author, setAuthor] = useState<Parent>('mom')
-  const [openAt, setOpenAt] = useState('')
+function CapsuleSheet({
+  open,
+  capsule,
+  onClose,
+}: {
+  open: boolean
+  capsule?: TimeCapsule
+  onClose: () => void
+}) {
+  const [title, setTitle] = useState(capsule?.title ?? '')
+  const [message, setMessage] = useState(capsule?.message ?? '')
+  const [author, setAuthor] = useState<Parent>(capsule?.author ?? 'mom')
+  const [openAt, setOpenAt] = useState(capsule?.openAt ?? '')
+
+  // إعادة التعبئة عند اختيار كبسولة مختلفة للتعديل
+  const [loadedId, setLoadedId] = useState(capsule?.id)
+  if (capsule && capsule.id !== loadedId) {
+    setLoadedId(capsule.id)
+    setTitle(capsule.title)
+    setMessage(capsule.message)
+    setAuthor(capsule.author)
+    setOpenAt(capsule.openAt.slice(0, 10))
+  }
+
+  const valid = title.trim() && message.trim() && openAt
 
   function submit() {
-    if (!title.trim() || !message.trim() || !openAt) return
-    addCapsule({ title: title.trim(), message: message.trim(), author, openAt })
-    setTitle('')
-    setMessage('')
-    setOpenAt('')
+    if (!valid) return
+    if (capsule) {
+      updateCapsule(capsule.id, { title: title.trim(), message: message.trim(), author, openAt })
+    } else {
+      addCapsule({ title: title.trim(), message: message.trim(), author, openAt })
+      setTitle('')
+      setMessage('')
+      setOpenAt('')
+    }
     onClose()
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="كبسولة زمنية جديدة">
+    <Sheet open={open} onClose={onClose} title={capsule ? 'تعديل الكبسولة' : 'كبسولة زمنية جديدة'}>
       <Field label="العنوان">
         <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثال: تُفتح في عيد ميلادك الأول" />
       </Field>
@@ -142,8 +213,8 @@ function AddCapsuleSheet({ open, onClose }: { open: boolean; onClose: () => void
           </div>
         </Field>
       </div>
-      <Button className="w-full mt-2" onClick={submit} disabled={!title.trim() || !message.trim() || !openAt}>
-        إقفال الكبسولة
+      <Button className="w-full mt-2" onClick={submit} disabled={!valid}>
+        {capsule ? 'حفظ التعديل' : 'إقفال الكبسولة'}
       </Button>
     </Sheet>
   )

@@ -1,24 +1,25 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ScreenHeader } from '../../components/Header'
-import { Button, Card, Field, Sheet, cx } from '../../components/ui'
+import { Button, Card, Field, StatTile, cx } from '../../components/ui'
 import {
   BottleIcon,
   ChartIcon,
   DropIcon,
   MoonIcon,
-  SparkleIcon,
   SyringeIcon,
 } from '../../components/icons'
+import { Sheet } from '../../components/ui'
 import { updateChild, useAppData } from '../../data/dataService'
-import { formatDate } from '../../lib/format'
-import { localDateInputValue, localDateToIso } from '../../lib/localDate'
+import { formatDate, relativeFromNow } from '../../lib/format'
+import { ageInDays, isSameLocalDay, localDateInputValue, localDateToIso } from '../../lib/localDate'
 
 const MODULES = [
-  { label: 'الرضاعة', Icon: BottleIcon, tone: 'peach', desc: 'ثدي/رضّاعة، المدة والكمية' },
-  { label: 'الحفاضات', Icon: DropIcon, tone: 'sky', desc: 'تتبّع التغييرات' },
-  { label: 'النوم', Icon: MoonIcon, tone: 'sage', desc: 'مدد النوم والاستيقاظ' },
-  { label: 'النمو', Icon: ChartIcon, tone: 'blush', desc: 'الوزن والطول ومحيط الرأس' },
-  { label: 'التطعيمات', Icon: SyringeIcon, tone: 'peach', desc: 'الجدول والتذكيرات' },
+  { to: '/baby-care/feeding', label: 'الرضاعة', Icon: BottleIcon, tone: 'peach', desc: 'ثدي/رضّاعة، المدة والكمية' },
+  { to: '/baby-care/diapers', label: 'الحفاضات', Icon: DropIcon, tone: 'sky', desc: 'تتبّع التغييرات' },
+  { to: '/baby-care/sleep', label: 'النوم', Icon: MoonIcon, tone: 'sage', desc: 'مدد النوم والاستيقاظ' },
+  { to: '/baby-care/growth', label: 'النمو', Icon: ChartIcon, tone: 'blush', desc: 'الوزن والطول ومحيط الرأس' },
+  { to: '/baby-care/vaccines', label: 'التطعيمات', Icon: SyringeIcon, tone: 'peach', desc: 'الجدول والتذكيرات' },
 ] as const
 
 const tones: Record<string, string> = {
@@ -30,12 +31,23 @@ const tones: Record<string, string> = {
 
 export default function BabyCare() {
   const data = useAppData()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const born = !!data.child.bornAt
 
+  const lastFeed = [...data.feedings].sort(
+    (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+  )[0]
+  const todayDiapers = data.diapers.filter((d) => isSameLocalDay(d.time)).length
+  const sleeping = data.sleep.some((s) => !s.endedAt)
+
   return (
     <>
-      <ScreenHeader title="رعاية المولود" subtitle={born ? 'متابعة يومية' : 'تُفعّل بعد الولادة'} back />
+      <ScreenHeader
+        title="رعاية المولود"
+        subtitle={born ? 'متابعة يومية' : 'تُفعّل بعد الولادة'}
+        back
+      />
 
       {!born && (
         <Card className="bg-gradient-to-bl from-sage-100 to-sky-100 mb-4 text-center">
@@ -49,18 +61,39 @@ export default function BabyCare() {
       )}
 
       {born && (
-        <Card className="bg-gradient-to-bl from-peach-400 to-peach-500 !text-white mb-4">
-          <div className="font-bold text-lg">{data.child.name}</div>
-          <p className="text-sm opacity-90">
-            وصل في {formatDate(data.child.bornAt!)}
-            {data.child.birthWeightKg ? ` • ${data.child.birthWeightKg} كجم` : ''}
-          </p>
-        </Card>
+        <>
+          <Card className="bg-gradient-to-bl from-peach-400 to-peach-500 !text-white mb-4">
+            <div className="font-bold text-lg">{data.child.name}</div>
+            <p className="text-sm opacity-90">
+              عمره {ageInDays(data.child.bornAt!)} يوم • وصل في {formatDate(data.child.bornAt!)}
+              {data.child.birthWeightKg ? ` • ${data.child.birthWeightKg} كجم` : ''}
+            </p>
+          </Card>
+
+          <div className="flex gap-3 mb-4">
+            <StatTile
+              label="آخر رضعة"
+              value={lastFeed ? relativeFromNow(lastFeed.startedAt) : '—'}
+              icon={<BottleIcon className="w-4 h-4" />}
+              tone="peach"
+            />
+            <StatTile label="حفاضات اليوم" value={todayDiapers} tone="sky" />
+            <StatTile label="النوم" value={sleeping ? 'نائم 🌙' : 'مستيقظ ☀️'} tone="sage" />
+          </div>
+        </>
       )}
 
       <div className="space-y-3">
-        {MODULES.map(({ label, Icon, tone, desc }) => (
-          <div key={label} className={cx('card flex items-center gap-3', !born && 'opacity-70')}>
+        {MODULES.map(({ to, label, Icon, tone, desc }) => (
+          <button
+            key={to}
+            onClick={() => born && navigate(to)}
+            disabled={!born}
+            className={cx(
+              'card flex items-center gap-3 w-full text-start transition',
+              born ? 'active:scale-[0.99]' : 'opacity-70 cursor-default',
+            )}
+          >
             <span className={cx('w-12 h-12 rounded-2xl grid place-items-center shrink-0', tones[tone])}>
               <Icon className="w-7 h-7" />
             </span>
@@ -68,14 +101,9 @@ export default function BabyCare() {
               <div className="font-bold text-sage-800">{label}</div>
               <div className="text-xs text-sage-400">{desc}</div>
             </div>
-            <span className="chip !text-xs">قيد التطوير</span>
-          </div>
+            {!born && <span className="chip !text-xs">بعد الولادة</span>}
+          </button>
         ))}
-      </div>
-
-      <div className="flex items-center gap-2 justify-center text-sage-300 text-xs mt-6">
-        <SparkleIcon className="w-4 h-4" />
-        <span>هذه الوحدات ستُبنى بالكامل في المرحلة القادمة</span>
       </div>
 
       <RegisterBirthSheet open={open} onClose={() => setOpen(false)} />
@@ -84,7 +112,8 @@ export default function BabyCare() {
 }
 
 function RegisterBirthSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [name, setName] = useState('')
+  const data = useAppData()
+  const [name, setName] = useState(data.child.name)
   const today = localDateInputValue()
   const [date, setDate] = useState(today)
   const [weight, setWeight] = useState('')

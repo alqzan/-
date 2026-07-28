@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, EmptyState, Field, Sheet, cx } from '../../components/ui'
+import { useConfirm } from '../../components/Confirm'
 import { HeartIcon, PlusIcon, TrashIcon } from '../../components/icons'
 import { addMomLog, deleteMomLog, useAppData } from '../../data/dataService'
 import { localDateInputValue } from '../../lib/localDate'
@@ -21,6 +22,7 @@ const COMMON_SYMPTOMS = ['غثيان', 'تعب', 'صداع', 'ألم ظهر', '�
 export default function MomScreen() {
   const data = useAppData()
   const [open, setOpen] = useState(false)
+  const { confirm, dialog } = useConfirm()
 
   return (
     <>
@@ -74,8 +76,14 @@ export default function MomScreen() {
                     {log.note && <p className="text-sm text-sage-600 mt-2">{log.note}</p>}
                   </div>
                   <button
-                    onClick={() => deleteMomLog(log.id)}
-                    className="text-sage-300 hover:text-peach-500 p-1"
+                    onClick={() =>
+                      confirm({
+                        title: 'حذف هذه التدوينة؟',
+                        confirmLabel: 'حذف',
+                        onConfirm: () => deleteMomLog(log.id),
+                      })
+                    }
+                    className="text-sage-300 hover:text-red-600 p-1"
                     aria-label="حذف"
                   >
                     <TrashIcon className="w-5 h-5" />
@@ -88,6 +96,7 @@ export default function MomScreen() {
       )}
 
       <AddMomLogSheet open={open} onClose={() => setOpen(false)} />
+      {dialog}
     </>
   )
 }

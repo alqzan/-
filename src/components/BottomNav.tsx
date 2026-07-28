@@ -1,17 +1,24 @@
 import { NavLink } from 'react-router-dom'
-import { BagIcon, BellyIcon, HeartIcon, HomeIcon } from './icons'
+import { BagIcon, BellyIcon, BottleIcon, HeartIcon, HomeIcon } from './icons'
 import { cx } from './ui'
-
-const items = [
-  { to: '/', label: 'الرئيسية', Icon: HomeIcon, end: true },
-  { to: '/pregnancy', label: 'الحمل', Icon: BellyIcon },
-  { to: '/memories', label: 'الذكريات', Icon: HeartIcon },
-  { to: '/prep', label: 'التجهيزات', Icon: BagIcon },
-]
+import { useAppData } from '../data/dataService'
 
 export default function BottomNav() {
+  const data = useAppData()
+  const born = !!data.child.bornAt
+
+  // بعد الولادة يحلّ تبويب «الرعاية» محل «الحمل» — التطبيق يتبع مرحلة الطفل
+  const items = [
+    { to: '/', label: 'الرئيسية', Icon: HomeIcon, end: true },
+    born
+      ? { to: '/baby-care', label: 'الرعاية', Icon: BottleIcon, end: false }
+      : { to: '/pregnancy', label: 'الحمل', Icon: BellyIcon, end: false },
+    { to: '/memories', label: 'الذكريات', Icon: HeartIcon, end: false },
+    { to: '/prep', label: 'التجهيزات', Icon: BagIcon, end: false },
+  ]
+
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-20 pointer-events-none">
+    <nav className="fixed bottom-0 inset-x-0 z-20 pointer-events-none print:hidden">
       <div className="mx-auto max-w-md pointer-events-auto">
         <div className="bg-white/95 backdrop-blur border-t border-cream-200 px-2 pb-[env(safe-area-inset-bottom)]">
           <ul className="flex items-stretch justify-around">

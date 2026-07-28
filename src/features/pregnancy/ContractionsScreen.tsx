@@ -1,19 +1,43 @@
 import { useEffect, useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Card, EmptyState } from '../../components/ui'
+import { useConfirm } from '../../components/Confirm'
 import { PulseIcon } from '../../components/icons'
 import { addContraction, clearContractions, useAppData } from '../../data/dataService'
 import { formatDuration, formatTime } from '../../lib/format'
 
+// الانقباضة الجارية تُحفظ حتى لا تضيع لو أُغلقت الشاشة أو الجوال أثناء المخاض
+const ACTIVE_KEY = 'tafalna:active-contraction'
+
+function loadActive(): number | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_KEY)
+    const value = raw ? Number(raw) : NaN
+    return Number.isFinite(value) ? value : null
+  } catch {
+    return null
+  }
+}
+
 export default function ContractionsScreen() {
   const data = useAppData()
-  const [startedAt, setStartedAt] = useState<number | null>(null)
+  const [startedAt, setStartedAt] = useState<number | null>(loadActive)
   const [, tick] = useState(0)
+  const { confirm, dialog } = useConfirm()
 
   useEffect(() => {
     if (startedAt == null) return
     const t = setInterval(() => tick((n) => n + 1), 250)
     return () => clearInterval(t)
+  }, [startedAt])
+
+  useEffect(() => {
+    try {
+      if (startedAt == null) localStorage.removeItem(ACTIVE_KEY)
+      else localStorage.setItem(ACTIVE_KEY, String(startedAt))
+    } catch {
+      // شريط حالة الحفظ العام يغطّي أخطاء التخزين
+    }
   }, [startedAt])
 
   const running = startedAt != null
@@ -92,7 +116,17 @@ export default function ContractionsScreen() {
       <div className="flex items-center justify-between mt-6 mb-3">
         <h2 className="section-title mb-0">آخر الانقباضات</h2>
         {sorted.length > 0 && (
-          <button onClick={clearContractions} className="text-sm text-sage-400">
+          <button
+            onClick={() =>
+              confirm({
+                title: 'مسح كل الانقباضات؟',
+                message: 'سيُحذف السجل كاملًا ولا يمكن استرجاعه.',
+                confirmLabel: 'مسح الكل',
+                onConfirm: clearContractions,
+              })
+            }
+            className="text-sm text-sage-400"
+          >
             مسح الكل
           </button>
         )}
@@ -118,6 +152,8 @@ export default function ContractionsScreen() {
           ))}
         </div>
       )}
+
+      {dialog}
     </>
   )
 }

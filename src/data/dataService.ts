@@ -2,9 +2,15 @@ import { useSyncExternalStore } from 'react'
 import type {
   AppData,
   Appointment,
+  BreastSide,
   ChecklistItem,
   ChildProfile,
   Contraction,
+  Diaper,
+  DiaperKind,
+  Feeding,
+  FeedingKind,
+  GrowthEntry,
   JournalEntry,
   KickSession,
   Milestone,
@@ -12,9 +18,11 @@ import type {
   NameIdea,
   Parent,
   Photo,
+  SleepEntry,
   TimeCapsule,
+  VaccineDose,
 } from './types'
-import { emptyData, seedData } from './seed'
+import { DATA_VERSION, builtInVaccines, emptyData, seedData } from './seed'
 
 // ============================================================
 // طبقة البيانات المجرّدة.
@@ -25,23 +33,66 @@ import { emptyData, seedData } from './seed'
 
 const STORAGE_KEY = 'tafalna:v2'
 
+/** الحد التقريبي لمساحة localStorage في أغلب المتصفحات */
+export const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024
+
 type StorageStatus = { state: 'saved' | 'error'; message: string | null }
 let storageStatus: StorageStatus = { state: 'saved', message: null }
 let data: AppData = load()
 const listeners = new Set<() => void>()
 const storageListeners = new Set<() => void>()
 
+/**
+ * ترقية البيانات المخزّنة إلى الإصدار الحالي.
+ * الهدف: ألّا يفقد مستخدم قديم ذكرياته عند تحديث التطبيق —
+ * الحقول الجديدة تُملأ من القالب الفارغ، والقديمة تبقى كما هي.
+ */
+function migrate(parsed: unknown): AppData | null {
+  if (!parsed || typeof parsed !== 'object') return null
+  const raw = parsed as Partial<AppData> & Record<string, unknown>
+  if (typeof raw.version !== 'number' || raw.version > DATA_VERSION) return null
+
+  const base = emptyData()
+  const list = <T,>(value: unknown, fallback: T[]): T[] =>
+    Array.isArray(value) ? (value as T[]) : fallback
+  const storedVaccines = list<VaccineDose>(raw.vaccines, [])
+
+  return {
+    ...base,
+    ...raw,
+    version: DATA_VERSION,
+    setupComplete: Boolean(raw.setupComplete),
+    child: { ...base.child, ...(raw.child ?? {}) },
+    kicks: list(raw.kicks, base.kicks),
+    contractions: list(raw.contractions, base.contractions),
+    appointments: list(raw.appointments, base.appointments),
+    momLogs: list(raw.momLogs, base.momLogs),
+    photos: list(raw.photos, base.photos),
+    journal: list(raw.journal, base.journal),
+    capsules: list(raw.capsules, base.capsules),
+    milestones: list(raw.milestones, base.milestones),
+    names: list(raw.names, base.names),
+    checklist: list(raw.checklist, base.checklist),
+    feedings: list(raw.feedings, base.feedings),
+    diapers: list(raw.diapers, base.diapers),
+    sleep: list(raw.sleep, base.sleep),
+    growth: list(raw.growth, base.growth),
+    // أُضيفت في الإصدار ٣ — النسخ الأقدم لا تحتويها
+    vaccines: storedVaccines.length ? storedVaccines : builtInVaccines(),
+  }
+}
+
 function load(): AppData {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
-      const parsed = JSON.parse(raw) as AppData
-      if (parsed && parsed.version === 2) return parsed
+      const migrated = migrate(JSON.parse(raw))
+      if (migrated) return migrated
     }
   } catch {
     // تجاهل الأخطاء ونبدأ ببيانات جديدة
   }
-  // أول تشغيل: نكتب البيانات التجريبية مباشرة (بدون المرور بـ save
+  // أول تشغيل: نكتب البيانات الفارغة مباشرة (بدون المرور بـ save
   // لتفادي الوصول إلى `data` قبل تهيئتها).
   const seeded = emptyData()
   try {
@@ -55,12 +106,15 @@ function load(): AppData {
   return seeded
 }
 
-function save(next: AppData) {
+/** يحفظ ويُرجع true عند نجاح الكتابة على القرص */
+function save(next: AppData): boolean {
   data = next
+  let ok = true
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
     storageStatus = { state: 'saved', message: null }
   } catch {
+    ok = false
     storageStatus = {
       state: 'error',
       message: 'لم تُحفظ آخر التغييرات على هذا الجهاز. قد تكون مساحة التخزين ممتلئة.',
@@ -68,11 +122,12 @@ function save(next: AppData) {
   }
   listeners.forEach((l) => l())
   storageListeners.forEach((l) => l())
+  return ok
 }
 
 /** تعديل جزئي غير قابل للتغيير المباشر */
-function mutate(patch: Partial<AppData>) {
-  save({ ...data, ...patch })
+function mutate(patch: Partial<AppData>): boolean {
+  return save({ ...data, ...patch })
 }
 
 // ---------- الاشتراك (لـ React) ----------
@@ -108,6 +163,44 @@ export const uid = (): string =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 
 const nowISO = () => new Date().toISOString()
+
+/** حجم البيانات المخزّنة بالبايت ونسبتها من الحد التقريبي */
+export function storageUsage(): { bytes: number; ratio: number } {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY) ?? ''
+    // كل حرف في localStorage يُخزَّن بـ UTF-16 (بايتان تقريبًا)
+    const bytes = raw.length * 2
+    return { bytes, ratio: Math.min(1, bytes / STORAGE_LIMIT_BYTES) }
+  } catch {
+    return { bytes: 0, ratio: 0 }
+  }
+}
+
+// ============================================================
+// النسخ الاحتياطي — الحماية الأهم لبيانات محفوظة على جهاز واحد
+// ============================================================
+
+export function exportSnapshot(): string {
+  return JSON.stringify(data, null, 2)
+}
+
+/** يستبدل كل البيانات بنسخة احتياطية بعد التحقق منها */
+export function importSnapshot(json: string): { ok: boolean; error?: string } {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(json)
+  } catch {
+    return { ok: false, error: 'الملف ليس نسخة احتياطية صالحة (JSON غير سليم).' }
+  }
+  const migrated = migrate(parsed)
+  if (!migrated) {
+    return { ok: false, error: 'الملف لا يبدو نسخة احتياطية من «طفلنا».' }
+  }
+  const saved = save(migrated)
+  return saved
+    ? { ok: true }
+    : { ok: false, error: 'تعذّر حفظ النسخة على هذا الجهاز — المساحة قد تكون ممتلئة.' }
+}
 
 // ============================================================
 // عمليات على المجموعات
@@ -164,8 +257,17 @@ export function deleteMomLog(id: string) {
 }
 
 // --- الصور ---
-export function addPhoto(p: Omit<Photo, 'id'>) {
-  mutate({ photos: [{ ...p, id: uid() }, ...data.photos] })
+/** يُرجع false إذا امتلأت مساحة الجهاز ولم تُحفظ الصورة */
+export function addPhoto(p: Omit<Photo, 'id'>): boolean {
+  return mutate({ photos: [{ ...p, id: uid() }, ...data.photos] })
+}
+export function updatePhoto(id: string, patch: Partial<Omit<Photo, 'id' | 'dataUrl'>>) {
+  mutate({ photos: data.photos.map((p) => (p.id === id ? { ...p, ...patch } : p)) })
+}
+export function togglePhotoFavorite(id: string) {
+  mutate({
+    photos: data.photos.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p)),
+  })
 }
 export function deletePhoto(id: string) {
   mutate({ photos: data.photos.filter((p) => p.id !== id) })
@@ -175,6 +277,9 @@ export function deletePhoto(id: string) {
 export function addJournal(entry: Omit<JournalEntry, 'id'>) {
   mutate({ journal: [{ ...entry, id: uid() }, ...data.journal] })
 }
+export function updateJournal(id: string, patch: Partial<Omit<JournalEntry, 'id'>>) {
+  mutate({ journal: data.journal.map((j) => (j.id === id ? { ...j, ...patch } : j)) })
+}
 export function deleteJournal(id: string) {
   mutate({ journal: data.journal.filter((j) => j.id !== id) })
 }
@@ -183,6 +288,12 @@ export function deleteJournal(id: string) {
 export function addCapsule(c: Omit<TimeCapsule, 'id' | 'createdAt' | 'isOpened'>) {
   const capsule: TimeCapsule = { ...c, id: uid(), createdAt: nowISO(), isOpened: false }
   mutate({ capsules: [capsule, ...data.capsules] })
+}
+export function updateCapsule(
+  id: string,
+  patch: Partial<Omit<TimeCapsule, 'id' | 'createdAt'>>,
+) {
+  mutate({ capsules: data.capsules.map((c) => (c.id === id ? { ...c, ...patch } : c)) })
 }
 export function openCapsule(id: string) {
   mutate({
@@ -203,6 +314,11 @@ export function toggleMilestone(id: string) {
     milestones: data.milestones.map((m) =>
       m.id === id ? { ...m, achievedAt: m.achievedAt ? null : nowISO() } : m,
     ),
+  })
+}
+export function updateMilestone(id: string, patch: Partial<Omit<Milestone, 'id' | 'builtIn'>>) {
+  mutate({
+    milestones: data.milestones.map((m) => (m.id === id ? { ...m, ...patch } : m)),
   })
 }
 export function deleteMilestone(id: string) {
@@ -239,8 +355,78 @@ export function deleteChecklistItem(id: string) {
   mutate({ checklist: data.checklist.filter((c) => c.id !== id) })
 }
 
-// --- إعادة الضبط (للتجربة) ---
+// ============================================================
+// رعاية المولود
+// ============================================================
+
+// --- الرضاعة ---
+export function addFeeding(f: {
+  startedAt: string
+  kind: FeedingKind
+  durationMin?: number
+  side?: BreastSide
+  amountMl?: number
+}) {
+  const entry: Feeding = { ...f, id: uid() }
+  mutate({ feedings: [entry, ...data.feedings] })
+}
+export function deleteFeeding(id: string) {
+  mutate({ feedings: data.feedings.filter((f) => f.id !== id) })
+}
+
+// --- الحفاضات ---
+export function addDiaper(kind: DiaperKind, time: string = nowISO()) {
+  const entry: Diaper = { id: uid(), kind, time }
+  mutate({ diapers: [entry, ...data.diapers] })
+}
+export function deleteDiaper(id: string) {
+  mutate({ diapers: data.diapers.filter((d) => d.id !== id) })
+}
+
+// --- النوم ---
+export function startSleep(startedAt: string = nowISO()) {
+  const entry: SleepEntry = { id: uid(), startedAt, endedAt: null }
+  mutate({ sleep: [entry, ...data.sleep] })
+}
+export function endSleep(id: string, endedAt: string = nowISO()) {
+  mutate({ sleep: data.sleep.map((s) => (s.id === id ? { ...s, endedAt } : s)) })
+}
+export function deleteSleep(id: string) {
+  mutate({ sleep: data.sleep.filter((s) => s.id !== id) })
+}
+
+// --- النمو ---
+export function addGrowth(entry: Omit<GrowthEntry, 'id'>) {
+  mutate({ growth: [{ ...entry, id: uid() }, ...data.growth] })
+}
+export function deleteGrowth(id: string) {
+  mutate({ growth: data.growth.filter((g) => g.id !== id) })
+}
+
+// --- التطعيمات ---
+export function setVaccineGiven(id: string, givenAt: string | null) {
+  mutate({
+    vaccines: data.vaccines.map((v) => (v.id === id ? { ...v, givenAt } : v)),
+  })
+}
+export function addVaccine(name: string, dueMonths: number) {
+  const v: VaccineDose = { id: uid(), name, dueMonths, givenAt: null, builtIn: false }
+  mutate({ vaccines: [...data.vaccines, v] })
+}
+export function deleteVaccine(id: string) {
+  mutate({ vaccines: data.vaccines.filter((v) => v.id !== id) })
+}
+
+// ============================================================
+// إعادة الضبط
+// ============================================================
+
+/** يمسح كل شيء ويعود لشاشة البداية — لا رجعة، تسبقه رسالة تأكيد في الواجهة */
 export function resetAllData() {
-  const fresh = seedData()
-  save(fresh)
+  save(emptyData())
+}
+
+/** يملأ التطبيق ببيانات تجريبية لاستعراض الواجهات */
+export function loadDemoData() {
+  save(seedData())
 }

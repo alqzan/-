@@ -11,10 +11,17 @@ import MemoriesHub from './features/memories/MemoriesHub'
 import JournalScreen from './features/memories/JournalScreen'
 import CapsulesScreen from './features/memories/CapsulesScreen'
 import MilestonesScreen from './features/memories/MilestonesScreen'
+import MemoryBook from './features/memories/MemoryBook'
 import PrepHub from './features/prep/PrepHub'
 import NamesScreen from './features/prep/NamesScreen'
 import ChecklistScreen from './features/prep/ChecklistScreen'
 import BabyCare from './features/baby-care/BabyCare'
+import FeedingScreen from './features/baby-care/FeedingScreen'
+import DiapersScreen from './features/baby-care/DiapersScreen'
+import SleepScreen from './features/baby-care/SleepScreen'
+import GrowthScreen from './features/baby-care/GrowthScreen'
+import VaccinesScreen from './features/baby-care/VaccinesScreen'
+import SettingsScreen from './features/settings/SettingsScreen'
 import Onboarding from './features/onboarding/Onboarding'
 import { useAppData, useStorageStatus } from './data/dataService'
 
@@ -28,7 +35,10 @@ export default function App() {
   return (
     <div className="app-container">
       {storage.state === 'error' && (
-        <div role="alert" className="sticky top-0 z-50 bg-red-700 text-white text-sm px-4 py-3 shadow-lg">
+        <div
+          role="alert"
+          className="sticky top-0 z-50 bg-red-700 text-white text-sm px-4 py-3 shadow-lg print:hidden"
+        >
           <strong className="block">الحفظ غير متاح</strong>
           <span>{storage.message}</span>
         </div>
@@ -48,6 +58,7 @@ export default function App() {
           <Route path="/memories/journal" element={<JournalScreen />} />
           <Route path="/memories/capsules" element={<CapsulesScreen />} />
           <Route path="/memories/milestones" element={<MilestonesScreen />} />
+          <Route path="/memories/book" element={<MemoryBook />} />
 
           <Route path="/prep" element={<PrepHub />} />
           <Route path="/prep/names" element={<NamesScreen />} />
@@ -55,6 +66,13 @@ export default function App() {
           <Route path="/prep/shopping" element={<ChecklistScreen list="shopping" />} />
 
           <Route path="/baby-care" element={<BabyCare />} />
+          <Route path="/baby-care/feeding" element={<FeedingScreen />} />
+          <Route path="/baby-care/diapers" element={<DiapersScreen />} />
+          <Route path="/baby-care/sleep" element={<SleepScreen />} />
+          <Route path="/baby-care/growth" element={<GrowthScreen />} />
+          <Route path="/baby-care/vaccines" element={<VaccinesScreen />} />
+
+          <Route path="/settings" element={<SettingsScreen />} />
 
           <Route path="*" element={<Home />} />
         </Routes>

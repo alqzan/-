@@ -1,21 +1,30 @@
 import { useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
-import { Button, Card, Field, Sheet, cx } from '../../components/ui'
+import { Button, Card, Field, ProgressBar, Sheet, cx } from '../../components/ui'
+import { useConfirm } from '../../components/Confirm'
 import { PlusIcon, TrashIcon } from '../../components/icons'
 import {
   addMilestone,
   deleteMilestone,
-  toggleMilestone,
+  updateMilestone,
   useAppData,
 } from '../../data/dataService'
 import { formatDate } from '../../lib/format'
+import { localDateInputValue, localDateToIso } from '../../lib/localDate'
+import type { Milestone } from '../../data/types'
 
 const EMOJI_CHOICES = ['😊', '😄', '🦷', '🪑', '🐣', '🗣️', '🧍', '👣', '🎈', '🏊', '🚲', '📚']
 
 export default function MilestonesScreen() {
   const data = useAppData()
   const [open, setOpen] = useState(false)
+  const [selected, setSelected] = useState<Milestone | null>(null)
   const achieved = data.milestones.filter((m) => m.achievedAt).length
+
+  // النسخة الحيّة من المعلم المفتوح حتى تنعكس التعديلات فورًا
+  const current = selected
+    ? (data.milestones.find((m) => m.id === selected.id) ?? null)
+    : null
 
   return (
     <>
@@ -35,9 +44,10 @@ export default function MilestonesScreen() {
       />
 
       <Card className="bg-blush-100 mb-4">
-        <p className="text-sm text-sage-600 leading-relaxed">
-          سجّلوا لحظات طفلكم الأولى — كل معلم لحظة لا تُنسى. اضغطوا على المعلم عند حدوثه. ⭐
+        <p className="text-sm text-sage-600 leading-relaxed mb-3">
+          سجّلوا لحظات طفلكم الأولى — اضغطوا على المعلم لتحديد تاريخه وكتابة ذكرى عنه. ⭐
         </p>
+        <ProgressBar value={data.milestones.length ? achieved / data.milestones.length : 0} />
       </Card>
 
       <div className="grid grid-cols-2 gap-3">
@@ -46,23 +56,12 @@ export default function MilestonesScreen() {
           return (
             <button
               key={m.id}
-              onClick={() => toggleMilestone(m.id)}
+              onClick={() => setSelected(m)}
               className={cx(
                 'card !p-4 text-center relative transition active:scale-[0.98]',
                 done ? 'bg-gradient-to-b from-blush-100 to-peach-100' : 'opacity-80',
               )}
             >
-              {!m.builtIn && (
-                <span
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    deleteMilestone(m.id)
-                  }}
-                  className="absolute top-2 left-2 text-sage-300 hover:text-peach-500"
-                >
-                  <TrashIcon className="w-4 h-4" />
-                </span>
-              )}
               <div className={cx('text-4xl mb-2', !done && 'grayscale opacity-60')}>{m.emoji}</div>
               <div className="font-medium text-sage-800 text-sm">{m.title}</div>
               {done ? (
@@ -70,12 +69,112 @@ export default function MilestonesScreen() {
               ) : (
                 <div className="text-[11px] text-sage-300 mt-1">لم يتحقق بعد</div>
               )}
+              {m.note && <div className="text-[11px] text-sage-400 mt-1 truncate">“{m.note}”</div>}
             </button>
           )
         })}
       </div>
 
+      <MilestoneSheet milestone={current} onClose={() => setSelected(null)} />
       <AddMilestoneSheet open={open} onClose={() => setOpen(false)} />
+    </>
+  )
+}
+
+function MilestoneSheet({
+  milestone,
+  onClose,
+}: {
+  milestone: Milestone | null
+  onClose: () => void
+}) {
+  const { confirm, dialog } = useConfirm()
+  const [date, setDate] = useState('')
+  const [note, setNote] = useState('')
+  const [loadedId, setLoadedId] = useState<string | undefined>()
+
+  // إعادة التعبئة عند فتح معلم مختلف
+  if (milestone && milestone.id !== loadedId) {
+    setLoadedId(milestone.id)
+    setDate(milestone.achievedAt ? milestone.achievedAt.slice(0, 10) : localDateInputValue())
+    setNote(milestone.note ?? '')
+  }
+
+  const done = !!milestone?.achievedAt
+
+  return (
+    <>
+      <Sheet open={!!milestone} onClose={onClose} title={milestone?.title ?? ''}>
+        {milestone && (
+          <>
+            <div className="text-center text-5xl mb-4">{milestone.emoji}</div>
+
+            <Field label="تاريخ تحققه">
+              <input
+                type="date"
+                className="input"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </Field>
+            <Field label="ذكرى عن اللحظة (اختياري)">
+              <textarea
+                className="input min-h-[90px]"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="كيف كانت اللحظة؟ من كان معكم؟"
+              />
+            </Field>
+
+            <Button
+              className="w-full mb-2"
+              onClick={() => {
+                updateMilestone(milestone.id, {
+                  achievedAt: date ? localDateToIso(date) : null,
+                  note: note.trim() || undefined,
+                })
+                onClose()
+              }}
+            >
+              {done ? 'حفظ التعديل' : '⭐ سجّل المعلم'}
+            </Button>
+
+            {done && (
+              <Button
+                variant="ghost"
+                className="w-full mb-2"
+                onClick={() => {
+                  updateMilestone(milestone.id, { achievedAt: null })
+                  onClose()
+                }}
+              >
+                إلغاء تحقّق المعلم
+              </Button>
+            )}
+
+            {!milestone.builtIn && (
+              <Button
+                variant="ghost"
+                className="w-full !text-red-700"
+                onClick={() =>
+                  confirm({
+                    title: 'حذف هذا المعلم؟',
+                    message: 'سيُحذف المعلم والذكرى المكتوبة عنه نهائيًا.',
+                    confirmLabel: 'حذف المعلم',
+                    onConfirm: () => {
+                      deleteMilestone(milestone.id)
+                      onClose()
+                    },
+                  })
+                }
+              >
+                <TrashIcon className="w-5 h-5" /> حذف المعلم
+              </Button>
+            )}
+          </>
+        )}
+      </Sheet>
+      {dialog}
     </>
   )
 }

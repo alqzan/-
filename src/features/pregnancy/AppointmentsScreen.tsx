@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, EmptyState, Field, Sheet } from '../../components/ui'
-import { CalendarIcon, PlusIcon, TrashIcon } from '../../components/icons'
+import { useConfirm } from '../../components/Confirm'
+import { CalendarIcon, DownloadIcon, PlusIcon, TrashIcon } from '../../components/icons'
 import {
   addAppointment,
   deleteAppointment,
   useAppData,
 } from '../../data/dataService'
-import type { AppointmentType } from '../../data/types'
+import type { Appointment, AppointmentType } from '../../data/types'
 import { formatDate, formatTime } from '../../lib/format'
 import { fileToDataUrl } from '../../lib/image'
+import { downloadAppointmentICS } from '../../lib/ics'
 
 const TYPE_LABEL: Record<AppointmentType, string> = {
   checkup: 'متابعة',
@@ -27,6 +29,7 @@ const TYPE_EMOJI: Record<AppointmentType, string> = {
 export default function AppointmentsScreen() {
   const data = useAppData()
   const [open, setOpen] = useState(false)
+  const { confirm, dialog } = useConfirm()
 
   const sorted = [...data.appointments].sort(
     (a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime(),
@@ -63,23 +66,47 @@ export default function AppointmentsScreen() {
       {upcoming.length > 0 && <h2 className="section-title mt-2 mb-3">القادمة</h2>}
       <div className="space-y-2">
         {upcoming.map((a) => (
-          <AppointmentCard key={a.id} a={a} />
+          <AppointmentCard
+            key={a.id}
+            a={a}
+            onDelete={() =>
+              confirm({
+                title: 'حذف هذا الموعد؟',
+                message: a.image ? 'ستُحذف معه الصورة المرفقة.' : undefined,
+                confirmLabel: 'حذف الموعد',
+                onConfirm: () => deleteAppointment(a.id),
+              })
+            }
+          />
         ))}
       </div>
 
       {past.length > 0 && <h2 className="section-title mt-6 mb-3">السابقة</h2>}
       <div className="space-y-2 opacity-70">
         {past.map((a) => (
-          <AppointmentCard key={a.id} a={a} />
+          <AppointmentCard
+            key={a.id}
+            a={a}
+            onDelete={() =>
+              confirm({
+                title: 'حذف هذا الموعد؟',
+                message: a.image ? 'ستُحذف معه الصورة المرفقة.' : undefined,
+                confirmLabel: 'حذف الموعد',
+                onConfirm: () => deleteAppointment(a.id),
+              })
+            }
+          />
         ))}
       </div>
 
       <AddAppointmentSheet open={open} onClose={() => setOpen(false)} />
+      {dialog}
     </>
   )
 }
 
-function AppointmentCard({ a }: { a: ReturnType<typeof useAppData>['appointments'][number] }) {
+function AppointmentCard({ a, onDelete }: { a: Appointment; onDelete: () => void }) {
+  const upcoming = new Date(a.dateTime).getTime() >= Date.now()
   return (
     <Card className="!p-3.5">
       <div className="flex items-start gap-3">
@@ -99,10 +126,18 @@ function AppointmentCard({ a }: { a: ReturnType<typeof useAppData>['appointments
           {a.image && (
             <img src={a.image} alt="مرفق" className="mt-2 rounded-xl max-h-40 object-cover w-full" />
           )}
+          {upcoming && (
+            <button
+              onClick={() => downloadAppointmentICS(a)}
+              className="chip !bg-cream-200 !text-sage-600 !text-xs mt-2"
+            >
+              <DownloadIcon className="w-4 h-4" /> أضف للتقويم
+            </button>
+          )}
         </div>
         <button
-          onClick={() => deleteAppointment(a.id)}
-          className="text-sage-300 hover:text-peach-500 p-1"
+          onClick={onDelete}
+          className="text-sage-300 hover:text-red-600 p-1"
           aria-label="حذف"
         >
           <TrashIcon className="w-5 h-5" />

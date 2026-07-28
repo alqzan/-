@@ -214,24 +214,26 @@ export default function SettingsScreen() {
       {/* ===== منطقة الخطر ===== */}
       <h2 className="section-title mt-6 mb-3">إجراءات متقدّمة</h2>
       <Card>
-        <button
-          className="w-full text-start py-3 border-b border-cream-200"
-          onClick={() =>
-            confirm({
-              title: 'تحميل بيانات تجريبية؟',
-              message:
-                'سيستبدل هذا بياناتكم الحالية ببيانات عرض (أسماء ورسائل ومواعيد وهمية) لاستعراض الواجهات.',
-              confirmLabel: 'تحميل البيانات التجريبية',
-              onConfirm: () => {
-                loadDemoData()
-                setNote({ tone: 'ok', text: 'تم تحميل البيانات التجريبية.' })
-              },
-            })
-          }
-        >
-          <div className="font-medium text-sage-800">تحميل بيانات تجريبية</div>
-          <div className="text-xs text-sage-400 mt-0.5">لاستعراض شكل التطبيق وهو ممتلئ</div>
-        </button>
+        {import.meta.env.DEV && (
+          <button
+            className="w-full text-start py-3 border-b border-cream-200"
+            onClick={() =>
+              confirm({
+                title: 'تحميل بيانات تجريبية؟',
+                message:
+                  'سيستبدل هذا بياناتكم الحالية ببيانات عرض (أسماء ورسائل ومواعيد وهمية) لاستعراض الواجهات.',
+                confirmLabel: 'تحميل البيانات التجريبية',
+                onConfirm: () => {
+                  loadDemoData()
+                  setNote({ tone: 'ok', text: 'تم تحميل البيانات التجريبية.' })
+                },
+              })
+            }
+          >
+            <div className="font-medium text-sage-800">تحميل بيانات تجريبية</div>
+            <div className="text-xs text-sage-400 mt-0.5">لاستعراض شكل التطبيق وهو ممتلئ</div>
+          </button>
+        )}
 
         <button
           className="w-full text-start py-3"

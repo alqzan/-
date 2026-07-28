@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, Field, ProgressBar, Sheet, cx } from '../../components/ui'
+import { useConfirm } from '../../components/Confirm'
 import { CheckIcon, PlusIcon, TrashIcon } from '../../components/icons'
 import {
   addChecklistItem,
@@ -17,6 +18,7 @@ const META: Record<ChecklistName, { title: string; subtitle: string }> = {
 
 export default function ChecklistScreen({ list }: { list: ChecklistName }) {
   const data = useAppData()
+  const { confirm, dialog } = useConfirm()
   const [open, setOpen] = useState(false)
   const items = data.checklist.filter((c) => c.list === list)
   const done = items.filter((c) => c.done).length
@@ -78,7 +80,12 @@ export default function ChecklistScreen({ list }: { list: ChecklistName }) {
                   <span
                     onClick={(e) => {
                       e.stopPropagation()
-                      deleteChecklistItem(it.id)
+                      confirm({
+                        title: 'حذف العنصر؟',
+                        message: `سيُحذف «${it.label}» من القائمة نهائيًا.`,
+                        confirmLabel: 'حذف',
+                        onConfirm: () => deleteChecklistItem(it.id),
+                      })
                     }}
                     className="text-sage-300 hover:text-peach-500 p-1"
                   >
@@ -92,6 +99,7 @@ export default function ChecklistScreen({ list }: { list: ChecklistName }) {
       ))}
 
       <AddItemSheet open={open} onClose={() => setOpen(false)} list={list} categories={[...categories.keys()]} />
+      {dialog}
     </>
   )
 }

@@ -6,6 +6,7 @@ import { ChartIcon, PlusIcon, TrashIcon } from '../../components/icons'
 import { addGrowth, deleteGrowth, useAppData } from '../../data/dataService'
 import { formatDate } from '../../lib/format'
 import { localDateInputValue } from '../../lib/localDate'
+import { MEASUREMENT_LIMITS, validateDate, validateNumberInRange } from '../../lib/validation'
 
 export default function GrowthScreen() {
   const data = useAppData()
@@ -113,11 +114,26 @@ function AddGrowthSheet({ open, onClose }: { open: boolean; onClose: () => void 
   const [weight, setWeight] = useState('')
   const [length, setLength] = useState('')
   const [head, setHead] = useState('')
+  const [error, setError] = useState('')
 
   const valid = weight || length || head
 
   function submit() {
-    if (!valid) return
+    if (!valid) {
+      setError('أدخلوا قياسًا واحدًا على الأقل.')
+      return
+    }
+    const dateErr = validateDate(date, { label: 'تاريخ القياس' })
+    const err =
+      dateErr ||
+      validateNumberInRange(weight, MEASUREMENT_LIMITS.weightKg) ||
+      validateNumberInRange(length, MEASUREMENT_LIMITS.lengthCm) ||
+      validateNumberInRange(head, MEASUREMENT_LIMITS.headCm)
+    if (err) {
+      setError(err)
+      return
+    }
+    setError('')
     addGrowth({
       date,
       weightKg: weight ? Number(weight) : undefined,
@@ -146,7 +162,8 @@ function AddGrowthSheet({ open, onClose }: { open: boolean; onClose: () => void 
       <Field label="محيط الرأس (سم)">
         <input type="number" inputMode="decimal" className="input" value={head} onChange={(e) => setHead(e.target.value)} placeholder="37" />
       </Field>
-      <Button className="w-full mt-2" onClick={submit} disabled={!valid}>
+      {error && <p role="alert" className="text-sm text-red-700 bg-red-50 rounded-2xl p-3 mb-3">{error}</p>}
+      <Button className="w-full mt-2" onClick={submit}>
         حفظ القياس
       </Button>
     </Sheet>

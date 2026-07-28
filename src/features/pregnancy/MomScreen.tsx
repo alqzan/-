@@ -7,6 +7,7 @@ import { addMomLog, deleteMomLog, useAppData } from '../../data/dataService'
 import { localDateInputValue } from '../../lib/localDate'
 import type { Mood } from '../../data/types'
 import { formatDate } from '../../lib/format'
+import { MEASUREMENT_LIMITS, validateDate, validateNumberInRange } from '../../lib/validation'
 
 const MOODS: Array<{ value: Mood; emoji: string; label: string }> = [
   { value: 'great', emoji: '😄', label: 'ممتاز' },
@@ -108,12 +109,21 @@ function AddMomLogSheet({ open, onClose }: { open: boolean; onClose: () => void 
   const [mood, setMood] = useState<Mood | undefined>()
   const [symptoms, setSymptoms] = useState<string[]>([])
   const [note, setNote] = useState('')
+  const [error, setError] = useState('')
 
   function toggleSymptom(s: string) {
     setSymptoms((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]))
   }
 
   function submit() {
+    const err =
+      validateDate(date, { label: 'التاريخ' }) ||
+      validateNumberInRange(weight, MEASUREMENT_LIMITS.weightKg)
+    if (err) {
+      setError(err)
+      return
+    }
+    setError('')
     addMomLog({
       date,
       weightKg: weight ? Number(weight) : undefined,
@@ -146,6 +156,7 @@ function AddMomLogSheet({ open, onClose }: { open: boolean; onClose: () => void 
             <button
               key={m.value}
               onClick={() => setMood(m.value === mood ? undefined : m.value)}
+              aria-pressed={mood === m.value}
               className={cx(
                 'flex-1 rounded-2xl py-2 text-2xl border transition',
                 mood === m.value ? 'bg-sage-100 border-sage-300' : 'bg-white border-cream-300',
@@ -164,6 +175,7 @@ function AddMomLogSheet({ open, onClose }: { open: boolean; onClose: () => void 
             <button
               key={s}
               onClick={() => toggleSymptom(s)}
+              aria-pressed={symptoms.includes(s)}
               className={cx(
                 'rounded-full px-3 py-1.5 text-sm border transition',
                 symptoms.includes(s)
@@ -181,6 +193,7 @@ function AddMomLogSheet({ open, onClose }: { open: boolean; onClose: () => void 
         <textarea className="input min-h-[70px]" value={note} onChange={(e) => setNote(e.target.value)} placeholder="كيف كان يومك؟" />
       </Field>
 
+      {error && <p role="alert" className="text-sm text-red-700 bg-red-50 rounded-2xl p-3 mb-3">{error}</p>}
       <Button className="w-full mt-2" onClick={submit}>
         حفظ التدوينة
       </Button>

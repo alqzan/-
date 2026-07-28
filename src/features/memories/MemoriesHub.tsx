@@ -25,6 +25,7 @@ import { localDateInputValue } from '../../lib/localDate'
 import type { Parent, Photo } from '../../data/types'
 import { fileToDataUrl } from '../../lib/image'
 import { formatShortDate, monthKey, parentLabel } from '../../lib/format'
+import { validateDate } from '../../lib/validation'
 
 type Filter = 'all' | 'favorites'
 
@@ -286,6 +287,11 @@ function AddPhotoSheet({ dataUrl, onClose }: { dataUrl: string | null; onClose: 
 
   function submit() {
     if (!dataUrl) return
+    const dateErr = validateDate(date, { label: 'تاريخ الذكرى' })
+    if (dateErr) {
+      setError(dateErr)
+      return
+    }
     const ok = addPhoto({ dataUrl, caption: caption.trim() || undefined, author, date })
     if (!ok) {
       setError(
@@ -314,6 +320,7 @@ function AddPhotoSheet({ dataUrl, onClose }: { dataUrl: string | null; onClose: 
               <button
                 key={p}
                 onClick={() => setAuthor(p)}
+                aria-pressed={author === p}
                 className={cx('flex-1 rounded-full py-2 text-sm', author === p ? 'bg-white text-sage-700' : 'text-sage-500')}
               >
                 {parentLabel(p)}

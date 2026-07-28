@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, EmptyState, Field, Sheet, cx } from '../../components/ui'
 import { useConfirm } from '../../components/Confirm'
@@ -12,6 +12,7 @@ import {
 } from '../../data/dataService'
 import type { Parent, TimeCapsule } from '../../data/types'
 import { formatDate, parentLabel } from '../../lib/format'
+import { validateCapsuleOpenDate } from '../../lib/validation'
 
 export default function CapsulesScreen() {
   const data = useAppData()
@@ -161,21 +162,34 @@ function CapsuleSheet({
   const [message, setMessage] = useState(capsule?.message ?? '')
   const [author, setAuthor] = useState<Parent>(capsule?.author ?? 'mom')
   const [openAt, setOpenAt] = useState(capsule?.openAt ?? '')
+  const [error, setError] = useState('')
 
-  // إعادة التعبئة عند اختيار كبسولة مختلفة للتعديل
-  const [loadedId, setLoadedId] = useState(capsule?.id)
-  if (capsule && capsule.id !== loadedId) {
-    setLoadedId(capsule.id)
-    setTitle(capsule.title)
-    setMessage(capsule.message)
-    setAuthor(capsule.author)
-    setOpenAt(capsule.openAt.slice(0, 10))
-  }
+  // إعادة التعبئة من البيانات المحفوظة في كل مرة تُفتح فيها النافذة —
+  // حتى لا تظهر مسودة عُدّلت ثم أُلغيت عند إعادة فتح الكبسولة نفسها
+  useEffect(() => {
+    if (!open) return
+    setTitle(capsule?.title ?? '')
+    setMessage(capsule?.message ?? '')
+    setAuthor(capsule?.author ?? 'mom')
+    setOpenAt(capsule?.openAt ? capsule.openAt.slice(0, 10) : '')
+    setError('')
+  }, [open, capsule])
 
   const valid = title.trim() && message.trim() && openAt
 
   function submit() {
-    if (!valid) return
+    if (!valid) {
+      setError('أكملوا العنوان والرسالة وتاريخ الفتح.')
+      return
+    }
+    // كبسولة جديدة يجب أن تُفتح في المستقبل؛ عند التعديل نسمح بإبقاء تاريخ
+    // فتح قديم كما هو إن لم يُغيَّر، لكن لا نسمح بتحويله إلى الماضي
+    const dateErr = validateCapsuleOpenDate(openAt)
+    if (dateErr && (!capsule || openAt !== capsule.openAt.slice(0, 10))) {
+      setError(dateErr)
+      return
+    }
+    setError('')
     if (capsule) {
       updateCapsule(capsule.id, { title: title.trim(), message: message.trim(), author, openAt })
     } else {
@@ -205,6 +219,7 @@ function CapsuleSheet({
               <button
                 key={p}
                 onClick={() => setAuthor(p)}
+                aria-pressed={author === p}
                 className={cx('flex-1 rounded-full py-2 text-sm', author === p ? 'bg-white text-sage-700' : 'text-sage-500')}
               >
                 {parentLabel(p)}
@@ -213,7 +228,8 @@ function CapsuleSheet({
           </div>
         </Field>
       </div>
-      <Button className="w-full mt-2" onClick={submit} disabled={!valid}>
+      {error && <p role="alert" className="text-sm text-red-700 bg-red-50 rounded-2xl p-3 mb-3">{error}</p>}
+      <Button className="w-full mt-2" onClick={submit}>
         {capsule ? 'حفظ التعديل' : 'إقفال الكبسولة'}
       </Button>
     </Sheet>

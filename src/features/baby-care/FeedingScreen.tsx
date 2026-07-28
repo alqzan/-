@@ -7,6 +7,7 @@ import { addFeeding, deleteFeeding, useAppData } from '../../data/dataService'
 import type { BreastSide, FeedingKind } from '../../data/types'
 import { formatDuration, formatTime, relativeFromNow } from '../../lib/format'
 import { isSameLocalDay } from '../../lib/localDate'
+import { validateFeedingAmounts } from '../../lib/validation'
 
 const ACTIVE_KEY = 'tafalna:active-feeding'
 
@@ -173,8 +174,15 @@ export default function FeedingScreen() {
 function BottleSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [amount, setAmount] = useState('')
   const [minutes, setMinutes] = useState('')
+  const [error, setError] = useState('')
 
   function submit() {
+    const err = validateFeedingAmounts(amount, minutes)
+    if (err) {
+      setError(err)
+      return
+    }
+    setError('')
     const kind: FeedingKind = 'bottle'
     addFeeding({
       startedAt: new Date().toISOString(),
@@ -222,6 +230,7 @@ function BottleSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
           </button>
         ))}
       </div>
+      {error && <p role="alert" className="text-sm text-red-700 bg-red-50 rounded-2xl p-3 mb-3">{error}</p>}
       <Button variant="peach" className="w-full" onClick={submit}>
         حفظ الرضعة
       </Button>

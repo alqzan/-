@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, Field, ProgressBar, Sheet, cx } from '../../components/ui'
 import { useConfirm } from '../../components/Confirm'
@@ -11,6 +11,7 @@ import {
 } from '../../data/dataService'
 import { formatDate } from '../../lib/format'
 import { localDateInputValue, localDateToIso } from '../../lib/localDate'
+import { validateDate } from '../../lib/validation'
 import type { Milestone } from '../../data/types'
 
 const EMOJI_CHOICES = ['😊', '😄', '🦷', '🪑', '🐣', '🗣️', '🧍', '👣', '🎈', '🏊', '🚲', '📚']
@@ -91,14 +92,16 @@ function MilestoneSheet({
   const { confirm, dialog } = useConfirm()
   const [date, setDate] = useState('')
   const [note, setNote] = useState('')
-  const [loadedId, setLoadedId] = useState<string | undefined>()
+  const [error, setError] = useState('')
 
-  // إعادة التعبئة عند فتح معلم مختلف
-  if (milestone && milestone.id !== loadedId) {
-    setLoadedId(milestone.id)
+  // إعادة التعبئة من البيانات المحفوظة في كل مرة تُفتح فيها النافذة —
+  // حتى لا تظهر مسودة عُدّلت ثم أُلغيت عند إعادة فتح المعلم نفسه
+  useEffect(() => {
+    if (!milestone) return
     setDate(milestone.achievedAt ? milestone.achievedAt.slice(0, 10) : localDateInputValue())
     setNote(milestone.note ?? '')
-  }
+    setError('')
+  }, [milestone])
 
   const done = !!milestone?.achievedAt
 
@@ -117,6 +120,7 @@ function MilestoneSheet({
                 onChange={(e) => setDate(e.target.value)}
               />
             </Field>
+            {error && <p role="alert" className="text-sm text-red-700 -mt-2 mb-3">{error}</p>}
             <Field label="ذكرى عن اللحظة (اختياري)">
               <textarea
                 className="input min-h-[90px]"
@@ -129,6 +133,11 @@ function MilestoneSheet({
             <Button
               className="w-full mb-2"
               onClick={() => {
+                const err = validateDate(date, { label: 'تاريخ التحقّق', allowFuture: false })
+                if (err) {
+                  setError(err)
+                  return
+                }
                 updateMilestone(milestone.id, {
                   achievedAt: date ? localDateToIso(date) : null,
                   note: note.trim() || undefined,
@@ -202,6 +211,7 @@ function AddMilestoneSheet({ open, onClose }: { open: boolean; onClose: () => vo
             <button
               key={e}
               onClick={() => setEmoji(e)}
+              aria-pressed={emoji === e}
               className={cx(
                 'w-11 h-11 rounded-2xl text-2xl grid place-items-center border',
                 emoji === e ? 'bg-sage-100 border-sage-300' : 'bg-white border-cream-300',

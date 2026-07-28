@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, EmptyState, Field, Sheet, cx } from '../../components/ui'
 import { useConfirm } from '../../components/Confirm'
@@ -7,6 +7,7 @@ import { addJournal, deleteJournal, updateJournal, useAppData } from '../../data
 import { localDateInputValue } from '../../lib/localDate'
 import type { JournalEntry, Parent } from '../../data/types'
 import { formatDate, parentLabel } from '../../lib/format'
+import { validateDate } from '../../lib/validation'
 
 export default function JournalScreen() {
   const data = useAppData()
@@ -137,19 +138,31 @@ function JournalSheet({
   const [text, setText] = useState(entry?.text ?? '')
   const [author, setAuthor] = useState<Parent>(entry?.author ?? 'mom')
   const [date, setDate] = useState(entry?.date ?? today)
+  const [error, setError] = useState('')
 
-  // إعادة تعبئة الحقول عند فتح رسالة مختلفة للتعديل
-  const [loadedId, setLoadedId] = useState(entry?.id)
-  if (entry && entry.id !== loadedId) {
-    setLoadedId(entry.id)
-    setTitle(entry.title ?? '')
-    setText(entry.text)
-    setAuthor(entry.author)
-    setDate(entry.date)
-  }
+  // إعادة التعبئة من البيانات المحفوظة في كل مرة تُفتح فيها النافذة —
+  // حتى لا تظهر مسودة عُدّلت ثم أُلغيت عند إعادة فتح الرسالة نفسها
+  useEffect(() => {
+    if (!open) return
+    setTitle(entry?.title ?? '')
+    setText(entry?.text ?? '')
+    setAuthor(entry?.author ?? 'mom')
+    setDate(entry?.date ?? today)
+    setError('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, entry])
 
   function submit() {
-    if (!text.trim()) return
+    if (!text.trim()) {
+      setError('اكتبوا نص الرسالة.')
+      return
+    }
+    const dateErr = validateDate(date, { label: 'تاريخ الرسالة' })
+    if (dateErr) {
+      setError(dateErr)
+      return
+    }
+    setError('')
     const payload = {
       title: title.trim() || undefined,
       text: text.trim(),
@@ -189,6 +202,7 @@ function JournalSheet({
               <button
                 key={p}
                 onClick={() => setAuthor(p)}
+                aria-pressed={author === p}
                 className={cx('flex-1 rounded-full py-2 text-sm', author === p ? 'bg-white text-sage-700' : 'text-sage-500')}
               >
                 {parentLabel(p)}
@@ -197,7 +211,8 @@ function JournalSheet({
           </div>
         </Field>
       </div>
-      <Button variant="peach" className="w-full mt-2" onClick={submit} disabled={!text.trim()}>
+      {error && <p role="alert" className="text-sm text-red-700 bg-red-50 rounded-2xl p-3 mb-3">{error}</p>}
+      <Button variant="peach" className="w-full mt-2" onClick={submit}>
         {entry ? 'حفظ التعديل' : 'حفظ الرسالة'}
       </Button>
     </Sheet>

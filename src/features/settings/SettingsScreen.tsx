@@ -14,6 +14,7 @@ import {
 } from '../../data/dataService'
 import { downloadBackup, formatBytes, readFileAsText } from '../../lib/backup'
 import { localDateInputValue, localDateToIso } from '../../lib/localDate'
+import { validateBirthDate, validateLmpDueConsistency } from '../../lib/validation'
 import type { Gender } from '../../data/types'
 
 export default function SettingsScreen() {
@@ -21,6 +22,8 @@ export default function SettingsScreen() {
   const { confirm, dialog } = useConfirm()
   const fileRef = useRef<HTMLInputElement>(null)
   const [note, setNote] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
+  const [bornAtError, setBornAtError] = useState('')
+  const lmpDueWarning = validateLmpDueConsistency(data.child.lmpDate, data.child.dueDate)
 
   const usage = storageUsage()
   const photoBytes = data.photos.reduce((sum, p) => sum + p.dataUrl.length * 2, 0)
@@ -123,6 +126,11 @@ export default function SettingsScreen() {
             </Field>
           </div>
         )}
+        {lmpDueWarning && (
+          <p role="alert" className="text-sm text-red-800 bg-red-50 rounded-2xl p-3 mb-3 leading-relaxed">
+            {lmpDueWarning}
+          </p>
+        )}
 
         {data.child.bornAt && (
           <Field label="تاريخ الولادة">
@@ -130,14 +138,20 @@ export default function SettingsScreen() {
               type="date"
               className="input"
               value={data.child.bornAt.slice(0, 10)}
-              onChange={(e) =>
-                updateChild({
-                  bornAt: e.target.value ? localDateToIso(e.target.value) : data.child.bornAt,
-                })
-              }
+              onChange={(e) => {
+                if (!e.target.value) return
+                const err = validateBirthDate(e.target.value)
+                if (err) {
+                  setBornAtError(err)
+                  return
+                }
+                setBornAtError('')
+                updateChild({ bornAt: localDateToIso(e.target.value) })
+              }}
             />
           </Field>
         )}
+        {bornAtError && <p role="alert" className="text-sm text-red-700 -mt-2 mb-3">{bornAtError}</p>}
 
         <p className="text-xs text-sage-400">التعديلات تُحفظ مباشرة.</p>
       </Card>

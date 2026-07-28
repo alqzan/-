@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Button, Card, Field, Segmented } from '../../components/ui'
 import { completeSetup } from '../../data/dataService'
 import type { Gender } from '../../data/types'
+import { validateBirthDate, validateLmpDueConsistency } from '../../lib/validation'
 
 type Stage = 'pregnancy' | 'born'
 
@@ -26,6 +27,20 @@ export default function Onboarding() {
       setError(stage === 'pregnancy' ? 'أدخلوا تاريخ آخر دورة أو موعد الولادة المتوقع.' : 'أدخلوا تاريخ الولادة.')
       return
     }
+    if (stage === 'born') {
+      const err = validateBirthDate(bornAt)
+      if (err) {
+        setError(err)
+        return
+      }
+    } else {
+      const err = validateLmpDueConsistency(lmpDate || null, dueDate || null)
+      if (err) {
+        setError(err)
+        return
+      }
+    }
+    setError('')
     completeSetup({
       name: childName.trim() || 'طفلنا',
       gender,

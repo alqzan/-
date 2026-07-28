@@ -6,7 +6,13 @@ export function localDateInputValue(date = new Date()): string {
 }
 
 export function localDateToIso(value: string): string {
+  if (!value) {
+    throw new Error('localDateToIso: قيمة التاريخ فارغة')
+  }
   const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) {
+    throw new Error('localDateToIso: قيمة التاريخ غير صالحة')
+  }
   return new Date(year, month - 1, day, 12, 0, 0).toISOString()
 }
 

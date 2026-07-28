@@ -11,8 +11,9 @@ import {
 } from '../../components/icons'
 import { Sheet } from '../../components/ui'
 import { updateChild, useAppData } from '../../data/dataService'
-import { formatDate, relativeFromNow } from '../../lib/format'
+import { ageWord, formatDate, relativeFromNow } from '../../lib/format'
 import { ageInDays, isSameLocalDay, localDateInputValue, localDateToIso } from '../../lib/localDate'
+import { validateBirthDate, validateNumberInRange, MEASUREMENT_LIMITS } from '../../lib/validation'
 
 const MODULES = [
   { to: '/baby-care/feeding', label: 'الرضاعة', Icon: BottleIcon, tone: 'peach', desc: 'ثدي/رضّاعة، المدة والكمية' },
@@ -65,7 +66,7 @@ export default function BabyCare() {
           <Card className="bg-gradient-to-bl from-peach-400 to-peach-500 !text-white mb-4">
             <div className="font-bold text-lg">{data.child.name}</div>
             <p className="text-sm opacity-90">
-              عمره {ageInDays(data.child.bornAt!)} يوم • وصل في {formatDate(data.child.bornAt!)}
+              {ageWord(data.child.gender)} {ageInDays(data.child.bornAt!)} يوم • وصل في {formatDate(data.child.bornAt!)}
               {data.child.birthWeightKg ? ` • ${data.child.birthWeightKg} كجم` : ''}
             </p>
           </Card>
@@ -118,8 +119,18 @@ function RegisterBirthSheet({ open, onClose }: { open: boolean; onClose: () => v
   const [date, setDate] = useState(today)
   const [weight, setWeight] = useState('')
   const [length, setLength] = useState('')
+  const [dateError, setDateError] = useState('')
+  const [weightError, setWeightError] = useState('')
+  const [lengthError, setLengthError] = useState('')
 
   function submit() {
+    const dErr = validateBirthDate(date)
+    const wErr = validateNumberInRange(weight, MEASUREMENT_LIMITS.weightKg)
+    const lErr = validateNumberInRange(length, MEASUREMENT_LIMITS.lengthCm)
+    setDateError(dErr ?? '')
+    setWeightError(wErr ?? '')
+    setLengthError(lErr ?? '')
+    if (dErr || wErr || lErr) return
     updateChild({
       name: name.trim() || 'مولودنا',
       bornAt: localDateToIso(date),
@@ -137,6 +148,7 @@ function RegisterBirthSheet({ open, onClose }: { open: boolean; onClose: () => v
       <Field label="تاريخ الولادة">
         <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
       </Field>
+      {dateError && <p role="alert" className="text-sm text-red-700 -mt-2 mb-3">{dateError}</p>}
       <div className="flex gap-3">
         <Field label="الوزن (كجم)">
           <input type="number" inputMode="decimal" className="input" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="3.2" />
@@ -145,6 +157,8 @@ function RegisterBirthSheet({ open, onClose }: { open: boolean; onClose: () => v
           <input type="number" inputMode="decimal" className="input" value={length} onChange={(e) => setLength(e.target.value)} placeholder="50" />
         </Field>
       </div>
+      {weightError && <p role="alert" className="text-sm text-red-700 -mt-2 mb-3">{weightError}</p>}
+      {lengthError && <p role="alert" className="text-sm text-red-700 -mt-2 mb-3">{lengthError}</p>}
       <Button className="w-full mt-2" onClick={submit}>
         حفظ وتفعيل رعاية المولود
       </Button>

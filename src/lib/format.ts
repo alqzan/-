@@ -61,3 +61,8 @@ export function monthKey(iso: string): string {
 }
 
 export const parentLabel = (p: 'mom' | 'dad') => (p === 'mom' ? 'أمي' : 'أبي')
+
+/** كلمة "عمره/عمرها/العمر" حسب جنس الطفل — تبقى محايدة عند عدم معرفة الجنس */
+export function ageWord(gender: 'unknown' | 'boy' | 'girl'): string {
+  return gender === 'boy' ? 'عمره' : gender === 'girl' ? 'عمرها' : 'العمر'
+}

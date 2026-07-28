@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, Field, ProgressBar, Sheet, cx } from '../../components/ui'
 import { useConfirm } from '../../components/Confirm'
@@ -11,6 +11,7 @@ import {
 } from '../../data/dataService'
 import { formatShortDate } from '../../lib/format'
 import { ageInMonths, localDateInputValue, localDateToIso } from '../../lib/localDate'
+import { MEASUREMENT_LIMITS, validateDate, validateNumberInRange } from '../../lib/validation'
 import type { VaccineDose } from '../../data/types'
 
 function groupLabel(months: number): string {
@@ -139,12 +140,15 @@ function VaccineSheet({
   onDelete: (v: VaccineDose) => void
 }) {
   const [date, setDate] = useState('')
-  const [loadedId, setLoadedId] = useState<string | undefined>()
+  const [error, setError] = useState('')
 
-  if (dose && dose.id !== loadedId) {
-    setLoadedId(dose.id)
+  // إعادة التعبئة من البيانات المحفوظة في كل مرة تُفتح فيها النافذة —
+  // حتى لا يظهر تاريخ عُدّل ثم أُلغي عند إعادة فتح الجرعة نفسها
+  useEffect(() => {
+    if (!dose) return
     setDate(dose.givenAt ? dose.givenAt.slice(0, 10) : localDateInputValue())
-  }
+    setError('')
+  }, [dose])
 
   return (
     <Sheet open={!!dose} onClose={onClose} title={dose?.name ?? ''}>
@@ -155,10 +159,16 @@ function VaccineSheet({
           <Field label="تاريخ الإعطاء">
             <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
+          {error && <p role="alert" className="text-sm text-red-700 -mt-2 mb-3">{error}</p>}
 
           <Button
             className="w-full mb-2"
             onClick={() => {
+              const err = validateDate(date, { label: 'تاريخ الإعطاء', allowFuture: false, allowEmpty: true })
+              if (err) {
+                setError(err)
+                return
+              }
               setVaccineGiven(dose.id, date ? localDateToIso(date) : null)
               onClose()
             }}
@@ -193,9 +203,19 @@ function VaccineSheet({
 function AddVaccineSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [name, setName] = useState('')
   const [months, setMonths] = useState('')
+  const [error, setError] = useState('')
 
   function submit() {
-    if (!name.trim()) return
+    if (!name.trim()) {
+      setError('أدخلوا اسم التطعيم.')
+      return
+    }
+    const err = validateNumberInRange(months, MEASUREMENT_LIMITS.vaccineAgeMonths)
+    if (err) {
+      setError(err)
+      return
+    }
+    setError('')
     addVaccine(name.trim(), months ? Number(months) : 0)
     setName('')
     setMonths('')
@@ -217,7 +237,8 @@ function AddVaccineSheet({ open, onClose }: { open: boolean; onClose: () => void
           placeholder="6"
         />
       </Field>
-      <Button className="w-full mt-2" onClick={submit} disabled={!name.trim()}>
+      {error && <p role="alert" className="text-sm text-red-700 -mt-2 mb-3">{error}</p>}
+      <Button className="w-full mt-2" onClick={submit}>
         إضافة للجدول
       </Button>
     </Sheet>

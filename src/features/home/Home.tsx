@@ -14,7 +14,7 @@ import {
 import { useAppData } from '../../data/dataService'
 import { getPregnancyProgress, trimesterLabel } from '../../lib/pregnancy'
 import { getFetalWeek } from '../../lib/fetalData'
-import { formatDate, formatTime, parentLabel, relativeFromNow } from '../../lib/format'
+import { ageWord, formatDate, formatTime, parentLabel, relativeFromNow } from '../../lib/format'
 import { ageInDays, isSameLocalDay } from '../../lib/localDate'
 import { daysSinceBackup } from '../../lib/backup'
 import type { JournalEntry, Photo } from '../../data/types'
@@ -294,7 +294,7 @@ function NewbornCard() {
       <div className="text-5xl mb-2">🍼</div>
       <div className="text-xl font-bold">أهلًا يا {data.child.name}!</div>
       <p className="text-sm opacity-90 mt-1">
-        عمره {days} يوم{weeks > 0 ? ` (${weeks} أسبوع)` : ''} • وصل في {formatDate(bornAt)}
+        {ageWord(data.child.gender)} {days} يوم{weeks > 0 ? ` (${weeks} أسبوع)` : ''} • وصل في {formatDate(bornAt)}
       </p>
     </Card>
   )

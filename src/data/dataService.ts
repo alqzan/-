@@ -100,7 +100,6 @@ export function clearRecoverySnapshot() {
   recoveryListeners.forEach((l) => l())
 }
 
-let data: AppData = load()
 const listeners = new Set<() => void>()
 const storageListeners = new Set<() => void>()
 
@@ -258,6 +257,10 @@ function load(): AppData {
   }
   return seeded
 }
+
+// يُهيَّأ بعد تعريف load() وكل ما تعتمد عليه (isObj/migrate/…) لتفادي
+// الوصول إليها قبل التهيئة (temporal dead zone) عند وجود بيانات مخزّنة فعليًا.
+let data: AppData = load()
 
 /**
  * يحفظ ويُرجع true عند نجاح الكتابة على القرص.

@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   type ButtonHTMLAttributes,
   type ReactNode,
 } from 'react'
@@ -21,14 +22,22 @@ export function Card({
   className?: string
   onClick?: () => void
 }) {
-  return (
-    <div
-      className={cx('card', onClick && 'cursor-pointer active:scale-[0.99] transition', className)}
-      onClick={onClick}
-    >
-      {children}
-    </div>
-  )
+  // بطاقة قابلة للنقر: عنصر <button> حقيقي (وصولية/لوحة مفاتيح) بدل div بمعالج نقر فقط
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={cx(
+          'card block w-full text-start cursor-pointer active:scale-[0.99] transition',
+          className,
+        )}
+      >
+        {children}
+      </button>
+    )
+  }
+  return <div className={cx('card', className)}>{children}</div>
 }
 
 // ============ عنوان قسم ============
@@ -182,6 +191,9 @@ export function Fab({ onClick, label }: { onClick: () => void; label?: string })
 }
 
 // ============ نافذة سفلية (Bottom Sheet / Modal) ============
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
 export function Sheet({
   open,
   onClose,
@@ -193,17 +205,45 @@ export function Sheet({
   title: string
   children: ReactNode
 }) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  const previouslyFocused = useRef<HTMLElement | null>(null)
+
   useEffect(() => {
     if (!open) return
     document.body.style.overflow = 'hidden'
-    // الإغلاق بمفتاح Escape (لوحة مفاتيح/ديسكتوب)
+    // نحفظ العنصر الذي كان يحمل التركيز لنُعيده إليه عند الإغلاق
+    previouslyFocused.current = document.activeElement as HTMLElement | null
+
+    // نقل التركيز إلى داخل النافذة عند فتحها
+    const panel = panelRef.current
+    const focusables = panel?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+    ;(focusables?.[0] ?? panel)?.focus()
+
+    // الإغلاق بمفتاح Escape (لوحة مفاتيح/ديسكتوب) + حصر التركيز (focus trap) داخل النافذة
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+      if (e.key !== 'Tab' || !panelRef.current) return
+      const items = panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+      if (items.length === 0) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => {
       document.body.style.overflow = ''
       window.removeEventListener('keydown', onKey)
+      // إعادة التركيز إلى العنصر الذي فتح النافذة
+      previouslyFocused.current?.focus?.()
     }
   }, [open, onClose])
 
@@ -214,9 +254,11 @@ export function Sheet({
     <div className="fixed inset-0 z-40 flex items-end justify-center">
       <div className="absolute inset-0 bg-sage-900/40 animate-in" onClick={onClose} />
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
         className="relative w-full max-w-md bg-cream-50 rounded-t-3xl p-5 pb-8 shadow-2xl animate-in max-h-[85vh] overflow-y-auto"
       >
         <div className="flex items-center justify-between mb-4">
@@ -267,7 +309,9 @@ export function Segmented<T extends string>({
       {options.map((o) => (
         <button
           key={o.value}
+          type="button"
           onClick={() => onChange(o.value)}
+          aria-pressed={value === o.value}
           className={cx(
             'flex-1 rounded-full py-2 text-sm font-medium transition',
             value === o.value ? 'bg-white text-sage-700 shadow-sm' : 'text-sage-500',

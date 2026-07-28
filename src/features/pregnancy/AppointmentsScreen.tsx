@@ -185,6 +185,7 @@ function AddAppointmentSheet({ open, onClose }: { open: boolean; onClose: () => 
             <button
               key={t}
               onClick={() => setType(t)}
+              aria-pressed={type === t}
               className={`rounded-2xl py-2.5 text-sm border ${
                 type === t ? 'bg-sage-400 text-white border-sage-400' : 'bg-white border-cream-300 text-sage-600'
               }`}

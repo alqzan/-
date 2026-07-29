@@ -16,6 +16,7 @@ import { downloadBackup, formatBytes, readFileAsText } from '../../lib/backup'
 import { localDateInputValue, localDateToIso } from '../../lib/localDate'
 import { validateBirthDate, validateLmpDueConsistency } from '../../lib/validation'
 import type { Gender } from '../../data/types'
+import FamilySyncCard from './FamilySyncCard'
 
 export default function SettingsScreen() {
   const data = useAppData()
@@ -179,6 +180,9 @@ export default function SettingsScreen() {
           </p>
         )}
       </Card>
+
+      {/* ===== المزامنة العائلية (Firebase) ===== */}
+      <FamilySyncCard data={data} />
 
       {/* ===== النسخ الاحتياطي ===== */}
       <h2 className="section-title mt-6 mb-3">النسخة الاحتياطية</h2>

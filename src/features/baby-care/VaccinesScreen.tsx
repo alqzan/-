@@ -14,6 +14,8 @@ import { ageInMonths, localDateInputValue, localDateToIso } from '../../lib/loca
 import { MEASUREMENT_LIMITS, validateDate, validateNumberInRange } from '../../lib/validation'
 import type { VaccineDose } from '../../data/types'
 import { findTemplateEntry, VACCINE_SCHEDULE } from '../../data/vaccineSchedule'
+import { isFirebaseConfigured } from '../../firebase/config'
+import { syncStatusLabel, useSyncStatus } from '../../firebase/syncStatus'
 
 function groupLabel(months: number): string {
   if (months === 0) return 'عند الولادة'
@@ -29,6 +31,7 @@ export default function VaccinesScreen() {
   const [addOpen, setAddOpen] = useState(false)
   const [selected, setSelected] = useState<VaccineDose | null>(null)
   const { confirm, dialog } = useConfirm()
+  const syncStatus = useSyncStatus()
 
   const bornAt = data.child.bornAt
   const months = bornAt ? ageInMonths(bornAt) : null
@@ -70,6 +73,9 @@ export default function VaccinesScreen() {
           المركز الصحي — راجعوها دائمًا قبل اتخاذ أي قرار.
         </p>
         <p className="text-xs text-sage-400 mt-2">إصدار الجدول: {VACCINE_SCHEDULE.scheduleVersion}</p>
+        {isFirebaseConfigured && (
+          <p className="text-xs text-sage-400 mt-1">{syncStatusLabel(syncStatus)}</p>
+        )}
       </Card>
 
       {[...groups.entries()].map(([dueMonths, doses]) => {

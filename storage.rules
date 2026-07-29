@@ -1,0 +1,36 @@
+rules_version = '2';
+
+// ============================================================
+// قواعد أمان Firebase Storage.
+// المسار: {familyId}/{childId}/{mediaId}
+// يتطابق منطق العضوية هنا مع firestore.rules: القراءة/الكتابة تتطلبان
+// مستند عضوية دائم في Firestore، وليس فقط معرفة familyId من المسار.
+// ============================================================
+
+function isMember(familyId) {
+  return request.auth != null &&
+    firestore.exists(/databases/(default)/documents/families/$(familyId)/members/$(request.auth.uid));
+}
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{familyId}/{childId}/{mediaId} {
+      allow read: if isMember(familyId);
+
+      // الرفع: أعضاء العائلة فقط، صور فقط (JPEG/PNG/WebP كما يُنتجها
+      // src/lib/image.ts)، وبحد أقصى ٨ ميجابايت لكل ملف.
+      allow create, update: if isMember(familyId) &&
+        request.resource.size <= 8 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/(jpeg|png|webp)');
+
+      // الحذف الفعلي من Storage يُستخدم فقط في خطوة "الحذف الصلب" بعد
+      // حذف ناعم مسبق في Firestore — يبقى مسموحًا لأعضاء العائلة.
+      allow delete: if isMember(familyId);
+    }
+
+    // أي مسار آخر: مرفوض.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,158 @@
+rules_version = '2';
+
+// ============================================================
+// قواعد أمان Firestore لتطبيق «طفلنا».
+//
+// المبدأ الأساسي: معرفة familyId (أو حتى معرّف مستند بعينه) لا تكفي
+// أبدًا للوصول. كل قراءة/كتابة على بيانات عائلة تتطلّب وجود مستند
+// عضوية دائم families/{familyId}/members/{uid} لنفس المستخدم المصادَق
+// عليه (uid مطابق). الانضمام الأولي عبر الكود مسموح فقط كعملية إنشاء
+// ضيّقة النطاق لمستند العضوية نفسه، ولا يمنح أي قراءة أخرى.
+// ============================================================
+
+function isSignedIn() {
+  return request.auth != null;
+}
+
+function isMember(familyId) {
+  return isSignedIn() &&
+    exists(/databases/$(database)/documents/families/$(familyId)/members/$(request.auth.uid));
+}
+
+function memberRole(familyId) {
+  return get(/databases/$(database)/documents/families/$(familyId)/members/$(request.auth.uid)).data.role;
+}
+
+function isOwner(familyId) {
+  return isMember(familyId) && memberRole(familyId) == 'owner';
+}
+
+function canEdit(familyId) {
+  return isMember(familyId) && memberRole(familyId) in ['owner', 'editor'];
+}
+
+function hasRequiredMeta(fields) {
+  return request.resource.data.keys().hasAll(fields);
+}
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /families/{familyId} {
+      // القراءة تتطلب عضوية فعلية — لا تكفي معرفة familyId وحده.
+      allow read: if isMember(familyId);
+      // owner فقط يمكنه تعديل حقول العائلة (اسم، تدوير الكود...).
+      allow update: if isOwner(familyId);
+      // الإنشاء يحدث فقط من createFamily() (لا قاعدة create مفتوحة —
+      // القيمة الابتدائية يجب أن تجعل المُنشئ owner لنفسه).
+      allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow delete: if false;
+
+      match /members/{uid} {
+        // عضو يقرأ عضويّته وعضويات بقية أفراد عائلته (لعرض الأسماء/الأدوار).
+        allow read: if isMember(familyId);
+
+        // الانضمام: مستند عضوية جديد فقط لنفس uid المصادَق عليه، وفقط
+        // إذا طابق هاش الكود المُرسَل الهاش المخزَّن في مستند العائلة
+        // ولم تنتهِ صلاحيته بعد. هذه هي البوابة الوحيدة التي "تثق" بالكود،
+        // ولمرة واحدة فقط لكل جهاز (بعدها تُستخدم العضوية لا الكود).
+        allow create: if isSignedIn() && uid == request.auth.uid &&
+          request.resource.data.uid == uid &&
+          request.resource.data.role in ['owner', 'editor', 'viewer'] &&
+          get(/databases/$(database)/documents/families/$(familyId)).data.joinCodeHash != null &&
+          get(/databases/$(database)/documents/families/$(familyId)).data.joinCodeHash
+            == request.resource.data.joinCodeHashUsed &&
+          (
+            get(/databases/$(database)/documents/families/$(familyId)).data.joinCodeExpiresAt == null ||
+            get(/databases/$(database)/documents/families/$(familyId)).data.joinCodeExpiresAt > request.time
+          );
+
+        // owner يمكنه تعديل دور عضو آخر؛ أي عضو يمكنه تعديل بياناته هو فقط
+        // (مثال: displayName)، لكن لا يمكنه ترقية نفسه.
+        allow update: if isOwner(familyId) ||
+          (isMember(familyId) && uid == request.auth.uid &&
+            request.resource.data.role == resource.data.role);
+        allow delete: if isOwner(familyId);
+      }
+
+      match /children/{childId} {
+        allow read: if isMember(familyId);
+        allow create: if canEdit(familyId) && hasRequiredMeta(['id', 'familyId', 'childId', 'createdBy', 'schemaVersion']);
+        allow update: if canEdit(familyId);
+        allow delete: if isOwner(familyId);
+
+        match /memories/{docId} {
+          allow read: if isMember(familyId);
+          allow create: if canEdit(familyId) &&
+            hasRequiredMeta(['id', 'familyId', 'childId', 'createdBy', 'schemaVersion']);
+          allow update: if canEdit(familyId);
+          allow delete: if canEdit(familyId);
+        }
+        match /feedings/{docId} {
+          allow read: if isMember(familyId);
+          allow create: if canEdit(familyId) &&
+            hasRequiredMeta(['id', 'familyId', 'childId', 'createdBy', 'schemaVersion']);
+          allow update: if canEdit(familyId);
+          allow delete: if canEdit(familyId);
+        }
+        match /diapers/{docId} {
+          allow read: if isMember(familyId);
+          allow create: if canEdit(familyId) &&
+            hasRequiredMeta(['id', 'familyId', 'childId', 'createdBy', 'schemaVersion']);
+          allow update: if canEdit(familyId);
+          allow delete: if canEdit(familyId);
+        }
+        match /sleep/{docId} {
+          allow read: if isMember(familyId);
+          allow create: if canEdit(familyId) &&
+            hasRequiredMeta(['id', 'familyId', 'childId', 'createdBy', 'schemaVersion']);
+          allow update: if canEdit(familyId);
+          allow delete: if canEdit(familyId);
+        }
+        match /growth/{docId} {
+          allow read: if isMember(familyId);
+          allow create: if canEdit(familyId) &&
+            hasRequiredMeta(['id', 'familyId', 'childId', 'createdBy', 'schemaVersion']);
+          allow update: if canEdit(familyId);
+          allow delete: if canEdit(familyId);
+        }
+        match /vaccinations/{docId} {
+          allow read: if isMember(familyId);
+          allow create: if canEdit(familyId) &&
+            hasRequiredMeta(['id', 'familyId', 'childId', 'createdBy', 'schemaVersion']);
+          allow update: if canEdit(familyId);
+          allow delete: if canEdit(familyId);
+        }
+        match /appointments/{docId} {
+          allow read: if isMember(familyId);
+          allow create: if canEdit(familyId) &&
+            hasRequiredMeta(['id', 'familyId', 'childId', 'createdBy', 'schemaVersion']);
+          allow update: if canEdit(familyId);
+          allow delete: if canEdit(familyId);
+        }
+        match /pregnancy/{docId} {
+          allow read: if isMember(familyId);
+          allow create: if canEdit(familyId) &&
+            hasRequiredMeta(['id', 'familyId', 'childId', 'createdBy', 'schemaVersion']);
+          allow update: if canEdit(familyId);
+          allow delete: if canEdit(familyId);
+        }
+      }
+
+      match /checklists/{itemId} {
+        allow read: if isMember(familyId);
+        allow write: if canEdit(familyId);
+      }
+
+      match /names/{nameId} {
+        allow read: if isMember(familyId);
+        allow write: if canEdit(familyId);
+      }
+    }
+
+    // أي مسار آخر غير معرَّف صراحة أعلاه: مرفوض افتراضيًا.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

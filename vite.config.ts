@@ -11,6 +11,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // اختبارات قواعد Firebase منفصلة (tests/rules) — تحتاج محاكيًا محليًا،
+    // انظر vitest.rules.config.ts و README.
+    exclude: ['**/node_modules/**', '**/dist/**', 'tests/rules/**'],
   },
   plugins: [
     react(),

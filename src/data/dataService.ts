@@ -184,7 +184,14 @@ function migrate(parsed: unknown): AppData | null {
   const base = emptyData()
   const list = <T,>(value: unknown, fallback: T[]): T[] =>
     Array.isArray(value) ? (value as T[]) : fallback
-  const storedVaccines = list<VaccineDose>(raw.vaccines, [])
+  // أُضيف templateId في الإصدار ٤: يربط جرعات الطفل بقالب الجدول الرسمي.
+  // الجرعات الأساسية القديمة (builtIn) وُلّدت بمعرّفات vx1..vxN مطابقة
+  // لمعرّفات القالب نفسها، فنملأ templateId منها دون تغيير أي تاريخ أو
+  // حالة إعطاء محفوظة. الجرعات المضافة يدويًا (builtIn === false) تبقى
+  // بلا ربط بالقالب.
+  const storedVaccines = list<VaccineDose>(raw.vaccines, []).map((v) =>
+    v.templateId !== undefined ? v : { ...v, templateId: v.builtIn ? v.id : null },
+  )
 
   return {
     ...base,
@@ -589,7 +596,8 @@ export function setVaccineGiven(id: string, givenAt: string | null) {
   })
 }
 export function addVaccine(name: string, dueMonths: number) {
-  const v: VaccineDose = { id: uid(), name, dueMonths, givenAt: null, builtIn: false }
+  // جرعة يضيفها الوالدان يدويًا — لا ترتبط بقالب الجدول الرسمي
+  const v: VaccineDose = { id: uid(), name, dueMonths, givenAt: null, builtIn: false, templateId: null }
   mutate({ vaccines: [...data.vaccines, v] })
 }
 export function deleteVaccine(id: string) {

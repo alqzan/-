@@ -165,7 +165,13 @@ export interface GrowthEntry {
   headCm?: number
 }
 
-/** جرعة تطعيم في الجدول الاسترشادي */
+/**
+ * سجل جرعة تطعيم لطفل معيّن — منفصل عن قالب الجدول الرسمي
+ * (انظر VaccineScheduleTemplate في src/data/vaccineSchedule.ts).
+ * الحقول name/dueMonths هنا هي نسخة محفوظة وقت الإنشاء (للعرض ولتوافق
+ * البيانات القديمة)، أما templateId فهو الرابط الثابت لقالب الجرعة —
+ * تحديث القالب لاحقًا لا يغيّر أو يحذف هذا السجل.
+ */
 export interface VaccineDose {
   id: string
   name: string
@@ -174,6 +180,8 @@ export interface VaccineDose {
   /** تاريخ الإعطاء — null = لم تُعطَ بعد */
   givenAt: string | null
   builtIn: boolean
+  /** ربط ثابت بجرعة القالب الرسمي (VaccineTemplateEntry.id) — null للجرعات المضافة يدويًا */
+  templateId?: string | null
 }
 
 // ===== الحاوية الكاملة للبيانات =====

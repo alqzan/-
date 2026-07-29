@@ -23,7 +23,7 @@ describe('load() / migrate() — versions & corruption', () => {
     const raw = localStorage.getItem(STORAGE_KEY)
     expect(raw).not.toBeNull()
     const parsed = JSON.parse(raw!)
-    expect(parsed.version).toBe(3)
+    expect(parsed.version).toBe(4)
     expect(parsed.setupComplete).toBe(false)
     expect(parsed.vaccines.length).toBeGreaterThan(0)
   })
@@ -59,7 +59,7 @@ describe('load() / migrate() — versions & corruption', () => {
     const data = ds.exportSnapshot()
     const parsed = JSON.parse(data)
 
-    expect(parsed.version).toBe(3)
+    expect(parsed.version).toBe(4)
     // old data preserved
     expect(parsed.child.name).toBe('سارة')
     expect(parsed.kicks).toHaveLength(1)
@@ -70,6 +70,51 @@ describe('load() / migrate() — versions & corruption', () => {
     expect(Array.isArray(parsed.sleep)).toBe(true)
     expect(Array.isArray(parsed.growth)).toBe(true)
     expect(parsed.vaccines.length).toBeGreaterThan(0)
+  })
+
+  it('backfills templateId on stored vaccine doses without a stable templateId, without altering givenAt', async () => {
+    const oldSnapshot = {
+      version: 3,
+      setupComplete: true,
+      child: {
+        name: 'سارة',
+        gender: 'girl',
+        lmpDate: null,
+        dueDate: null,
+        bornAt: '2026-01-01',
+        photo: null,
+        parents: { momName: 'أمي', dadName: 'أبي' },
+      },
+      kicks: [],
+      contractions: [],
+      appointments: [],
+      momLogs: [],
+      photos: [],
+      journal: [],
+      capsules: [],
+      milestones: [],
+      names: [],
+      checklist: [],
+      feedings: [],
+      diapers: [],
+      sleep: [],
+      growth: [],
+      vaccines: [
+        { id: 'vx1', name: 'الدرن (BCG)', dueMonths: 0, givenAt: '2026-01-02', builtIn: true },
+        { id: 'custom-1', name: 'تطعيم مخصص', dueMonths: 5, givenAt: null, builtIn: false },
+      ],
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(oldSnapshot))
+
+    const ds = await freshDataService()
+    const parsed = JSON.parse(ds.exportSnapshot())
+
+    const bcg = parsed.vaccines.find((v: { id: string }) => v.id === 'vx1')
+    expect(bcg.templateId).toBe('vx1')
+    expect(bcg.givenAt).toBe('2026-01-02') // recorded dose date untouched by template link
+
+    const custom = parsed.vaccines.find((v: { id: string }) => v.id === 'custom-1')
+    expect(custom.templateId).toBe(null)
   })
 
   it('corrupt JSON: stashes raw text for recovery, keeps in-memory data empty, does not overwrite storage key', async () => {

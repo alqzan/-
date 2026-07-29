@@ -13,6 +13,7 @@ import { formatShortDate } from '../../lib/format'
 import { ageInMonths, localDateInputValue, localDateToIso } from '../../lib/localDate'
 import { MEASUREMENT_LIMITS, validateDate, validateNumberInRange } from '../../lib/validation'
 import type { VaccineDose } from '../../data/types'
+import { findTemplateEntry, VACCINE_SCHEDULE } from '../../data/vaccineSchedule'
 
 function groupLabel(months: number): string {
   if (months === 0) return 'عند الولادة'
@@ -64,9 +65,11 @@ export default function VaccinesScreen() {
       <Card className="mb-4">
         <ProgressBar value={data.vaccines.length ? given / data.vaccines.length : 0} />
         <p className="text-sm text-red-800 bg-red-50 rounded-2xl p-3 mt-3 leading-relaxed">
-          <span className="font-bold">تنبيه:</span> هذا جدول استرشادي للتذكير فقط.
-          المرجع هو بطاقة التطعيم الرسمية وتعليمات المركز الصحي — راجعوهما دائمًا.
+          <span className="font-bold">تنبيه:</span> هذا جدول استرشادي للتذكير فقط وليس استشارة
+          طبية. المرجع الرسمي دائمًا هو «بطاقة التطعيم» الخاصة بطفلكم ومنصة «صحّتي» وتعليمات
+          المركز الصحي — راجعوها دائمًا قبل اتخاذ أي قرار.
         </p>
+        <p className="text-xs text-sage-400 mt-2">إصدار الجدول: {VACCINE_SCHEDULE.scheduleVersion}</p>
       </Card>
 
       {[...groups.entries()].map(([dueMonths, doses]) => {
@@ -81,28 +84,38 @@ export default function VaccinesScreen() {
               )}
             </div>
             <div className="space-y-2">
-              {doses.map((v) => (
-                <button
-                  key={v.id}
-                  onClick={() => setSelected(v)}
-                  className="card !p-3.5 w-full text-start flex items-center gap-3 active:scale-[0.99] transition"
-                >
-                  <span
-                    className={cx(
-                      'w-10 h-10 rounded-full grid place-items-center shrink-0',
-                      v.givenAt ? 'bg-sage-400 text-white' : 'bg-cream-200 text-sage-400',
-                    )}
+              {doses.map((v) => {
+                const template = v.templateId ? findTemplateEntry(v.templateId) : undefined
+                return (
+                  <button
+                    key={v.id}
+                    onClick={() => setSelected(v)}
+                    className="card !p-3.5 w-full text-start flex items-center gap-3 active:scale-[0.99] transition"
                   >
-                    {v.givenAt ? <CheckIcon className="w-5 h-5" /> : <SyringeIcon className="w-5 h-5" />}
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block font-medium text-sage-800 leading-snug">{v.name}</span>
-                    <span className="block text-xs text-sage-400">
-                      {v.givenAt ? `أُعطي في ${formatShortDate(v.givenAt)}` : 'لم يُعطَ بعد'}
+                    <span
+                      className={cx(
+                        'w-10 h-10 rounded-full grid place-items-center shrink-0',
+                        v.givenAt ? 'bg-sage-400 text-white' : 'bg-cream-200 text-sage-400',
+                      )}
+                    >
+                      {v.givenAt ? <CheckIcon className="w-5 h-5" /> : <SyringeIcon className="w-5 h-5" />}
                     </span>
-                  </span>
-                </button>
-              ))}
+                    <span className="flex-1 min-w-0">
+                      <span className="flex items-center gap-1.5">
+                        <span className="block font-medium text-sage-800 leading-snug">{v.name}</span>
+                        {template?.needsReview && (
+                          <span className="chip !bg-amber-100 !text-amber-700 !text-[10px] shrink-0">
+                            يحتاج مراجعة
+                          </span>
+                        )}
+                      </span>
+                      <span className="block text-xs text-sage-400">
+                        {v.givenAt ? `أُعطي في ${formatShortDate(v.givenAt)}` : 'لم يُعطَ بعد'}
+                      </span>
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )
@@ -141,6 +154,7 @@ function VaccineSheet({
 }) {
   const [date, setDate] = useState('')
   const [error, setError] = useState('')
+  const template = dose?.templateId ? findTemplateEntry(dose.templateId) : undefined
 
   // إعادة التعبئة من البيانات المحفوظة في كل مرة تُفتح فيها النافذة —
   // حتى لا يظهر تاريخ عُدّل ثم أُلغي عند إعادة فتح الجرعة نفسها
@@ -155,6 +169,12 @@ function VaccineSheet({
       {dose && (
         <>
           <p className="text-sm text-sage-500 mb-4">الموعد المقرّر: {groupLabel(dose.dueMonths)}</p>
+
+          {template?.needsReview && (
+            <p className="text-sm text-amber-800 bg-amber-50 rounded-2xl p-3 mb-4 leading-relaxed">
+              <span className="font-bold">يحتاج مراجعة:</span> {template.note}
+            </p>
+          )}
 
           <Field label="تاريخ الإعطاء">
             <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />

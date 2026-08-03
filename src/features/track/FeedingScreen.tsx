@@ -67,7 +67,7 @@ export default function FeedingScreen() {
       <ScreenHeader title="الرضاعة" subtitle="تتبّعوا رضعات اليوم" back />
 
       <div className="flex gap-3 mb-4">
-        <StatTile label="رضعات اليوم" value={today.length} icon={<BottleIcon className="w-4 h-4" />} tone="peach" />
+        <StatTile label="رضعات اليوم" value={today.length} icon={<BottleIcon className="w-4 h-4" />} />
         <StatTile
           label="آخر رضعة"
           value={last ? relativeFromNow(last.startedAt) : '—'}
@@ -76,17 +76,17 @@ export default function FeedingScreen() {
       </div>
       {todayMl > 0 && (
         <Card className="!p-3.5 mb-4 text-center">
-          <span className="text-sage-500 text-sm">إجمالي الرضّاعة اليوم: </span>
-          <span className="font-bold text-sage-800">{todayMl} مل</span>
+          <span className="text-ink-500 text-sm">إجمالي الرضّاعة اليوم: </span>
+          <span className="font-bold text-ink-900">{todayMl} مل</span>
         </Card>
       )}
 
       {active ? (
-        <Card className="text-center bg-gradient-to-b from-cream-50 to-peach-100">
-          <div className="text-sage-500 mb-1">
+        <Card className="text-center bg-gradient-to-b from-paper-50 to-clay-50">
+          <div className="text-ink-500 mb-1">
             رضاعة طبيعية — الجهة {active.side === 'left' ? 'اليسرى' : 'اليمنى'}
           </div>
-          <div className="text-5xl font-extrabold text-sage-800 tabular-nums my-3">
+          <div className="text-5xl font-extrabold text-ink-900 tabular-nums my-3">
             {formatDuration(elapsed)}
           </div>
           <Button variant="peach" className="w-full py-4" onClick={finishBreast}>
@@ -98,13 +98,13 @@ export default function FeedingScreen() {
         </Card>
       ) : (
         <Card>
-          <div className="text-sage-600 text-sm mb-3">ابدؤوا رضاعة طبيعية</div>
+          <div className="text-ink-600 text-sm mb-3">ابدؤوا رضاعة طبيعية</div>
           <div className="flex gap-3 mb-4">
             {(['right', 'left'] as BreastSide[]).map((side) => (
               <button
                 key={side}
                 onClick={() => setActive({ startedAt: Date.now(), side })}
-                className="btn flex-1 py-4 bg-sage-400 text-white shadow-soft hover:bg-sage-500"
+                className="btn flex-1 py-4 bg-ink-400 text-white shadow-lift hover:bg-ink-500"
               >
                 {side === 'right' ? 'اليمنى' : 'اليسرى'}
               </button>
@@ -126,18 +126,18 @@ export default function FeedingScreen() {
               <div
                 className={cx(
                   'w-11 h-11 rounded-full grid place-items-center shrink-0',
-                  f.kind === 'breast' ? 'bg-sage-50 text-sage-500' : 'bg-peach-100 text-peach-500',
+                  f.kind === 'breast' ? 'bg-paper-100 text-ink-500' : 'bg-clay-50 text-clay-600',
                 )}
               >
                 <BottleIcon className="w-6 h-6" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-sage-800">
+                <div className="font-medium text-ink-900">
                   {f.kind === 'breast'
                     ? `طبيعية • ${f.side === 'left' ? 'اليسرى' : 'اليمنى'}`
                     : `رضّاعة • ${f.amountMl ?? 0} مل`}
                 </div>
-                <div className="text-xs text-sage-400">
+                <div className="text-xs text-ink-400">
                   {formatTime(f.startedAt)}
                   {f.durationMin ? ` • ${f.durationMin} دقيقة` : ''}
                 </div>
@@ -150,7 +150,7 @@ export default function FeedingScreen() {
                     confirmLabel: 'حذف',
                   })
                 }
-                className="text-sage-300 hover:text-red-600 p-2"
+                className="text-ink-300 hover:text-clay-600 p-2"
                 aria-label="حذف"
               >
                 <TrashIcon className="w-5 h-5" />
@@ -212,7 +212,7 @@ function BottleSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
           <button
             key={ml}
             onClick={() => setAmount(String(ml))}
-            className="chip !bg-cream-200 !text-sage-600"
+            className="chip !bg-paper-200 !text-ink-600"
           >
             {ml} مل
           </button>

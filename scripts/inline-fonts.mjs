@@ -15,12 +15,20 @@ let html = readFileSync(htmlPath, 'utf8')
 html = html.replace(/<script\s+type="module"\s+crossorigin>/gi, '<script>')
 
 // (1) تضمين الخطوط
-const weights = ['Regular', 'Medium', 'Bold', 'Black']
-for (const w of weights) {
-  const file = path.join(root, 'public', 'fonts', `thmanyahsans-${w}.woff2`)
+const fontFiles = [
+  'thmanyahsans-Regular',
+  'thmanyahsans-Medium',
+  'thmanyahsans-Bold',
+  'thmanyahserifdisplay-Medium',
+  'thmanyahserifdisplay-Bold',
+  'thmanyahseriftext-Regular',
+  'thmanyahseriftext-Medium',
+]
+for (const name of fontFiles) {
+  const file = path.join(root, 'public', 'fonts', `${name}.woff2`)
   const b64 = readFileSync(file).toString('base64')
   // نطابق المسار سواء كان مطلقًا (/fonts/..) أو نسبيًا (./fonts/..)
-  const re = new RegExp(`\\.?/fonts/thmanyahsans-${w}\\.woff2`, 'g')
+  const re = new RegExp(`\\.?/fonts/${name}\\.woff2`, 'g')
   html = html.replace(re, `data:font/woff2;base64,${b64}`)
 }
 

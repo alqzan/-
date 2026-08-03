@@ -12,8 +12,47 @@ type ConfirmRequest = {
   onConfirm: () => void
 }
 
+/** نافذة تأكيد بحالة مُدارة من الشاشة */
+export default function Confirm({
+  open,
+  title,
+  message,
+  confirmLabel = 'تأكيد',
+  destructive = true,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean
+  title: string
+  message?: string
+  confirmLabel?: string
+  destructive?: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <Sheet open={open} onClose={onCancel} title={title}>
+      {message && <p className="text-ink-600 leading-relaxed mb-6">{message}</p>}
+      <div className="flex gap-3">
+        <Button variant="ghost" className="flex-1 py-3" onClick={onCancel}>
+          تراجع
+        </Button>
+        <button
+          className={
+            'btn flex-1 py-3 text-white ' +
+            (destructive ? 'bg-clay-600 hover:bg-clay-700' : 'bg-ink-900 hover:bg-ink-800')
+          }
+          onClick={onConfirm}
+        >
+          {confirmLabel}
+        </button>
+      </div>
+    </Sheet>
+  )
+}
+
 /**
- * يُرجع دالة `confirm` لطلب التأكيد، و`dialog` تُوضع في شجرة الشاشة.
+ * نسخة الخطّاف لمن يحتاج تأكيدات متعدّدة في شاشة واحدة.
  *
  * ```tsx
  * const { confirm, dialog } = useConfirm()
@@ -28,34 +67,18 @@ export function useConfirm() {
   const close = useCallback(() => setRequest(null), [])
 
   const dialog: ReactNode = (
-    <Sheet open={!!request} onClose={close} title={request?.title ?? ''}>
-      {request && (
-        <>
-          {request.message && (
-            <p className="text-sage-600 leading-relaxed mb-5">{request.message}</p>
-          )}
-          <div className="flex gap-3">
-            <Button variant="ghost" className="flex-1 py-3" onClick={close}>
-              تراجع
-            </Button>
-            <button
-              className={
-                'btn flex-1 py-3 text-white shadow-soft ' +
-                (request.destructive !== false
-                  ? 'bg-red-600 hover:bg-red-700'
-                  : 'bg-sage-400 hover:bg-sage-500')
-              }
-              onClick={() => {
-                request.onConfirm()
-                close()
-              }}
-            >
-              {request.confirmLabel ?? 'تأكيد'}
-            </button>
-          </div>
-        </>
-      )}
-    </Sheet>
+    <Confirm
+      open={!!request}
+      title={request?.title ?? ''}
+      message={request?.message}
+      confirmLabel={request?.confirmLabel}
+      destructive={request?.destructive !== false}
+      onCancel={close}
+      onConfirm={() => {
+        request?.onConfirm()
+        close()
+      }}
+    />
   )
 
   return { confirm, dialog }

@@ -16,14 +16,20 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
+      workbox: {
+        // الخطوط جزء من هوية التطبيق ومن تجربة العمل بلا شبكة،
+        // فتُخزّن مسبقًا مع بقية الأصول لا عند أول طلب.
+        globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+      },
       manifest: {
         name: 'طفلنا',
         short_name: 'طفلنا',
-        description: 'تطبيق يرافق طفلكما من الحمل إلى ما بعد الولادة',
+        description: 'حكاية طفلكم موثّقة من أول أسبوع — صور ورسائل ولحظات أولى',
         lang: 'ar',
         dir: 'rtl',
-        theme_color: '#6b9e78',
-        background_color: '#fbf7f0',
+        theme_color: '#F8F3EA',
+        background_color: '#FDFBF7',
         display: 'standalone',
         // نسبيّان حتى يعمل التثبيت من مسار فرعي كما يعمل من الجذر
         start_url: base,

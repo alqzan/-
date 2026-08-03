@@ -85,16 +85,16 @@ export default function ContractionsScreen() {
       <ScreenHeader title="عدّاد الانقباضات" subtitle="سجّلوا التوقيت والفاصل" back />
 
       <Card className="text-center">
-        <div className={`text-6xl font-extrabold tabular-nums ${running ? 'text-peach-500' : 'text-sage-300'}`}>
+        <div className={`text-6xl font-extrabold tabular-nums ${running ? 'text-clay-600' : 'text-ink-300'}`}>
           {formatDuration(elapsed)}
         </div>
-        <p className="text-sage-400 text-sm mt-1 mb-4">
+        <p className="text-ink-400 text-sm mt-1 mb-4">
           {running ? 'الانقباضة جارية… اضغط عند انتهائها' : 'اضغط عند بداية الانقباضة'}
         </p>
         <button
           onClick={toggle}
-          className={`btn w-full py-5 rounded-3xl text-lg font-bold shadow-soft active:scale-95 text-white ${
-            running ? 'bg-blush-300 hover:bg-blush-300' : 'bg-peach-400 hover:bg-peach-500'
+          className={`btn w-full py-5 rounded-3xl text-lg font-bold shadow-lift active:scale-95 text-white ${
+            running ? 'bg-brass-500 hover:bg-brass-500' : 'bg-clay-500 hover:bg-clay-600'
           }`}
         >
           {running ? 'انتهت الانقباضة' : 'بدأت الانقباضة'}
@@ -105,38 +105,38 @@ export default function ContractionsScreen() {
         <>
           <div className="flex gap-3 mt-4">
             <div className="card flex-1 text-center !p-3">
-              <div className="text-2xl font-bold text-sage-800">{formatDuration(avgDur)}</div>
-              <div className="text-xs text-sage-400">متوسط المدة</div>
+              <div className="text-2xl font-bold text-ink-900">{formatDuration(avgDur)}</div>
+              <div className="text-xs text-ink-400">متوسط المدة</div>
             </div>
             <div className="card flex-1 text-center !p-3">
-              <div className="text-2xl font-bold text-sage-800">{avgGap || '—'} د</div>
-              <div className="text-xs text-sage-400">متوسط الفاصل</div>
+              <div className="text-2xl font-bold text-ink-900">{avgGap || '—'} د</div>
+              <div className="text-xs text-ink-400">متوسط الفاصل</div>
             </div>
             <div className="card flex-1 text-center !p-3">
-              <div className="text-2xl font-bold text-sage-800">{inWindow.length}</div>
-              <div className="text-xs text-sage-400">خلال ساعة</div>
+              <div className="text-2xl font-bold text-ink-900">{inWindow.length}</div>
+              <div className="text-xs text-ink-400">خلال ساعة</div>
             </div>
           </div>
-          <p className="text-[11px] text-sage-400 text-center mt-2">
+          <p className="text-[11px] text-ink-400 text-center mt-2">
             المتوسطات محسوبة على آخر ساعة فقط
           </p>
         </>
       )}
 
       {meets511 ? (
-        <Card className="mt-4 bg-blush-100 border-2 border-blush-300">
-          <p className="text-sm text-sage-800 leading-relaxed">
+        <Card className="mt-4 bg-brass-50 border-2 border-brass-500">
+          <p className="text-sm text-ink-900 leading-relaxed">
             <span className="font-bold">الانقباضات تطابق قاعدة ٥-١-١ تقريبًا</span> — كل{' '}
             {avgGap} دقائق، بمدّة {formatDuration(avgDur)}، خلال الساعة الماضية.
             تواصلي مع طبيبتك أو المستشفى الآن.
           </p>
-          <p className="text-[11px] text-sage-500 mt-2">
+          <p className="text-[11px] text-ink-500 mt-2">
             هذا مؤشّر تقريبي للتذكير فقط ولا يغني عن رأي الطبيب.
           </p>
         </Card>
       ) : (
-        <Card className="mt-4 bg-sky-100 border border-sky-200">
-          <p className="text-sm text-sage-600 leading-relaxed">
+        <Card className="mt-4 bg-moss-50 border border-moss-200">
+          <p className="text-sm text-ink-600 leading-relaxed">
             <span className="font-bold">تذكير:</span> إذا صارت الانقباضات كل ٥ دقائق، وتستمر
             دقيقة تقريبًا، ولمدة ساعة — تواصلي مع طبيبتك. (قاعدة ٥-١-١ التقريبية)
           </p>
@@ -155,7 +155,7 @@ export default function ContractionsScreen() {
                 onConfirm: clearContractions,
               })
             }
-            className="text-sm text-sage-400"
+            className="text-sm text-ink-400"
           >
             مسح الكل
           </button>
@@ -168,15 +168,15 @@ export default function ContractionsScreen() {
         <div className="space-y-2">
           {recent.map((c) => (
             <Card key={c.id} className="!p-3.5 flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full bg-blush-100 text-blush-300 grid place-items-center shrink-0">
+              <div className="w-11 h-11 rounded-full bg-brass-50 text-brass-500 grid place-items-center shrink-0">
                 <PulseIcon className="w-6 h-6" />
               </div>
               <div className="flex-1">
-                <div className="font-medium text-sage-800">مدّة {formatDuration(c.durationSec)}</div>
-                <div className="text-xs text-sage-400">{formatTime(c.startedAt)}</div>
+                <div className="font-medium text-ink-900">مدّة {formatDuration(c.durationSec)}</div>
+                <div className="text-xs text-ink-400">{formatTime(c.startedAt)}</div>
               </div>
               {c.gapMin != null && (
-                <div className="text-sm text-sage-500">بعد {c.gapMin} د</div>
+                <div className="text-sm text-ink-500">بعد {c.gapMin} د</div>
               )}
             </Card>
           ))}

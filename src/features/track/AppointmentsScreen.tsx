@@ -2,7 +2,16 @@ import { useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, EmptyState, Field, Sheet } from '../../components/ui'
 import { useConfirm } from '../../components/Confirm'
-import { CalendarIcon, DownloadIcon, PlusIcon, TrashIcon } from '../../components/icons'
+import {
+  CalendarIcon,
+  DownloadIcon,
+  DropIcon,
+  ImageIcon,
+  PlusIcon,
+  PulseIcon,
+  StarIcon,
+  TrashIcon,
+} from '../../components/icons'
 import {
   addAppointment,
   deleteAppointment,
@@ -20,11 +29,12 @@ const TYPE_LABEL: Record<AppointmentType, string> = {
   lab: 'تحليل',
   other: 'أخرى',
 }
-const TYPE_EMOJI: Record<AppointmentType, string> = {
-  checkup: '🩺',
-  ultrasound: '🖼️',
-  lab: '🧪',
-  other: '📌',
+/** أيقونة لكل نوع موعد — بديل الإيموجي */
+function TypeIcon({ type, className }: { type: AppointmentType; className?: string }) {
+  if (type === 'ultrasound') return <ImageIcon className={className} />
+  if (type === 'lab') return <DropIcon className={className} />
+  if (type === 'other') return <StarIcon className={className} />
+  return <PulseIcon className={className} />
 }
 
 export default function AppointmentsScreen() {
@@ -47,7 +57,7 @@ export default function AppointmentsScreen() {
         action={
           <button
             onClick={() => setOpen(true)}
-            className="w-10 h-10 grid place-items-center rounded-full bg-sage-400 text-white shadow-soft"
+            className="w-10 h-10 grid place-items-center rounded-full bg-ink-400 text-white shadow-lift"
             aria-label="إضافة موعد"
           >
             <PlusIcon className="w-5 h-5" />
@@ -112,26 +122,26 @@ function AppointmentCard({ a, onDelete }: { a: Appointment; onDelete: () => void
   return (
     <Card className="!p-3.5">
       <div className="flex items-start gap-3">
-        <div className="w-11 h-11 rounded-2xl bg-sky-100 grid place-items-center text-xl shrink-0">
-          {TYPE_EMOJI[a.type]}
+        <div className="w-11 h-11 rounded-full bg-moss-50 text-moss-500 grid place-items-center shrink-0">
+          <TypeIcon type={a.type} className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-sage-800">{a.title}</span>
+            <span className="font-display font-bold text-ink-900">{a.title}</span>
             <span className="chip !py-0.5 !text-xs">{TYPE_LABEL[a.type]}</span>
           </div>
-          <div className="text-sm text-sage-500 mt-0.5">
+          <div className="text-sm text-ink-500 mt-0.5">
             {formatDate(a.dateTime)} • {formatTime(a.dateTime)}
           </div>
-          {a.location && <div className="text-xs text-sage-400 mt-0.5">📍 {a.location}</div>}
-          {a.notes && <div className="text-sm text-sage-600 mt-1.5">{a.notes}</div>}
+          {a.location && <div className="text-xs text-ink-400 mt-0.5">{a.location}</div>}
+          {a.notes && <div className="text-sm text-ink-600 mt-1.5">{a.notes}</div>}
           {a.image && (
             <img src={a.image} alt="مرفق" className="mt-2 rounded-xl max-h-40 object-cover w-full" />
           )}
           {upcoming && (
             <button
               onClick={() => downloadAppointmentICS(a)}
-              className="chip !bg-cream-200 !text-sage-600 !text-xs mt-2"
+              className="chip !bg-paper-200 !text-ink-600 !text-xs mt-2"
             >
               <DownloadIcon className="w-4 h-4" /> أضف للتقويم
             </button>
@@ -139,7 +149,7 @@ function AppointmentCard({ a, onDelete }: { a: Appointment; onDelete: () => void
         </div>
         <button
           onClick={onDelete}
-          className="text-sage-300 hover:text-red-600 p-1"
+          className="text-ink-300 hover:text-clay-600 p-1"
           aria-label="حذف"
         >
           <TrashIcon className="w-5 h-5" />
@@ -187,11 +197,13 @@ function AddAppointmentSheet({ open, onClose }: { open: boolean; onClose: () => 
             <button
               key={t}
               onClick={() => setType(t)}
-              className={`rounded-2xl py-2.5 text-sm border ${
-                type === t ? 'bg-sage-400 text-white border-sage-400' : 'bg-white border-cream-300 text-sage-600'
+              className={`flex flex-col items-center gap-1.5 rounded-2xl py-2.5 text-[13px] border transition ${
+                type === t
+                  ? 'bg-ink-900 text-paper-50 border-ink-900'
+                  : 'bg-white border-line text-ink-600'
               }`}
             >
-              <div>{TYPE_EMOJI[t]}</div>
+              <TypeIcon type={t} className="w-4 h-4" />
               {TYPE_LABEL[t]}
             </button>
           ))}
@@ -215,7 +227,7 @@ function AddAppointmentSheet({ open, onClose }: { open: boolean; onClose: () => 
         <input
           type="file"
           accept="image/*"
-          className="text-sm text-sage-500"
+          className="text-sm text-ink-500"
           onChange={async (e) => {
             const f = e.target.files?.[0]
             if (f) setImage(await fileToDataUrl(f))

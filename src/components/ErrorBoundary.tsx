@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { downloadBackup } from '../lib/backup'
+import { EmbraceMark } from './illustrations'
 
 // ============================================================
 // شبكة الأمان الأخيرة.
@@ -47,11 +48,11 @@ export default class ErrorBoundary extends Component<Props, State> {
     if (!error) return this.props.children
 
     return (
-      <div className="min-h-screen bg-cream-50 px-5 py-10 flex items-center justify-center">
+      <div className="min-h-screen bg-paper-50 px-5 py-10 flex items-center justify-center">
         <div className="w-full max-w-md text-center">
-          <div className="text-6xl mb-4">🌱</div>
-          <h1 className="text-2xl font-extrabold text-sage-800 mb-2">صار خلل غير متوقّع</h1>
-          <p className="text-sage-600 leading-relaxed mb-6">
+          <EmbraceMark className="w-24 h-16 mx-auto mb-5 text-clay-300" />
+          <h1 className="title-lg mb-3">صار خلل غير متوقّع</h1>
+          <p className="text-ink-600 leading-relaxed mb-6">
             ذكرياتكم ما زالت محفوظة على الجهاز ولم يُمسّ شيء منها.
             نزّلوا نسخة احتياطية الآن للاطمئنان، ثم أعيدوا فتح التطبيق.
           </p>
@@ -61,10 +62,10 @@ export default class ErrorBoundary extends Component<Props, State> {
               onClick={this.handleBackup}
               className="btn btn-primary w-full py-3.5 mb-3"
             >
-              ⬇️ تنزيل نسخة احتياطية
+              تنزيل نسخة احتياطية
             </button>
             {downloaded && (
-              <p role="status" className="text-sm text-sage-600 bg-sage-100 rounded-2xl p-3 mb-3">
+              <p role="status" className="text-sm text-ink-600 bg-paper-200 rounded-2xl p-3 mb-3">
                 تم التنزيل: {downloaded}
               </p>
             )}
@@ -77,8 +78,8 @@ export default class ErrorBoundary extends Component<Props, State> {
           </div>
 
           <details className="mt-6 text-start">
-            <summary className="text-xs text-sage-400 cursor-pointer">تفاصيل تقنية</summary>
-            <pre className="mt-2 text-[11px] text-sage-500 bg-cream-100 rounded-2xl p-3 overflow-x-auto whitespace-pre-wrap break-words">
+            <summary className="text-xs text-ink-400 cursor-pointer">تفاصيل تقنية</summary>
+            <pre className="mt-2 text-[11px] text-ink-500 bg-paper-100 rounded-2xl p-3 overflow-x-auto whitespace-pre-wrap break-words">
               {error.message}
             </pre>
           </details>

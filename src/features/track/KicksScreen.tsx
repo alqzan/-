@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, EmptyState } from '../../components/ui'
 import { useConfirm } from '../../components/Confirm'
-import { FootIcon, TrashIcon } from '../../components/icons'
+import { ClockIcon, FootIcon, TrashIcon } from '../../components/icons'
 import { addKickSession, deleteKickSession, uid, useAppData } from '../../data/dataService'
 import { formatDate, formatDuration, formatTime } from '../../lib/format'
 import { useNow } from '../../lib/useNow'
@@ -59,19 +59,21 @@ export default function KicksScreen() {
       <ScreenHeader title="عدّاد الركلات" subtitle="تابعوا حركة صغيركم" back />
 
       {active ? (
-        <Card className="text-center bg-gradient-to-b from-cream-50 to-peach-100">
+        <Card className="text-center bg-gradient-to-b from-paper-50 to-clay-50">
           <div className="w-40 h-40 rounded-full bg-white shadow-card grid place-items-center mx-auto">
             <div className="text-center">
-              <div className="text-5xl font-extrabold text-sage-800">{active.count}</div>
-              <div className="text-sm text-sage-400">حركة مسجّلة</div>
+              <div className="text-5xl font-extrabold text-ink-900">{active.count}</div>
+              <div className="text-sm text-ink-400">حركة مسجّلة</div>
             </div>
           </div>
-          <div className="text-sage-500 mt-3">⏱ {formatDuration(elapsed)}</div>
+          <div className="text-ink-500 mt-3 tnum flex items-center justify-center gap-1.5">
+            <ClockIcon className="w-4 h-4" /> {formatDuration(elapsed)}
+          </div>
           <button
             onClick={kick}
-            className="btn bg-peach-400 text-white w-full py-5 rounded-3xl text-xl font-bold mt-4 shadow-soft active:scale-95 hover:bg-peach-500"
+            className="btn bg-clay-500 text-white w-full py-5 rounded-3xl text-xl font-bold mt-4 shadow-lift active:scale-95 hover:bg-clay-600"
           >
-            👣 سجّل ركلة
+            سجّلوا ركلة
           </button>
           <Button variant="ghost" className="w-full mt-3" onClick={finish}>
             إنهاء الجلسة وحفظها
@@ -79,14 +81,14 @@ export default function KicksScreen() {
         </Card>
       ) : (
         <Card className="text-center">
-          <div className="w-20 h-20 rounded-full bg-peach-100 text-peach-500 grid place-items-center mx-auto mb-3">
+          <div className="w-20 h-20 rounded-full bg-clay-50 text-clay-600 grid place-items-center mx-auto mb-3">
             <FootIcon className="w-10 h-10" />
           </div>
-          <p className="text-sage-700 font-medium mb-1">ابدأ جلسة عدّ جديدة</p>
-          <p className="text-sm text-sage-400 mb-4">
+          <p className="text-ink-800 font-medium mb-1">ابدأ جلسة عدّ جديدة</p>
+          <p className="text-sm text-ink-400 mb-4">
             اجلسي مرتاحة وسجّلي الحركات لمتابعة النمط المعتاد لطفلك، دون هدف رقمي افتراضي.
           </p>
-          <div className="text-right text-sm text-red-800 bg-red-50 rounded-2xl p-3 mb-4 leading-relaxed">
+          <div className="text-right text-sm text-clay-700 bg-clay-50 rounded-2xl p-3 mb-4 leading-relaxed">
             حركة أقل أو مختلفة عن المعتاد؟ تواصلي فورًا مع جهة الرعاية. التطبيق للتوثيق وليس أداة اطمئنان طبي.
           </div>
           <Button className="w-full" onClick={start}>
@@ -106,12 +108,12 @@ export default function KicksScreen() {
               : 0
             return (
               <Card key={k.id} className="!p-3.5 flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full bg-peach-100 text-peach-500 grid place-items-center shrink-0">
+                <div className="w-11 h-11 rounded-full bg-clay-50 text-clay-600 grid place-items-center shrink-0">
                   <span className="font-bold">{k.count}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sage-800">{k.count} حركة</div>
-                  <div className="text-xs text-sage-400">
+                  <div className="font-medium text-ink-900">{k.count} حركة</div>
+                  <div className="text-xs text-ink-400">
                     {formatDate(k.startedAt)} • {formatTime(k.startedAt)} • {formatDuration(dur)}
                   </div>
                 </div>
@@ -123,7 +125,7 @@ export default function KicksScreen() {
                       onConfirm: () => deleteKickSession(k.id),
                     })
                   }
-                  className="text-sage-300 hover:text-red-600 p-2"
+                  className="text-ink-300 hover:text-clay-600 p-2"
                   aria-label="حذف"
                 >
                   <TrashIcon className="w-5 h-5" />

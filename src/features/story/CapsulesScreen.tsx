@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, EmptyState, Field, Sheet, cx } from '../../components/ui'
 import { useConfirm } from '../../components/Confirm'
-import { CapsuleIcon, EditIcon, PlusIcon, TrashIcon } from '../../components/icons'
+import { CapsuleIcon, EditIcon, LetterIcon, LockIcon, PlusIcon, TrashIcon } from '../../components/icons'
 import {
   addCapsule,
   deleteCapsule,
@@ -11,7 +11,7 @@ import {
   useAppData,
 } from '../../data/dataService'
 import type { Parent, TimeCapsule } from '../../data/types'
-import { formatDate, parentLabel } from '../../lib/format'
+import { formatDate, parentLabel, pluralAr } from '../../lib/format'
 import { useNow } from '../../lib/useNow'
 
 export default function CapsulesScreen() {
@@ -37,7 +37,7 @@ export default function CapsulesScreen() {
         action={
           <button
             onClick={() => setOpen(true)}
-            className="w-10 h-10 grid place-items-center rounded-full bg-sky-300 text-white shadow-soft"
+            className="btn-icon !bg-ink-900 !text-paper-50 !border-ink-900 shrink-0 mt-0.5"
             aria-label="كبسولة جديدة"
           >
             <PlusIcon className="w-5 h-5" />
@@ -45,10 +45,10 @@ export default function CapsulesScreen() {
         }
       />
 
-      <Card className="bg-sky-100 mb-4">
-        <p className="text-sm text-sage-600 leading-relaxed">
+      <Card className="!bg-brass-50 !border-brass-100 mb-5">
+        <p className="text-[13px] text-ink-600 leading-relaxed">
           اكتبوا رسالة لطفلكم تُقفل حتى تاريخ تختارونه — عيد ميلاده الأول، أول يوم دراسة،
-          أو أي لحظة مميزة. مفاجأة من الماضي 🎁
+          أو يوم زواجه. لا تُقرأ قبل موعدها، ولا حتى منكم.
         </p>
       </Card>
 
@@ -110,41 +110,48 @@ function CapsuleCard({
   const left = daysUntil(c.openAt)
 
   return (
-    <Card className={cx(!canOpen && 'bg-gradient-to-bl from-sage-100 to-sky-100')}>
+    <Card className={cx(!canOpen && '!bg-paper-100')}>
       <div className="flex items-start gap-3">
         <div
           className={cx(
-            'w-12 h-12 rounded-2xl grid place-items-center text-2xl shrink-0',
-            canOpen ? 'bg-peach-100' : 'bg-white/70',
+            'w-11 h-11 rounded-full grid place-items-center shrink-0',
+            revealed ? 'bg-clay-50 text-clay-500' : canOpen ? 'bg-clay-500 text-white' : 'bg-white text-brass-500 border border-brass-100',
           )}
         >
-          {revealed ? '💌' : canOpen ? '🎁' : '🔒'}
+          {revealed ? (
+            <LetterIcon className="w-5 h-5" />
+          ) : canOpen ? (
+            <CapsuleIcon className="w-5 h-5" />
+          ) : (
+            <LockIcon className="w-5 h-5" />
+          )}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-bold text-sage-800">{c.title}</div>
-          <div className="text-xs text-sage-400 mt-0.5">
+          <div className="font-display font-bold text-ink-900">{c.title}</div>
+          <div className="text-xs text-ink-400 mt-0.5">
             {parentLabel(c.author)} • تُفتح في {formatDate(c.openAt)}
           </div>
 
           {revealed ? (
-            <p className="text-sage-700 leading-relaxed mt-2 whitespace-pre-wrap">{c.message}</p>
+            <p className="prose-note mt-2 whitespace-pre-wrap">{c.message}</p>
           ) : canOpen ? (
-            <Button className="mt-3" onClick={() => openCapsule(c.id)}>
-              🎉 افتح الكبسولة
+            <Button variant="clay" className="mt-3" onClick={() => openCapsule(c.id)}>
+              حان وقتها — افتحوها
             </Button>
           ) : (
-            <p className="text-sm text-sage-500 mt-2">
-              مقفلة — باقٍ {left} {left === 1 ? 'يوم' : 'يومًا'} 🔒
+            <p className="flex items-center gap-1.5 text-[13px] text-brass-600 mt-2">
+              <LockIcon className="w-4 h-4" />
+              مقفلة — باقٍ {pluralAr(left, 'يوم', 'يومان', 'أيام', 'يومًا')}
             </p>
           )}
         </div>
         <div className="flex flex-col">
           {!canOpen && (
-            <button onClick={onEdit} className="text-sage-300 hover:text-sage-600 p-1" aria-label="تعديل">
+            <button onClick={onEdit} className="text-ink-300 hover:text-ink-600 p-1" aria-label="تعديل">
               <EditIcon className="w-5 h-5" />
             </button>
           )}
-          <button onClick={onDelete} className="text-sage-300 hover:text-red-600 p-1" aria-label="حذف">
+          <button onClick={onDelete} className="text-ink-300 hover:text-clay-600 p-1" aria-label="حذف">
             <TrashIcon className="w-5 h-5" />
           </button>
         </div>
@@ -205,12 +212,12 @@ function CapsuleSheet({
           <input type="date" className="input" value={openAt} onChange={(e) => setOpenAt(e.target.value)} />
         </Field>
         <Field label="بواسطة">
-          <div className="flex bg-sage-100 rounded-full p-1">
+          <div className="flex bg-paper-200 rounded-full p-1">
             {(['mom', 'dad'] as Parent[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setAuthor(p)}
-                className={cx('flex-1 rounded-full py-2 text-sm', author === p ? 'bg-white text-sage-700' : 'text-sage-500')}
+                className={cx('flex-1 rounded-full py-2 text-sm', author === p ? 'bg-white text-ink-800' : 'text-ink-500')}
               >
                 {parentLabel(p)}
               </button>

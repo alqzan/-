@@ -428,8 +428,17 @@ export function deleteCapsule(id: string) {
 }
 
 // --- المعالم ---
-export function addMilestone(title: string, emoji: string) {
+export function addMilestone(title: string, emoji = '') {
   const m: Milestone = { id: uid(), title, emoji, achievedAt: null, builtIn: false }
+  return commit({ milestones: [...data.milestones, m] })
+}
+
+/**
+ * معلَم وقع فعلًا: يُضاف بتاريخه وذكراه في خطوة واحدة.
+ * لوحة «التقاط» توثّق ما حدث للتوّ، فلا معنى لإضافته ثم تعليمه ثم كتابته.
+ */
+export function addMilestoneAchieved(title: string, achievedAt: string, note?: string) {
+  const m: Milestone = { id: uid(), title, emoji: '', achievedAt, builtIn: false, note }
   return commit({ milestones: [...data.milestones, m] })
 }
 export function toggleMilestone(id: string) {

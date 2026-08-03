@@ -28,7 +28,7 @@ export default function NamesScreen() {
         action={
           <button
             onClick={() => setOpen(true)}
-            className="w-10 h-10 grid place-items-center rounded-full bg-blush-300 text-white shadow-soft"
+            className="w-10 h-10 grid place-items-center rounded-full bg-brass-500 text-white shadow-lift"
             aria-label="اسم جديد"
           >
             <PlusIcon className="w-5 h-5" />
@@ -61,21 +61,23 @@ export default function NamesScreen() {
           {sorted.map((n, i) => (
             <Card key={n.id} className="!p-3.5">
               <div className="flex items-center gap-3">
-                {i === 0 && totalVotes(n) === 2 && <span className="text-xl">👑</span>}
+                {i === 0 && totalVotes(n) === 2 && (
+                  <span className="chip-clay !text-[11px] !py-0.5">متفقون عليه</span>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold text-sage-800">{n.name}</span>
+                    <span className="text-lg font-bold text-ink-900">{n.name}</span>
                     <span
                       className={cx(
                         'chip !text-xs',
-                        n.gender === 'boy' ? '!bg-sky-100 !text-sky-300' : n.gender === 'girl' ? '!bg-blush-100 !text-blush-300' : '',
+                        n.gender === 'boy' ? '!bg-moss-50 !text-moss-500' : n.gender === 'girl' ? '!bg-brass-50 !text-brass-500' : '',
                       )}
                     >
                       {genderLabel[n.gender]}
                     </span>
                   </div>
-                  {n.meaning && <div className="text-sm text-sage-400 mt-0.5">{n.meaning}</div>}
-                  <div className="text-[11px] text-sage-300 mt-0.5">اقترحه {parentLabel(n.proposedBy)}</div>
+                  {n.meaning && <div className="text-sm text-ink-400 mt-0.5">{n.meaning}</div>}
+                  <div className="text-[11px] text-ink-300 mt-0.5">اقترحه {parentLabel(n.proposedBy)}</div>
                 </div>
 
                 {/* أزرار التصويت */}
@@ -86,7 +88,7 @@ export default function NamesScreen() {
                       onClick={() => toggleNameVote(n.id, p)}
                       className={cx(
                         'flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl transition',
-                        n.votes[p] ? 'text-peach-500' : 'text-sage-300',
+                        n.votes[p] ? 'text-clay-600' : 'text-ink-300',
                       )}
                       title={parentLabel(p)}
                     >
@@ -102,7 +104,7 @@ export default function NamesScreen() {
                         onConfirm: () => deleteName(n.id),
                       })
                     }
-                    className="text-sage-300 hover:text-red-600 p-1"
+                    className="text-ink-300 hover:text-clay-600 p-1"
                     aria-label="حذف"
                   >
                     <TrashIcon className="w-5 h-5" />

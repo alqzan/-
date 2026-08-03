@@ -1,0 +1,4 @@
+# توحيد نهايات الأسطر: LF داخل المستودع على كل الأنظمة
+* text=auto eol=lf
+*.woff2 binary
+*.pdf binary

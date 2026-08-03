@@ -37,7 +37,7 @@ export default function ChecklistScreen({ list }: { list: ChecklistName }) {
         action={
           <button
             onClick={() => setOpen(true)}
-            className="w-10 h-10 grid place-items-center rounded-full bg-sage-400 text-white shadow-soft"
+            className="w-10 h-10 grid place-items-center rounded-full bg-ink-400 text-white shadow-lift"
             aria-label="عنصر جديد"
           >
             <PlusIcon className="w-5 h-5" />
@@ -47,8 +47,8 @@ export default function ChecklistScreen({ list }: { list: ChecklistName }) {
 
       <Card className="mb-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="font-bold text-sage-800">الإنجاز</span>
-          <span className="text-sage-500">
+          <span className="font-bold text-ink-900">الإنجاز</span>
+          <span className="text-ink-500">
             {done} / {items.length}
           </span>
         </div>
@@ -57,7 +57,7 @@ export default function ChecklistScreen({ list }: { list: ChecklistName }) {
 
       {[...categories.entries()].map(([cat, list]) => (
         <div key={cat} className="mb-5">
-          <div className="text-sm font-bold text-sage-500 mb-2 px-1">{cat}</div>
+          <div className="text-sm font-bold text-ink-500 mb-2 px-1">{cat}</div>
           <div className="space-y-2">
             {list.map((it) => (
               <button
@@ -68,19 +68,19 @@ export default function ChecklistScreen({ list }: { list: ChecklistName }) {
                 <span
                   className={cx(
                     'w-7 h-7 rounded-full grid place-items-center shrink-0 border-2 transition',
-                    it.done ? 'bg-sage-400 border-sage-400 text-white' : 'border-cream-300 text-transparent',
+                    it.done ? 'bg-ink-400 border-ink-400 text-white' : 'border-paper-300 text-transparent',
                   )}
                 >
                   <CheckIcon className="w-4 h-4" />
                 </span>
-                <span className={cx('flex-1', it.done && 'line-through text-sage-300')}>{it.label}</span>
+                <span className={cx('flex-1', it.done && 'line-through text-ink-300')}>{it.label}</span>
                 {!it.builtIn && (
                   <span
                     onClick={(e) => {
                       e.stopPropagation()
                       void deleteChecklistItem(it.id)
                     }}
-                    className="text-sage-300 hover:text-peach-500 p-1"
+                    className="text-ink-300 hover:text-clay-600 p-1"
                   >
                     <TrashIcon className="w-5 h-5" />
                   </span>

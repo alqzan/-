@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, Field, ProgressBar, Sheet, cx } from '../../components/ui'
 import { useConfirm } from '../../components/Confirm'
-import { PlusIcon, TrashIcon } from '../../components/icons'
+import { CheckIcon, PlusIcon, StarIcon, TrashIcon } from '../../components/icons'
 import {
   addMilestone,
   deleteMilestone,
@@ -13,7 +13,10 @@ import { formatDate } from '../../lib/format'
 import { localDateInputValue, localDateToIso } from '../../lib/localDate'
 import type { Milestone } from '../../data/types'
 
-const EMOJI_CHOICES = ['😊', '😄', '🦷', '🪑', '🐣', '🗣️', '🧍', '👣', '🎈', '🏊', '🚲', '📚']
+// =============================================================
+// المعالم — قائمة «أوّل مرة» جاهزة، وكل واحدة تُسجَّل بتاريخها وذكرى مكتوبة.
+// المسجَّل يدخل الحكاية تلقائيًا في مكانه الزمني.
+// =============================================================
 
 export default function MilestonesScreen() {
   const data = useAppData()
@@ -26,16 +29,20 @@ export default function MilestonesScreen() {
     ? (data.milestones.find((m) => m.id === selected.id) ?? null)
     : null
 
+  const sorted = [...data.milestones].sort((a, b) => {
+    if (!!a.achievedAt === !!b.achievedAt) return 0
+    return a.achievedAt ? -1 : 1
+  })
+
   return (
     <>
       <ScreenHeader
         title="المعالم"
         subtitle={`${achieved} من ${data.milestones.length} تحقّقت`}
-        back
         action={
           <button
             onClick={() => setOpen(true)}
-            className="w-10 h-10 grid place-items-center rounded-full bg-blush-300 text-white shadow-soft"
+            className="btn-icon !bg-ink-900 !text-paper-50 !border-ink-900 shrink-0 mt-0.5"
             aria-label="معلم جديد"
           >
             <PlusIcon className="w-5 h-5" />
@@ -43,33 +50,48 @@ export default function MilestonesScreen() {
         }
       />
 
-      <Card className="bg-blush-100 mb-4">
-        <p className="text-sm text-sage-600 leading-relaxed mb-3">
-          سجّلوا لحظات طفلكم الأولى — اضغطوا على المعلم لتحديد تاريخه وكتابة ذكرى عنه. ⭐
+      <Card className="mb-5">
+        <p className="text-[13px] text-ink-500 leading-relaxed mb-3">
+          اضغطوا على أي معلم لتسجيل تاريخه وكتابة ذكرى عنه — ويظهر بعدها في الحكاية.
         </p>
         <ProgressBar value={data.milestones.length ? achieved / data.milestones.length : 0} />
       </Card>
 
-      <div className="grid grid-cols-2 gap-3">
-        {data.milestones.map((m) => {
+      <div className="space-y-2">
+        {sorted.map((m) => {
           const done = !!m.achievedAt
           return (
             <button
               key={m.id}
               onClick={() => setSelected(m)}
-              className={cx(
-                'card !p-4 text-center relative transition active:scale-[0.98]',
-                done ? 'bg-gradient-to-b from-blush-100 to-peach-100' : 'opacity-80',
-              )}
+              className="card card-press !p-3.5 w-full text-right flex items-center gap-3"
             >
-              <div className={cx('text-4xl mb-2', !done && 'grayscale opacity-60')}>{m.emoji}</div>
-              <div className="font-medium text-sage-800 text-sm">{m.title}</div>
-              {done ? (
-                <div className="text-[11px] text-peach-500 mt-1">✓ {formatDate(m.achievedAt!)}</div>
-              ) : (
-                <div className="text-[11px] text-sage-300 mt-1">لم يتحقق بعد</div>
-              )}
-              {m.note && <div className="text-[11px] text-sage-400 mt-1 truncate">“{m.note}”</div>}
+              <span
+                className={cx(
+                  'w-10 h-10 rounded-full grid place-items-center shrink-0 border',
+                  done
+                    ? 'bg-clay-500 text-white border-clay-500'
+                    : 'bg-paper-100 text-ink-300 border-line',
+                )}
+              >
+                {done ? <CheckIcon className="w-5 h-5" /> : <StarIcon className="w-5 h-5" />}
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block font-medium text-ink-900">{m.title}</span>
+                <span
+                  className={cx(
+                    'block text-[12px] mt-0.5 truncate',
+                    done ? 'text-clay-600' : 'text-ink-300',
+                  )}
+                >
+                  {done ? formatDate(m.achievedAt!) : 'ما تحقّق بعد'}
+                </span>
+                {m.note && (
+                  <span className="block font-serif text-[13px] text-ink-500 mt-1 truncate">
+                    {m.note}
+                  </span>
+                )}
+              </span>
             </button>
           )
         })}
@@ -107,8 +129,6 @@ function MilestoneSheet({
       <Sheet open={!!milestone} onClose={onClose} title={milestone?.title ?? ''}>
         {milestone && (
           <>
-            <div className="text-center text-5xl mb-4">{milestone.emoji}</div>
-
             <Field label="تاريخ تحققه">
               <input
                 type="date"
@@ -119,7 +139,7 @@ function MilestoneSheet({
             </Field>
             <Field label="ذكرى عن اللحظة (اختياري)">
               <textarea
-                className="input min-h-[90px]"
+                className="input font-serif leading-[1.9] min-h-[6rem]"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="كيف كانت اللحظة؟ من كان معكم؟"
@@ -127,7 +147,7 @@ function MilestoneSheet({
             </Field>
 
             <Button
-              className="w-full mb-2"
+              className="w-full mb-2.5"
               onClick={() => {
                 void updateMilestone(milestone.id, {
                   achievedAt: date ? localDateToIso(date) : null,
@@ -136,13 +156,13 @@ function MilestoneSheet({
                 onClose()
               }}
             >
-              {done ? 'حفظ التعديل' : '⭐ سجّل المعلم'}
+              {done ? 'حفظ التعديل' : 'سجّلوا المعلَم'}
             </Button>
 
             {done && (
               <Button
                 variant="ghost"
-                className="w-full mb-2"
+                className="w-full mb-2.5"
                 onClick={() => {
                   void updateMilestone(milestone.id, { achievedAt: null })
                   onClose()
@@ -155,11 +175,11 @@ function MilestoneSheet({
             {!milestone.builtIn && (
               <Button
                 variant="ghost"
-                className="w-full !text-red-700"
+                className="w-full !text-clay-600"
                 onClick={() =>
                   confirm({
                     title: 'حذف هذا المعلم؟',
-                    message: 'سيُحذف المعلم والذكرى المكتوبة عنه نهائيًا.',
+                    message: 'بيُحذف المعلم والذكرى المكتوبة عنه نهائيًا.',
                     confirmLabel: 'حذف المعلم',
                     onConfirm: () => {
                       void deleteMilestone(milestone.id)
@@ -181,36 +201,24 @@ function MilestoneSheet({
 
 function AddMilestoneSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [title, setTitle] = useState('')
-  const [emoji, setEmoji] = useState(EMOJI_CHOICES[0])
 
   function submit() {
     if (!title.trim()) return
-    void addMilestone(title.trim(), emoji)
+    void addMilestone(title.trim())
     setTitle('')
-    setEmoji(EMOJI_CHOICES[0])
     onClose()
   }
 
   return (
     <Sheet open={open} onClose={onClose} title="معلم جديد">
       <Field label="العنوان">
-        <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثال: أول حمّام" />
-      </Field>
-      <Field label="الأيقونة">
-        <div className="flex flex-wrap gap-2">
-          {EMOJI_CHOICES.map((e) => (
-            <button
-              key={e}
-              onClick={() => setEmoji(e)}
-              className={cx(
-                'w-11 h-11 rounded-2xl text-2xl grid place-items-center border',
-                emoji === e ? 'bg-sage-100 border-sage-300' : 'bg-white border-cream-300',
-              )}
-            >
-              {e}
-            </button>
-          ))}
-        </div>
+        <input
+          className="input"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="مثال: أول حمّام"
+          autoFocus
+        />
       </Field>
       <Button className="w-full mt-2" onClick={submit} disabled={!title.trim()}>
         إضافة المعلم

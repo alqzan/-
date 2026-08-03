@@ -52,7 +52,7 @@ export default function VaccinesScreen() {
         action={
           <button
             onClick={() => setAddOpen(true)}
-            className="w-10 h-10 grid place-items-center rounded-full bg-peach-400 text-white shadow-soft"
+            className="w-10 h-10 grid place-items-center rounded-full bg-clay-500 text-white shadow-lift"
             aria-label="إضافة تطعيم"
           >
             <PlusIcon className="w-5 h-5" />
@@ -62,7 +62,7 @@ export default function VaccinesScreen() {
 
       <Card className="mb-4">
         <ProgressBar value={data.vaccines.length ? given / data.vaccines.length : 0} />
-        <p className="text-sm text-red-800 bg-red-50 rounded-2xl p-3 mt-3 leading-relaxed">
+        <p className="text-sm text-clay-700 bg-clay-50 rounded-2xl p-3 mt-3 leading-relaxed">
           <span className="font-bold">تنبيه:</span> هذا جدول استرشادي للتذكير فقط.
           المرجع هو بطاقة التطعيم الرسمية وتعليمات المركز الصحي — راجعوهما دائمًا.
         </p>
@@ -76,7 +76,7 @@ export default function VaccinesScreen() {
             <div className="flex items-center gap-2 mb-2">
               <h2 className="section-title mb-0">{groupLabel(dueMonths)}</h2>
               {due && !allGiven && (
-                <span className="chip !bg-peach-100 !text-peach-500 !text-xs">مستحق</span>
+                <span className="chip !bg-clay-50 !text-clay-600 !text-xs">مستحق</span>
               )}
             </div>
             <div className="space-y-2">
@@ -89,14 +89,14 @@ export default function VaccinesScreen() {
                   <span
                     className={cx(
                       'w-10 h-10 rounded-full grid place-items-center shrink-0',
-                      v.givenAt ? 'bg-sage-400 text-white' : 'bg-cream-200 text-sage-400',
+                      v.givenAt ? 'bg-ink-400 text-white' : 'bg-paper-200 text-ink-400',
                     )}
                   >
                     {v.givenAt ? <CheckIcon className="w-5 h-5" /> : <SyringeIcon className="w-5 h-5" />}
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block font-medium text-sage-800 leading-snug">{v.name}</span>
-                    <span className="block text-xs text-sage-400">
+                    <span className="block font-medium text-ink-900 leading-snug">{v.name}</span>
+                    <span className="block text-xs text-ink-400">
                       {v.givenAt ? `أُعطي في ${formatShortDate(v.givenAt)}` : 'لم يُعطَ بعد'}
                     </span>
                   </span>
@@ -150,7 +150,7 @@ function VaccineSheet({
     <Sheet open={!!dose} onClose={onClose} title={dose?.name ?? ''}>
       {dose && (
         <>
-          <p className="text-sm text-sage-500 mb-4">الموعد المقرّر: {groupLabel(dose.dueMonths)}</p>
+          <p className="text-sm text-ink-500 mb-4">الموعد المقرّر: {groupLabel(dose.dueMonths)}</p>
 
           <Field label="تاريخ الإعطاء">
             <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -163,7 +163,7 @@ function VaccineSheet({
               onClose()
             }}
           >
-            ✅ تسجيل كمُعطى
+            تسجيل كمُعطى
           </Button>
 
           {dose.givenAt && (

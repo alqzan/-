@@ -214,7 +214,7 @@ const milestone = (r: Record<string, unknown>): Milestone | null => {
   return {
     id: id(r.id),
     title,
-    emoji: str(r.emoji) || '⭐',
+    emoji: str(r.emoji) ?? '',
     achievedAt: date(r.achievedAt) ?? null,
     builtIn: bool(r.builtIn) ?? false,
     note: str(r.note),

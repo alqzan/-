@@ -1,17 +1,29 @@
 import { ScreenHeader } from '../../components/Header'
 import { Card, EmptyState, StatTile } from '../../components/ui'
 import { useConfirm } from '../../components/Confirm'
-import { DropIcon, TrashIcon } from '../../components/icons'
+import { DropIcon, SparkleIcon, TrashIcon } from '../../components/icons'
 import { addDiaper, deleteDiaper, useAppData } from '../../data/dataService'
 import type { DiaperKind } from '../../data/types'
 import { formatShortDate, formatTime, relativeFromNow } from '../../lib/format'
 import { isSameLocalDay } from '../../lib/localDate'
 
-const KINDS: Array<{ value: DiaperKind; emoji: string; label: string; cls: string }> = [
-  { value: 'wet', emoji: '💧', label: 'مبلّل', cls: 'bg-sky-100 text-sky-300' },
-  { value: 'dirty', emoji: '💩', label: 'متّسخ', cls: 'bg-peach-100 text-peach-500' },
-  { value: 'both', emoji: '💧💩', label: 'الاثنان', cls: 'bg-blush-100 text-blush-300' },
+const KINDS: Array<{ value: DiaperKind; label: string; cls: string }> = [
+  { value: 'wet', label: 'مبلّل', cls: 'bg-moss-50 text-moss-500' },
+  { value: 'dirty', label: 'متّسخ', cls: 'bg-clay-50 text-clay-600' },
+  { value: 'both', label: 'الاثنان', cls: 'bg-brass-50 text-brass-600' },
 ]
+
+/** رسم بسيط يميّز نوع التغيير: قطرة، أو قطرتان، أو الاثنان */
+function KindMark({ kind, className }: { kind: DiaperKind; className?: string }) {
+  if (kind === 'wet') return <DropIcon className={className} />
+  if (kind === 'dirty') return <SparkleIcon className={className} />
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      <DropIcon className={className} />
+      <SparkleIcon className={className} />
+    </span>
+  )
+}
 
 const labelOf = (k: DiaperKind) => KINDS.find((x) => x.value === k)!
 
@@ -31,22 +43,24 @@ export default function DiapersScreen() {
       <ScreenHeader title="الحفاضات" subtitle="سجّل بضغطة واحدة" back />
 
       <div className="flex gap-3 mb-4">
-        <StatTile label="مبلّل اليوم" value={wet} icon={<DropIcon className="w-4 h-4" />} tone="sky" />
-        <StatTile label="متّسخ اليوم" value={dirty} tone="peach" />
+        <StatTile label="مبلّل اليوم" value={wet} icon={<DropIcon className="w-4 h-4" />} />
+        <StatTile label="متّسخ اليوم" value={dirty} />
         <StatTile label="آخر تغيير" value={last ? relativeFromNow(last.time) : '—'} />
       </div>
 
       <Card>
-        <div className="text-sage-600 text-sm mb-3">سجّل تغييرًا الآن</div>
+        <div className="text-ink-600 text-sm mb-3">سجّل تغييرًا الآن</div>
         <div className="grid grid-cols-3 gap-3">
           {KINDS.map((k) => (
             <button
               key={k.value}
               onClick={() => addDiaper(k.value)}
-              className="card !p-4 text-center active:scale-95 transition border border-cream-200"
+              className="card !p-4 text-center active:scale-95 transition border border-paper-200"
             >
-              <div className="text-3xl mb-1">{k.emoji}</div>
-              <div className="text-sm font-medium text-sage-700">{k.label}</div>
+              <span className={`w-11 h-11 rounded-full grid place-items-center mx-auto mb-2 ${k.cls}`}>
+                <KindMark kind={k.value} className="w-5 h-5" />
+              </span>
+              <div className="text-sm font-medium text-ink-800">{k.label}</div>
             </button>
           ))}
         </div>
@@ -62,11 +76,11 @@ export default function DiapersScreen() {
             return (
               <Card key={d.id} className="!p-3.5 flex items-center gap-3">
                 <div className={`w-11 h-11 rounded-full grid place-items-center shrink-0 ${k.cls}`}>
-                  <span className="text-lg">{k.emoji}</span>
+                  <KindMark kind={d.kind} className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sage-800">{k.label}</div>
-                  <div className="text-xs text-sage-400">
+                  <div className="font-medium text-ink-900">{k.label}</div>
+                  <div className="text-xs text-ink-400">
                     {isSameLocalDay(d.time) ? 'اليوم' : formatShortDate(d.time)} • {formatTime(d.time)}
                   </div>
                 </div>
@@ -78,7 +92,7 @@ export default function DiapersScreen() {
                       onConfirm: () => deleteDiaper(d.id),
                     })
                   }
-                  className="text-sage-300 hover:text-red-600 p-2"
+                  className="text-ink-300 hover:text-clay-600 p-2"
                   aria-label="حذف"
                 >
                   <TrashIcon className="w-5 h-5" />

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, EmptyState, Field, Sheet, StatTile } from '../../components/ui'
 import { useConfirm } from '../../components/Confirm'
-import { ChartIcon, PlusIcon, TrashIcon } from '../../components/icons'
+import { ChartIcon, PlusIcon, RulerIcon, TrashIcon } from '../../components/icons'
 import { addGrowth, deleteGrowth, useAppData } from '../../data/dataService'
 import { formatDate } from '../../lib/format'
 import { localDateInputValue } from '../../lib/localDate'
@@ -32,7 +32,7 @@ export default function GrowthScreen() {
         action={
           <button
             onClick={() => setOpen(true)}
-            className="w-10 h-10 grid place-items-center rounded-full bg-blush-300 text-white shadow-soft"
+            className="w-10 h-10 grid place-items-center rounded-full bg-brass-500 text-white shadow-lift"
             aria-label="قياس جديد"
           >
             <PlusIcon className="w-5 h-5" />
@@ -46,16 +46,15 @@ export default function GrowthScreen() {
             label="الوزن"
             value={latest.weightKg != null ? `${latest.weightKg} كجم` : '—'}
             sub={delta != null ? `${delta >= 0 ? '+' : ''}${delta.toFixed(2)} عن السابق` : undefined}
-            icon={<ChartIcon className="w-4 h-4" />}
-            tone="blush"
+            icon={<RulerIcon className="w-4 h-4" />}
           />
           <StatTile label="الطول" value={latest.lengthCm != null ? `${latest.lengthCm} سم` : '—'} />
           <StatTile label="محيط الرأس" value={latest.headCm != null ? `${latest.headCm} سم` : '—'} />
         </div>
       )}
 
-      <Card className="bg-sky-100 mb-4">
-        <p className="text-sm text-sage-600 leading-relaxed">
+      <Card className="bg-moss-50 mb-4">
+        <p className="text-sm text-ink-600 leading-relaxed">
           هذه الشاشة لتوثيق قياساتكم فقط. تقييم النمو ومقارنته بمنحنيات النمو
           يعود لطبيب الأطفال في زيارات المتابعة.
         </p>
@@ -72,15 +71,15 @@ export default function GrowthScreen() {
         <div className="space-y-2">
           {sorted.map((g) => (
             <Card key={g.id} className="!p-3.5 flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full bg-blush-100 text-blush-300 grid place-items-center shrink-0">
+              <div className="w-11 h-11 rounded-full bg-brass-50 text-brass-500 grid place-items-center shrink-0">
                 <ChartIcon className="w-6 h-6" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-sage-800">{formatDate(g.date)}</div>
-                <div className="text-xs text-sage-400 flex flex-wrap gap-x-3">
-                  {g.weightKg != null && <span>⚖️ {g.weightKg} كجم</span>}
-                  {g.lengthCm != null && <span>📏 {g.lengthCm} سم</span>}
-                  {g.headCm != null && <span>🧠 {g.headCm} سم</span>}
+                <div className="font-medium text-ink-900">{formatDate(g.date)}</div>
+                <div className="text-xs text-ink-400 flex flex-wrap gap-x-3">
+                  {g.weightKg != null && <span>الوزن {g.weightKg} كجم</span>}
+                  {g.lengthCm != null && <span>الطول {g.lengthCm} سم</span>}
+                  {g.headCm != null && <span>محيط الرأس {g.headCm} سم</span>}
                 </div>
               </div>
               <button
@@ -91,7 +90,7 @@ export default function GrowthScreen() {
                     onConfirm: () => deleteGrowth(g.id),
                   })
                 }
-                className="text-sage-300 hover:text-red-600 p-2"
+                className="text-ink-300 hover:text-clay-600 p-2"
                 aria-label="حذف"
               >
                 <TrashIcon className="w-5 h-5" />

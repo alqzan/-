@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, Segmented } from '../../components/ui'
-import { BookOpenIcon } from '../../components/icons'
+import { LockIcon, PrintIcon, QuoteIcon, StarIcon } from '../../components/icons'
+import { EmbraceMark, Monogram } from '../../components/illustrations'
 import { useAppData } from '../../data/dataService'
 import { formatDate, parentLabel, pluralAr } from '../../lib/format'
 import { photoSrc } from '../../lib/image'
 import { getPregnancyProgress } from '../../lib/pregnancy'
 import { ageInDays } from '../../lib/localDate'
+import { stageLabel } from './timeline'
 import type { Photo } from '../../data/types'
 
 type Scope = 'favorites' | 'all'
@@ -24,7 +26,7 @@ type Scope = 'favorites' | 'all'
 type Entry =
   | { kind: 'photo'; date: string; photo: Photo }
   | { kind: 'journal'; date: string; title?: string; text: string; author: 'mom' | 'dad' }
-  | { kind: 'milestone'; date: string; title: string; emoji: string; note?: string }
+  | { kind: 'milestone'; date: string; title: string; note?: string }
   | { kind: 'capsule'; date: string; title: string; message: string; author: 'mom' | 'dad' }
 
 export default function MemoryBook() {
@@ -54,7 +56,6 @@ export default function MemoryBook() {
             kind: 'milestone',
             date: m.achievedAt!,
             title: m.title,
-            emoji: m.emoji,
             note: m.note,
           }),
         ),
@@ -82,20 +83,24 @@ export default function MemoryBook() {
       if (!byMonth.has(key)) byMonth.set(key, [])
       byMonth.get(key)!.push(entry)
     }
-    return [...byMonth.entries()].map(([key, entries]) => ({
-      key,
-      label: new Date(`${key}-01T12:00:00`).toLocaleDateString('ar', {
-        month: 'long',
-        year: 'numeric',
-      }),
-      entries,
-    }))
-  }, [timeline])
+    return [...byMonth.entries()].map(([key, entries]) => {
+      const [year, month] = key.split('-').map(Number)
+      return {
+        key,
+        label: new Date(`${key}-01T12:00:00`).toLocaleDateString('ar', {
+          month: 'long',
+          year: 'numeric',
+        }),
+        stage: stageLabel(data.child, new Date(year, month - 1, 15)),
+        entries,
+      }
+    })
+  }, [timeline, data.child])
 
   const progress = getPregnancyProgress(data.child.lmpDate, data.child.dueDate)
   const childName = data.child.name || 'طفلنا'
-  const momName = data.child.parents.momName || 'ماما'
-  const dadName = data.child.parents.dadName || 'بابا'
+  const momName = data.child.parents.momName || 'أمه'
+  const dadName = data.child.parents.dadName || 'أبوه'
 
   const stats = useMemo(
     () => [
@@ -113,16 +118,16 @@ export default function MemoryBook() {
     <>
       {/* ===== أدوات الشاشة (لا تُطبع) ===== */}
       <div className="print:hidden">
-        <ScreenHeader title="كتاب الذكريات" subtitle="جاهز للطباعة أو الحفظ PDF" back />
+        <ScreenHeader title="كتاب الذكريات" subtitle="جاهز للطباعة أو الحفظ PDF" />
 
-        <Card className="mb-4">
-          <p className="text-sm text-sage-600 leading-relaxed mb-3">
-            رحلتكم كاملة في كتاب واحد مرتّب بالتاريخ. اضغطوا «اطبع» ثم اختاروا
+        <Card className="mb-6">
+          <p className="text-[13px] text-ink-600 leading-relaxed mb-4">
+            رحلتكم كاملة في كتاب واحد مرتّب بالتاريخ. اضغطوا «اطبعوا الكتاب» ثم اختاروا
             <span className="font-bold"> حفظ كـ PDF </span>
             للاحتفاظ بنسخة أو إهدائها للعائلة.
           </p>
           {favorites.length > 0 && (
-            <div className="mb-3">
+            <div className="mb-4">
               <Segmented
                 label="الصور المضمّنة"
                 value={scope}
@@ -135,7 +140,7 @@ export default function MemoryBook() {
             </div>
           )}
           <Button className="w-full py-3" onClick={() => window.print()}>
-            <BookOpenIcon className="w-5 h-5" /> اطبع الكتاب
+            <PrintIcon className="w-5 h-5" /> اطبعوا الكتاب
           </Button>
         </Card>
       </div>
@@ -143,20 +148,26 @@ export default function MemoryBook() {
       {/* ===== الكتاب ===== */}
       <article className="memory-book">
         {/* --- الغلاف --- */}
-        <header className="book-cover">
-          {data.child.photo && (
-            <img src={data.child.photo} alt={childName} className="book-cover-photo" />
+        <header className="book-cover text-center">
+          {data.child.photo ? (
+            <img
+              src={data.child.photo}
+              alt={childName}
+              className="w-28 h-28 rounded-full object-cover mx-auto mb-5 border border-line"
+            />
+          ) : (
+            <Monogram name={childName} className="w-24 h-24 text-4xl mx-auto mb-5" />
           )}
-          <div className="text-5xl mb-3">💛</div>
-          <p className="text-sage-400 text-sm tracking-wide">كتاب ذكريات</p>
-          <h1 className="text-4xl font-extrabold text-sage-800 my-2 leading-tight">
+
+          <p className="eyebrow">كتاب ذكريات</p>
+          <h1 className="font-display font-bold text-[38px] text-ink-900 my-3 leading-tight">
             {childName}
           </h1>
-          <div className="book-rule" />
-          <p className="text-sage-600">
+          <EmbraceMark className="w-24 h-16 mx-auto text-clay-300" />
+          <p className="text-ink-600 mt-3">
             بقلم {momName} و{dadName}
           </p>
-          <p className="text-sm text-sage-400 mt-3 leading-relaxed">
+          <p className="text-[13px] text-ink-400 mt-3 leading-relaxed">
             {data.child.bornAt ? (
               <>
                 وصل إلى الدنيا في {formatDate(data.child.bornAt)}
@@ -183,13 +194,15 @@ export default function MemoryBook() {
 
           {/* أرقام الرحلة */}
           {!isEmpty && (
-            <div className="book-stats">
+            <div className="flex flex-wrap justify-center gap-x-7 gap-y-3 mt-7 pt-6 border-t border-line">
               {stats
                 .filter((s) => s.value > 0)
                 .map((s) => (
-                  <div key={s.label} className="book-stat">
-                    <div className="book-stat-value">{s.value}</div>
-                    <div className="book-stat-label">{s.label}</div>
+                  <div key={s.label} className="text-center">
+                    <div className="font-display font-bold text-[22px] text-ink-900 leading-none tnum">
+                      {s.value}
+                    </div>
+                    <div className="text-[11px] text-ink-400 mt-1.5">{s.label}</div>
                   </div>
                 ))}
             </div>
@@ -197,18 +210,26 @@ export default function MemoryBook() {
         </header>
 
         {isEmpty && (
-          <p className="text-center text-sage-400 py-12 leading-relaxed">
+          <p className="text-center text-ink-400 py-12 leading-relaxed">
             الكتاب فارغ حتى الآن.
             <br />
-            أضيفوا صورة أو اكتبوا رسالة، وستظهر هنا تلقائيًا مرتّبة بالتاريخ.
+            أضيفوا صورة أو اكتبوا رسالة، وبتظهر هنا تلقائيًا مرتّبة بالتاريخ.
           </p>
         )}
 
         {/* --- الفصول --- */}
         {chapters.map((chapter) => (
-          <section key={chapter.key} className="book-chapter">
-            <h2 className="book-chapter-title">{chapter.label}</h2>
-            <div className="space-y-5">
+          <section key={chapter.key} className="book-chapter mb-10">
+            <h2 className="book-chapter-title text-center mb-6">
+              <span className="block font-display font-bold text-[20px] text-ink-900">
+                {chapter.label}
+              </span>
+              {chapter.stage && (
+                <span className="block text-[12px] text-ink-400 mt-1">{chapter.stage}</span>
+              )}
+              <span className="book-rule" />
+            </h2>
+            <div className="space-y-6">
               {chapter.entries.map((entry, i) => (
                 <BookEntry key={`${chapter.key}-${i}`} entry={entry} />
               ))}
@@ -218,21 +239,29 @@ export default function MemoryBook() {
 
         {/* --- الكبسولات التي لم تُفتح بعد --- */}
         {data.capsules.some((c) => !c.isOpened) && (
-          <section className="book-chapter">
-            <h2 className="book-chapter-title">رسائل تنتظر وقتها</h2>
-            <p className="text-sm text-sage-500 mb-3 leading-relaxed">
-              كتبناها لك، وتُفتح في موعدها 💌
+          <section className="book-chapter mb-10">
+            <h2 className="book-chapter-title text-center mb-4">
+              <span className="block font-display font-bold text-[20px] text-ink-900">
+                رسائل تنتظر وقتها
+              </span>
+              <span className="book-rule" />
+            </h2>
+            <p className="text-[13px] text-ink-500 mb-4 leading-relaxed text-center">
+              كتبناها لك، وتُفتح كل واحدة في موعدها.
             </p>
-            <ul className="space-y-2">
+            <ul className="space-y-2.5">
               {data.capsules
                 .filter((c) => !c.isOpened)
                 .sort((a, b) => new Date(a.openAt).getTime() - new Date(b.openAt).getTime())
                 .map((c) => (
-                  <li key={c.id} className="book-entry flex items-center gap-3">
-                    <span className="text-xl shrink-0">🔒</span>
+                  <li
+                    key={c.id}
+                    className="book-entry flex items-center gap-3 bg-brass-50 border border-brass-100 rounded-2xl p-4"
+                  >
+                    <LockIcon className="w-5 h-5 text-brass-500 shrink-0" />
                     <div>
-                      <div className="font-medium text-sage-800">{c.title}</div>
-                      <div className="text-xs text-sage-400">
+                      <div className="font-medium text-ink-900">{c.title}</div>
+                      <div className="text-[12px] text-ink-400 mt-0.5">
                         من {parentLabel(c.author)} • تُفتح في {formatDate(c.openAt)}
                       </div>
                     </div>
@@ -242,12 +271,12 @@ export default function MemoryBook() {
           </section>
         )}
 
-        <footer className="book-footer">
+        <footer className="book-footer text-center">
           <div className="book-rule" />
-          <p className="text-sage-500 leading-relaxed">
-            كل صفحة هنا كُتبت بحبّ لـ{childName} 💛
+          <p className="font-serif text-ink-600 leading-relaxed">
+            كل صفحة هنا كُتبت بحبّ لـ{childName}.
           </p>
-          <p className="text-xs text-sage-400 mt-1">
+          <p className="text-[11px] text-ink-400 mt-2">
             من تطبيق «طفلنا» • {formatDate(new Date())}
           </p>
         </footer>
@@ -266,11 +295,11 @@ function BookEntry({ entry }: { entry: Entry }) {
         <img
           src={photoSrc(entry.photo)}
           alt={entry.photo.caption ?? 'ذكرى'}
-          className="w-full rounded-2xl"
+          className="w-full rounded-2xl border border-line"
         />
-        <figcaption className="text-sm text-sage-600 mt-2 leading-relaxed">
-          {entry.photo.caption && <span className="block">{entry.photo.caption}</span>}
-          <span className="text-xs text-sage-400">
+        <figcaption className="text-[13px] text-ink-600 mt-2.5 leading-relaxed text-center">
+          {entry.photo.caption && <span className="block font-serif">{entry.photo.caption}</span>}
+          <span className="text-[11px] text-ink-400">
             {day} • عدسة {parentLabel(entry.photo.author)}
           </span>
         </figcaption>
@@ -280,14 +309,12 @@ function BookEntry({ entry }: { entry: Entry }) {
 
   if (entry.kind === 'milestone') {
     return (
-      <div className="book-entry book-milestone">
-        <span className="text-3xl shrink-0">{entry.emoji}</span>
+      <div className="book-entry flex items-start gap-3 border-s-2 border-clay-300 ps-4">
+        <StarIcon className="w-5 h-5 text-clay-500 shrink-0 mt-1" />
         <div>
-          <div className="font-bold text-sage-800">{entry.title}</div>
-          <div className="text-xs text-sage-400">{day}</div>
-          {entry.note && (
-            <p className="text-sage-700 leading-relaxed mt-1">{entry.note}</p>
-          )}
+          <div className="font-display font-bold text-ink-900">{entry.title}</div>
+          <div className="text-[11px] text-ink-400 mt-0.5">{day}</div>
+          {entry.note && <p className="prose-note mt-1.5">{entry.note}</p>}
         </div>
       </div>
     )
@@ -295,23 +322,24 @@ function BookEntry({ entry }: { entry: Entry }) {
 
   if (entry.kind === 'capsule') {
     return (
-      <blockquote className="book-entry book-capsule">
-        <div className="text-xs text-sage-400 mb-1">
-          💌 كبسولة من {parentLabel(entry.author)} • فُتحت في {day}
+      <blockquote className="book-entry bg-brass-50 border border-brass-100 rounded-2xl p-5">
+        <div className="text-[11px] text-brass-600 mb-1.5">
+          كبسولة من {parentLabel(entry.author)} • فُتحت في {day}
         </div>
-        <div className="font-bold text-sage-800 mb-1">{entry.title}</div>
-        <p className="text-sage-700 leading-loose whitespace-pre-wrap">{entry.message}</p>
+        <div className="font-display font-bold text-ink-900 mb-1.5">{entry.title}</div>
+        <p className="prose-note whitespace-pre-wrap">{entry.message}</p>
       </blockquote>
     )
   }
 
   return (
-    <div className="book-entry book-letter">
-      {entry.title && <div className="font-bold text-sage-800">{entry.title}</div>}
-      <div className="text-xs text-sage-400 mb-1">
+    <div className="book-entry bg-paper-100 border border-line rounded-2xl p-5">
+      <QuoteIcon className="w-5 h-5 text-clay-200 mb-1" />
+      {entry.title && <div className="font-display font-bold text-ink-900">{entry.title}</div>}
+      <div className="text-[11px] text-ink-400 mb-2 mt-0.5">
         {parentLabel(entry.author)} • {day}
       </div>
-      <p className="text-sage-700 leading-loose whitespace-pre-wrap">{entry.text}</p>
+      <p className="prose-note whitespace-pre-wrap">{entry.text}</p>
     </div>
   )
 }

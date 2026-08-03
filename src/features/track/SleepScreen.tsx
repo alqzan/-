@@ -47,7 +47,6 @@ export default function SleepScreen() {
           label="نوم اليوم"
           value={humanMinutes(todayMinutes)}
           icon={<MoonIcon className="w-4 h-4" />}
-          tone="sage"
         />
         <StatTile label="عدد الغفوات" value={todayNaps} />
       </div>
@@ -55,22 +54,22 @@ export default function SleepScreen() {
       <Card className="text-center">
         {running ? (
           <>
-            <div className="text-sage-500 mb-1">نائم منذ {formatTime(running.startedAt)}</div>
-            <div className="text-5xl font-extrabold text-sage-800 tabular-nums my-3">
+            <div className="text-ink-500 mb-1">نائم منذ {formatTime(running.startedAt)}</div>
+            <div className="text-5xl font-extrabold text-ink-900 tabular-nums my-3">
               {formatDuration(elapsed)}
             </div>
             <Button className="w-full py-4" onClick={() => endSleep(running.id)}>
-              ☀️ استيقظ الآن
+              استيقظ الآن
             </Button>
           </>
         ) : (
           <>
-            <div className="w-20 h-20 rounded-full bg-sage-50 text-sage-500 grid place-items-center mx-auto mb-3">
+            <div className="w-20 h-20 rounded-full bg-paper-100 text-ink-500 grid place-items-center mx-auto mb-3">
               <MoonIcon className="w-10 h-10" />
             </div>
-            <p className="text-sage-700 font-medium mb-4">سجّلوا بداية النوم بضغطة</p>
+            <p className="text-ink-800 font-medium mb-4">سجّلوا بداية النوم بضغطة</p>
             <Button className="w-full py-4" onClick={() => startSleep()}>
-              🌙 بدأ النوم
+              بدأ النوم
             </Button>
           </>
         )}
@@ -86,14 +85,14 @@ export default function SleepScreen() {
               (new Date(s.endedAt!).getTime() - new Date(s.startedAt).getTime()) / 60000
             return (
               <Card key={s.id} className="!p-3.5 flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full bg-sage-50 text-sage-500 grid place-items-center shrink-0">
+                <div className="w-11 h-11 rounded-full bg-paper-100 text-ink-500 grid place-items-center shrink-0">
                   <MoonIcon className="w-6 h-6" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sage-800">{humanMinutes(minutes)}</div>
-                  <div className="text-xs text-sage-400">
+                  <div className="font-medium text-ink-900">{humanMinutes(minutes)}</div>
+                  <div className="text-xs text-ink-400">
                     {isSameLocalDay(s.startedAt) ? 'اليوم' : formatShortDate(s.startedAt)} •{' '}
-                    {formatTime(s.startedAt)} ← {formatTime(s.endedAt!)}
+                    {formatTime(s.startedAt)} — {formatTime(s.endedAt!)}
                   </div>
                 </div>
                 <button
@@ -104,7 +103,7 @@ export default function SleepScreen() {
                       onConfirm: () => deleteSleep(s.id),
                     })
                   }
-                  className="text-sage-300 hover:text-red-600 p-2"
+                  className="text-ink-300 hover:text-clay-600 p-2"
                   aria-label="حذف"
                 >
                   <TrashIcon className="w-5 h-5" />

@@ -2,18 +2,18 @@ import { useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, EmptyState, Field, Sheet, cx } from '../../components/ui'
 import { useConfirm } from '../../components/Confirm'
-import { HeartIcon, PlusIcon, TrashIcon } from '../../components/icons'
+import { HeartIcon, MomIcon, PlusIcon, TrashIcon } from '../../components/icons'
 import { addMomLog, deleteMomLog, useAppData } from '../../data/dataService'
 import { localDateInputValue } from '../../lib/localDate'
 import type { Mood } from '../../data/types'
 import { formatDate } from '../../lib/format'
 
-const MOODS: Array<{ value: Mood; emoji: string; label: string }> = [
-  { value: 'great', emoji: '😄', label: 'ممتاز' },
-  { value: 'good', emoji: '🙂', label: 'جيد' },
-  { value: 'ok', emoji: '😐', label: 'عادي' },
-  { value: 'tired', emoji: '😴', label: 'متعب' },
-  { value: 'unwell', emoji: '🤢', label: 'متوعك' },
+const MOODS: Array<{ value: Mood; label: string }> = [
+  { value: 'great', label: 'ممتاز' },
+  { value: 'good', label: 'جيد' },
+  { value: 'ok', label: 'عادي' },
+  { value: 'tired', label: 'متعبة' },
+  { value: 'unwell', label: 'تعبانة' },
 ]
 const moodOf = (m?: Mood) => MOODS.find((x) => x.value === m)
 
@@ -28,12 +28,12 @@ export default function MomScreen() {
     <>
       <ScreenHeader
         title="متابعة الأم"
-        subtitle="صحتك أولًا 💛"
+        subtitle="صحتكِ جزء من الحكاية"
         back
         action={
           <button
             onClick={() => setOpen(true)}
-            className="w-10 h-10 grid place-items-center rounded-full bg-sage-400 text-white shadow-soft"
+            className="w-10 h-10 grid place-items-center rounded-full bg-ink-400 text-white shadow-lift"
             aria-label="تدوينة جديدة"
           >
             <PlusIcon className="w-5 h-5" />
@@ -55,25 +55,27 @@ export default function MomScreen() {
             return (
               <Card key={log.id} className="!p-4">
                 <div className="flex items-start gap-3">
-                  <div className="text-3xl">{mood?.emoji ?? '📝'}</div>
+                  <div className="w-10 h-10 rounded-full bg-paper-200 text-ink-500 grid place-items-center shrink-0">
+                    <MomIcon className="w-5 h-5" />
+                  </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-sage-800">{formatDate(log.date)}</span>
+                      <span className="font-display font-bold text-ink-900">{formatDate(log.date)}</span>
                       {log.weightKg != null && (
-                        <span className="chip !text-xs">⚖️ {log.weightKg} كجم</span>
+                        <span className="chip !text-xs tnum">{log.weightKg} كجم</span>
                       )}
                     </div>
-                    {mood && <div className="text-sm text-sage-500 mt-0.5">المزاج: {mood.label}</div>}
+                    {mood && <div className="text-sm text-ink-500 mt-0.5">المزاج: {mood.label}</div>}
                     {log.symptoms.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         {log.symptoms.map((s) => (
-                          <span key={s} className="chip !bg-peach-100 !text-peach-500 !text-xs">
+                          <span key={s} className="chip !bg-clay-50 !text-clay-600 !text-xs">
                             {s}
                           </span>
                         ))}
                       </div>
                     )}
-                    {log.note && <p className="text-sm text-sage-600 mt-2">{log.note}</p>}
+                    {log.note && <p className="text-sm text-ink-600 mt-2">{log.note}</p>}
                   </div>
                   <button
                     onClick={() =>
@@ -83,7 +85,7 @@ export default function MomScreen() {
                         onConfirm: () => deleteMomLog(log.id),
                       })
                     }
-                    className="text-sage-300 hover:text-red-600 p-1"
+                    className="text-ink-300 hover:text-clay-600 p-1"
                     aria-label="حذف"
                   >
                     <TrashIcon className="w-5 h-5" />
@@ -147,12 +149,13 @@ function AddMomLogSheet({ open, onClose }: { open: boolean; onClose: () => void 
               key={m.value}
               onClick={() => setMood(m.value === mood ? undefined : m.value)}
               className={cx(
-                'flex-1 rounded-2xl py-2 text-2xl border transition',
-                mood === m.value ? 'bg-sage-100 border-sage-300' : 'bg-white border-cream-300',
+                'flex-1 rounded-2xl py-2.5 text-[13px] border transition',
+                mood === m.value
+                  ? 'bg-ink-900 text-paper-50 border-ink-900'
+                  : 'bg-white border-line text-ink-600',
               )}
-              title={m.label}
             >
-              {m.emoji}
+              {m.label}
             </button>
           ))}
         </div>
@@ -167,8 +170,8 @@ function AddMomLogSheet({ open, onClose }: { open: boolean; onClose: () => void 
               className={cx(
                 'rounded-full px-3 py-1.5 text-sm border transition',
                 symptoms.includes(s)
-                  ? 'bg-peach-400 text-white border-peach-400'
-                  : 'bg-white text-sage-600 border-cream-300',
+                  ? 'bg-clay-500 text-white border-clay-500'
+                  : 'bg-white text-ink-600 border-paper-300',
               )}
             >
               {s}

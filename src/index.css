@@ -1,0 +1,241 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== خط ثمانية Thmanyah Sans (مستضاف محليًا) ===== */
+@font-face {
+  font-family: 'Thmanyah Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/thmanyahsans-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Thmanyah Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/thmanyahsans-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Thmanyah Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/thmanyahsans-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Thmanyah Sans';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('/fonts/thmanyahsans-Black.woff2') format('woff2');
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-cream-100 text-sage-800 font-sans antialiased;
+    /* منع السحب/التكبير المزعج على الجوال */
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* شريط تمرير ناعم */
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+
+@layer components {
+  .app-container {
+    @apply mx-auto w-full max-w-md min-h-full bg-cream-100 relative;
+  }
+
+  .screen {
+    @apply px-4 pb-28 pt-2;
+  }
+
+  .card {
+    @apply bg-white rounded-card shadow-card p-4;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-primary {
+    @apply btn bg-sage-400 text-white px-5 py-2.5 shadow-soft hover:bg-sage-500;
+  }
+
+  .btn-ghost {
+    @apply btn bg-sage-100 text-sage-700 px-4 py-2 hover:bg-sage-200;
+  }
+
+  .btn-peach {
+    @apply btn bg-peach-400 text-white px-5 py-2.5 hover:bg-peach-500;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full bg-sage-100 text-sage-700 text-sm px-3 py-1;
+  }
+
+  .input {
+    @apply w-full rounded-2xl border border-cream-300 bg-cream-50 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-300;
+  }
+
+  .section-title {
+    @apply text-sage-700 font-bold text-lg mb-3;
+  }
+
+  .book-title {
+    @apply text-sage-700 font-bold text-lg mb-3 pb-1 border-b border-cream-300;
+  }
+
+  /* ===== كتاب الذكريات ===== */
+  .book-cover {
+    @apply text-center py-10 px-4;
+  }
+
+  .book-cover-photo {
+    @apply w-28 h-28 rounded-full object-cover mx-auto mb-4 shadow-card ring-4 ring-white;
+  }
+
+  /* فاصل زخرفي صغير بدل خط ممتد — أقرب لروح الكتاب المطبوع */
+  .book-rule {
+    @apply mx-auto my-3 h-px w-16 bg-cream-300;
+  }
+
+  .book-stats {
+    @apply flex flex-wrap justify-center gap-x-6 gap-y-2 mt-6 pt-5 border-t border-cream-200;
+  }
+
+  .book-stat {
+    @apply text-center;
+  }
+
+  .book-stat-value {
+    @apply text-2xl font-extrabold text-sage-700 leading-none;
+  }
+
+  .book-stat-label {
+    @apply text-[11px] text-sage-400 mt-1;
+  }
+
+  .book-chapter {
+    @apply mb-10;
+  }
+
+  .book-chapter-title {
+    @apply text-sage-500 font-bold text-sm tracking-wide text-center mb-5
+           before:content-['—'] before:mx-2 after:content-['—'] after:mx-2;
+  }
+
+  .book-entry {
+    @apply break-inside-avoid;
+  }
+
+  .book-letter {
+    @apply bg-cream-50 rounded-2xl p-4 border border-cream-200;
+  }
+
+  .book-capsule {
+    @apply bg-sky-100/60 rounded-2xl p-4 border border-sky-200;
+  }
+
+  .book-milestone {
+    @apply flex items-start gap-3 bg-blush-100/50 rounded-2xl p-4;
+  }
+
+  .book-footer {
+    @apply text-center pt-6 pb-2;
+  }
+}
+
+/* ===== وضع الطباعة: كتاب الذكريات ===== */
+@page {
+  size: A4;
+  margin: 16mm 14mm;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  /* نخفي كل ما ليس جزءًا من الكتاب: التنقّل، الترويسات، الأزرار */
+  nav,
+  header:not(.memory-book header) {
+    display: none !important;
+  }
+
+  .app-container {
+    max-width: none;
+    background: #fff;
+  }
+
+  .screen {
+    padding: 0;
+  }
+
+  .memory-book {
+    color: #000;
+    /* الألوان الخلفية للبطاقات جزء من هوية الكتاب — نطلب من المتصفح طباعتها */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* الغلاف يملأ الصفحة الأولى وحده */
+  .book-cover {
+    break-after: page;
+    padding-top: 25vh;
+  }
+
+  /* كل شهر يبدأ صفحة جديدة — يقرأ كفصول لا كقائمة متصلة */
+  .book-chapter {
+    break-before: page;
+  }
+
+  .book-chapter-title,
+  .book-entry,
+  figure,
+  blockquote {
+    break-inside: avoid;
+  }
+
+  .memory-book img {
+    max-height: 11cm;
+    object-fit: contain;
+  }
+
+  .book-footer {
+    break-before: page;
+    padding-top: 30vh;
+  }
+}
+
+/* حركة ظهور لطيفة */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: fadeInUp 0.35s ease both;
+}

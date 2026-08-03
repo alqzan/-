@@ -1,0 +1,57 @@
+name: نشر GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# صلاحيات النشر على Pages عبر OIDC — بلا أي مفاتيح مخزّنة
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# نشرة واحدة في كل مرة؛ لا نلغي نشرة جارية حتى لا يبقى الموقع نصف محدَّث
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: البناء
+        # الموقع يعيش تحت /<اسم-المستودع>/ على GitHub Pages
+        run: npx vite build
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
+
+      - name: صفحة 404 للتوجيه من طرف العميل
+        # GitHub Pages لا يعرف مسارات React Router؛ تكرار index.html
+        # في 404.html يجعل تحديث الصفحة على أي مسار يعمل بدل خطأ 404.
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

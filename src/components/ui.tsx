@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   type ButtonHTMLAttributes,
   type ReactNode,
 } from 'react'
@@ -161,10 +162,11 @@ export function ProgressRing({
 type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'ghost' | 'peach'
 }
-export function Button({ variant = 'primary', className, ...rest }: BtnProps) {
+export function Button({ variant = 'primary', className, type = 'button', ...rest }: BtnProps) {
   const cls =
     variant === 'ghost' ? 'btn-ghost' : variant === 'peach' ? 'btn-peach' : 'btn-primary'
-  return <button className={cx(cls, className)} {...rest} />
+  // type="button" افتراضيًا: بدونه يصبح كل زر زرَّ إرسال داخل أي <form> يُضاف لاحقًا
+  return <button type={type} className={cx(cls, className)} {...rest} />
 }
 
 // ============ زر عائم (FAB) ============
@@ -193,17 +195,51 @@ export function Sheet({
   title: string
   children: ReactNode
 }) {
+  const panelRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     if (!open) return
     document.body.style.overflow = 'hidden'
-    // الإغلاق بمفتاح Escape (لوحة مفاتيح/ديسكتوب)
+
+    // نحفظ العنصر الذي كان مركَّزًا لنعيد إليه التركيز عند الإغلاق،
+    // وإلا رجع التركيز إلى أول الصفحة وضاع مكان المستخدم.
+    const previous = document.activeElement as HTMLElement | null
+    panelRef.current?.focus()
+
+    const focusable = () =>
+      Array.from(
+        panelRef.current?.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((el) => !el.hasAttribute('disabled'))
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+      // حبس التركيز داخل النافذة: بدونه يخرج Tab إلى محتوى الصفحة
+      // المحجوب خلف الطبقة الرمادية فيتوه مستخدم لوحة المفاتيح.
+      if (e.key !== 'Tab') return
+      const items = focusable()
+      if (items.length === 0) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      const active = document.activeElement
+      if (e.shiftKey && (active === first || active === panelRef.current)) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault()
+        first.focus()
+      }
     }
+
     window.addEventListener('keydown', onKey)
     return () => {
       document.body.style.overflow = ''
       window.removeEventListener('keydown', onKey)
+      previous?.focus?.()
     }
   }, [open, onClose])
 
@@ -214,10 +250,12 @@ export function Sheet({
     <div className="fixed inset-0 z-40 flex items-end justify-center">
       <div className="absolute inset-0 bg-sage-900/40 animate-in" onClick={onClose} />
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative w-full max-w-md bg-cream-50 rounded-t-3xl p-5 pb-8 shadow-2xl animate-in max-h-[85vh] overflow-y-auto"
+        tabIndex={-1}
+        className="relative w-full max-w-md bg-cream-50 rounded-t-3xl p-5 pb-8 shadow-2xl animate-in max-h-[85vh] overflow-y-auto outline-none"
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-sage-800">{title}</h3>
@@ -252,21 +290,48 @@ export function Field({
   )
 }
 
+/**
+ * غلاف لمجموعة أزرار اختيار.
+ *
+ * لا يصحّ استخدام `Field` هنا: `<label>` واحد يلفّ عدّة أزرار يُنسب
+ * إلى أوّلها فقط، فيقرأ قارئ الشاشة عنوان المجموعة على الخيار الأول
+ * ويترك البقية بلا سياق. `fieldset/legend` هو البناء الصحيح.
+ */
+export function FieldGroup({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <fieldset className="block mb-3 border-0 p-0 m-0">
+      <legend className="block text-sm text-sage-600 mb-1.5 p-0">{label}</legend>
+      {children}
+    </fieldset>
+  )
+}
+
 // ============ اختيار مقسّم ============
 export function Segmented<T extends string>({
   options,
   value,
   onChange,
+  label,
 }: {
   options: Array<{ value: T; label: string }>
   value: T
   onChange: (v: T) => void
+  label?: string
 }) {
   return (
-    <div className="flex bg-sage-100 rounded-full p-1 gap-1">
+    <div role="radiogroup" aria-label={label} className="flex bg-sage-100 rounded-full p-1 gap-1">
       {options.map((o) => (
         <button
           key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
           className={cx(
             'flex-1 rounded-full py-2 text-sm font-medium transition',

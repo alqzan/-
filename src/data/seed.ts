@@ -7,6 +7,7 @@ export function emptyData(): AppData {
   return {
     version: DATA_VERSION,
     setupComplete: false,
+    familyId: null,
     child: {
       name: '',
       gender: 'unknown',
@@ -36,16 +37,33 @@ export function emptyData(): AppData {
 
 // بيانات تجريبية أولية (عربية) — للعرض والتجربة فقط.
 // لا تُستخدم عند أول تشغيل حقيقي (الأول يبدأ بـ emptyData).
+//
+// كل التواريخ محسوبة نسبةً إلى «الآن» حتى لا تتقادم البيانات التجريبية:
+// المعاينة تعرض دائمًا حملًا في أسبوعه الرابع والعشرين تقريبًا.
+
+const DAY_MS = 86400000
+
+/** تاريخ بإزاحة أيام عن الآن — موجب = المستقبل */
+function dayOffset(days: number, hour = 12, minute = 0): Date {
+  const d = new Date(Date.now() + days * DAY_MS)
+  d.setHours(hour, minute, 0, 0)
+  return d
+}
+
+const isoAt = (days: number, hour = 12, minute = 0) => dayOffset(days, hour, minute).toISOString()
+const dateOnly = (days: number) => dayOffset(days).toISOString().slice(0, 10)
 
 export function seedData(): AppData {
   return {
     version: DATA_VERSION,
     setupComplete: true,
+    familyId: null,
     child: {
       name: 'طفلنا',
       gender: 'unknown',
-      lmpDate: '2026-02-14',
-      dueDate: '2026-11-21',
+      // حمل في الأسبوع ٢٤ تقريبًا: ١٦٥ يومًا مضت، والموعد بعد ١١٥ يومًا
+      lmpDate: dateOnly(-165),
+      dueDate: dateOnly(115),
       bornAt: null,
       photo: null,
       parents: { momName: 'أمي', dadName: 'أبي' },
@@ -54,8 +72,8 @@ export function seedData(): AppData {
     kicks: [
       {
         id: 'k1',
-        startedAt: '2026-07-17T21:10:00',
-        endedAt: '2026-07-17T21:38:00',
+        startedAt: isoAt(-2, 21, 10),
+        endedAt: isoAt(-2, 21, 38),
         count: 10,
       },
     ],
@@ -66,7 +84,7 @@ export function seedData(): AppData {
       {
         id: 'a1',
         title: 'سونار الأسبوع 24',
-        dateTime: '2026-07-28T10:30:00',
+        dateTime: isoAt(4, 10, 30),
         type: 'ultrasound',
         location: 'مستشفى الولادة والأطفال',
         notes: 'إحضار تقرير الفحص السابق.',
@@ -74,7 +92,7 @@ export function seedData(): AppData {
       {
         id: 'a2',
         title: 'متابعة دورية',
-        dateTime: '2026-08-15T12:00:00',
+        dateTime: isoAt(22, 12, 0),
         type: 'checkup',
         location: 'عيادة د. سارة',
       },
@@ -83,7 +101,7 @@ export function seedData(): AppData {
     momLogs: [
       {
         id: 'm1',
-        date: '2026-07-16',
+        date: dateOnly(-3),
         weightKg: 64.5,
         mood: 'good',
         symptoms: ['غثيان خفيف'],
@@ -98,14 +116,14 @@ export function seedData(): AppData {
         id: 'j1',
         title: 'أول ركلة حسّيت فيها',
         text: 'اليوم حسّيت بأول ركلة واضحة! لحظة ما بنساها أبدًا. كأنك تسلّم علينا من هناك 💛',
-        date: '2026-07-10',
+        date: dateOnly(-9),
         author: 'mom',
       },
       {
         id: 'j2',
         title: 'رسالة من أبوك',
         text: 'ننتظرك بفارغ الصبر يا صغيرنا. جهّزنا لك كل شيء بحب، وباقي إنت بس.',
-        date: '2026-07-12',
+        date: dateOnly(-7),
         author: 'dad',
       },
     ],
@@ -116,8 +134,8 @@ export function seedData(): AppData {
         title: 'تُفتح في عيد ميلادك الأول',
         message: 'حبيبنا، يوم ما تقرأ هذي الرسالة تكون كملت سنة! كنت أحلى هدية وصلتنا. نحبك 🎂',
         author: 'mom',
-        openAt: '2027-11-21',
-        createdAt: '2026-07-12',
+        openAt: dateOnly(480),
+        createdAt: isoAt(-7),
         isOpened: false,
       },
     ],

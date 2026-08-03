@@ -78,7 +78,7 @@ export default function ChecklistScreen({ list }: { list: ChecklistName }) {
                   <span
                     onClick={(e) => {
                       e.stopPropagation()
-                      deleteChecklistItem(it.id)
+                      void deleteChecklistItem(it.id)
                     }}
                     className="text-sage-300 hover:text-peach-500 p-1"
                   >
@@ -112,7 +112,7 @@ function AddItemSheet({
 
   function submit() {
     if (!label.trim()) return
-    addChecklistItem({ label: label.trim(), category: category.trim() || 'أخرى', list })
+    void addChecklistItem({ label: label.trim(), category: category.trim() || 'أخرى', list })
     setLabel('')
     onClose()
   }

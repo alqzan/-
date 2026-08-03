@@ -68,10 +68,17 @@ export interface MomLog {
 
 export interface Photo {
   id: string
-  dataUrl: string
+  /** الصورة مضمّنة كـ Data URL — مسار التخزين المحلي */
+  dataUrl?: string
+  /** مسار الملف في Firebase Storage — يُملأ بعد الربط بدل `dataUrl` */
+  storagePath?: string
+  /** رابط التنزيل الجاهز للعرض (يُخزَّن مؤقتًا لتفادي طلب لكل صورة) */
+  remoteUrl?: string
   caption?: string
   date: string
   author: Parent
+  /** معرّف حساب الكاتب بعد ربط Auth — `author` يبقى للعرض ولبيانات ما قبل الربط */
+  authorUid?: string
   /** مميّزة بالقلب — تظهر في «المفضلة» وفي كتاب الذكريات */
   favorite?: boolean
 }
@@ -82,6 +89,7 @@ export interface JournalEntry {
   text: string
   date: string
   author: Parent
+  authorUid?: string
 }
 
 export interface TimeCapsule {
@@ -89,6 +97,7 @@ export interface TimeCapsule {
   title: string
   message: string
   author: Parent
+  authorUid?: string
   /** التاريخ الذي تُفتح فيه الرسالة — ISO */
   openAt: string
   createdAt: string
@@ -181,6 +190,11 @@ export interface VaccineDose {
 export interface AppData {
   version: number
   setupComplete: boolean
+  /**
+   * معرّف العائلة المشتركة بين الوالدين — يبقى `null` في التخزين المحلي،
+   * ويصبح مفتاح مستند العائلة في Firestore بعد الربط.
+   */
+  familyId: string | null
   child: ChildProfile
   kicks: KickSession[]
   contractions: Contraction[]

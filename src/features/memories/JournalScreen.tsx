@@ -157,9 +157,9 @@ function JournalSheet({
       date,
     }
     if (entry) {
-      updateJournal(entry.id, payload)
+      void updateJournal(entry.id, payload)
     } else {
-      addJournal(payload)
+      void addJournal(payload)
       setTitle('')
       setText('')
     }

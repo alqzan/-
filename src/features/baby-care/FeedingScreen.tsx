@@ -7,6 +7,7 @@ import { addFeeding, deleteFeeding, useAppData } from '../../data/dataService'
 import type { BreastSide, FeedingKind } from '../../data/types'
 import { formatDuration, formatTime, relativeFromNow } from '../../lib/format'
 import { isSameLocalDay } from '../../lib/localDate'
+import { useNow } from '../../lib/useNow'
 
 const ACTIVE_KEY = 'tafalna:active-feeding'
 
@@ -25,15 +26,10 @@ export default function FeedingScreen() {
   const data = useAppData()
   const [active, setActive] = useState<Active | null>(loadActive)
   const [bottleOpen, setBottleOpen] = useState(false)
-  const [, tick] = useState(0)
   const { confirm, dialog } = useConfirm()
 
   // مؤقّت حيّ + استمرارية الجلسة لو أُغلقت الشاشة
-  useEffect(() => {
-    if (!active) return
-    const t = setInterval(() => tick((n) => n + 1), 1000)
-    return () => clearInterval(t)
-  }, [active])
+  const now = useNow(active ? 1000 : null)
 
   useEffect(() => {
     try {
@@ -44,7 +40,7 @@ export default function FeedingScreen() {
     }
   }, [active])
 
-  const elapsed = active ? Math.floor((Date.now() - active.startedAt) / 1000) : 0
+  const elapsed = active ? Math.floor((now - active.startedAt) / 1000) : 0
 
   const today = data.feedings.filter((f) => isSameLocalDay(f.startedAt))
   const todayMl = today
@@ -57,7 +53,7 @@ export default function FeedingScreen() {
   function finishBreast() {
     if (!active) return
     const durationMin = Math.max(1, Math.round((Date.now() - active.startedAt) / 60000))
-    addFeeding({
+    void addFeeding({
       startedAt: new Date(active.startedAt).toISOString(),
       kind: 'breast',
       side: active.side,
@@ -176,7 +172,7 @@ function BottleSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
 
   function submit() {
     const kind: FeedingKind = 'bottle'
-    addFeeding({
+    void addFeeding({
       startedAt: new Date().toISOString(),
       kind,
       amountMl: amount ? Number(amount) : undefined,

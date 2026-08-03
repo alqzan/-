@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Button, Card, Field, Segmented } from '../../components/ui'
+import { Button, Card, Field, FieldGroup, Segmented } from '../../components/ui'
 import { completeSetup } from '../../data/dataService'
+import { localDateToIso } from '../../lib/localDate'
 import type { Gender } from '../../data/types'
 
 type Stage = 'pregnancy' | 'born'
@@ -26,12 +27,15 @@ export default function Onboarding() {
       setError(stage === 'pregnancy' ? 'أدخلوا تاريخ آخر دورة أو موعد الولادة المتوقع.' : 'أدخلوا تاريخ الولادة.')
       return
     }
-    completeSetup({
+    // نحوّل قيمة حقل التاريخ ("YYYY-MM-DD") إلى ظهر اليوم بالتوقيت المحلي.
+    // القراءة الخام كانت تُفسَّر كمنتصف ليل UTC، فيظهر عمر الطفل ناقصًا يومًا
+    // لمن يعيش في توقيت سالب — والإعدادات كانت تحفظ بصيغة مختلفة عن هنا.
+    void completeSetup({
       name: childName.trim() || 'طفلنا',
       gender,
-      lmpDate: stage === 'pregnancy' && lmpDate ? lmpDate : null,
-      dueDate: stage === 'pregnancy' && dueDate ? dueDate : null,
-      bornAt: stage === 'born' ? bornAt : null,
+      lmpDate: stage === 'pregnancy' && lmpDate ? localDateToIso(lmpDate) : null,
+      dueDate: stage === 'pregnancy' && dueDate ? localDateToIso(dueDate) : null,
+      bornAt: stage === 'born' && bornAt ? localDateToIso(bornAt) : null,
       photo: null,
       parents: {
         momName: momName.trim() || 'ماما',
@@ -52,7 +56,7 @@ export default function Onboarding() {
         </div>
 
         <Card>
-          <Field label="أين تبدأ قصتكم؟">
+          <FieldGroup label="أين تبدأ قصتكم؟">
             <Segmented
               value={stage}
               onChange={setStage}
@@ -61,7 +65,7 @@ export default function Onboarding() {
                 { value: 'born', label: 'بعد الولادة' },
               ]}
             />
-          </Field>
+          </FieldGroup>
           <Field label="اسم الطفل أو الاسم المؤقت">
             <input className="input" value={childName} onChange={(e) => setChildName(e.target.value)} placeholder="طفلنا" />
           </Field>
@@ -73,7 +77,7 @@ export default function Onboarding() {
               <input className="input" value={dadName} onChange={(e) => setDadName(e.target.value)} placeholder="بابا" />
             </Field>
           </div>
-          <Field label="الجنس (اختياري)">
+          <FieldGroup label="الجنس (اختياري)">
             <Segmented
               value={gender}
               onChange={setGender}
@@ -83,7 +87,7 @@ export default function Onboarding() {
                 { value: 'girl', label: 'بنت' },
               ]}
             />
-          </Field>
+          </FieldGroup>
 
           {stage === 'pregnancy' ? (
             <>

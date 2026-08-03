@@ -114,7 +114,7 @@ function AddMomLogSheet({ open, onClose }: { open: boolean; onClose: () => void 
   }
 
   function submit() {
-    addMomLog({
+    void addMomLog({
       date,
       weightKg: weight ? Number(weight) : undefined,
       mood,

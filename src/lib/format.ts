@@ -36,17 +36,40 @@ export function formatDuration(totalSec: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-/** وصف نسبي بسيط: منذ كم (باليوم/الساعة) */
+// العربية تميّز المفرد والمثنى والجمع، فـ«قبل 2 دقيقة» خطأ نحوي واضح.
+// Intl يتكفّل بذلك ويعطي «قبل دقيقتين» و«قبل ٣ دقائق» تلقائيًا.
+const relativeFormatter = new Intl.RelativeTimeFormat(AR_LOCALE, { numeric: 'auto' })
+
+/** وصف نسبي: «الآن»، «قبل دقيقتين»، «أمس»… */
 export function relativeFromNow(iso: string, now: Date = new Date()): string {
   const diffMs = now.getTime() - new Date(iso).getTime()
   const mins = Math.floor(diffMs / 60000)
   if (mins < 1) return 'الآن'
-  if (mins < 60) return `قبل ${mins} دقيقة`
+  if (mins < 60) return relativeFormatter.format(-mins, 'minute')
   const hours = Math.floor(mins / 60)
-  if (hours < 24) return `قبل ${hours} ساعة`
+  if (hours < 24) return relativeFormatter.format(-hours, 'hour')
   const days = Math.floor(hours / 24)
-  if (days === 1) return 'أمس'
-  return `قبل ${days} يوم`
+  if (days < 30) return relativeFormatter.format(-days, 'day')
+  const months = Math.floor(days / 30)
+  if (months < 12) return relativeFormatter.format(-months, 'month')
+  return relativeFormatter.format(-Math.floor(days / 365), 'year')
+}
+
+/** صيغة عربية سليمة للعدّ: «يوم واحد»، «يومان»، «٥ أيام» */
+export function pluralAr(count: number, one: string, two: string, few: string, many: string): string {
+  const rules = new Intl.PluralRules(AR_LOCALE)
+  switch (rules.select(count)) {
+    case 'one':
+      return one
+    case 'two':
+      return two
+    case 'few':
+      return `${count} ${few}`
+    case 'many':
+      return `${count} ${many}`
+    default:
+      return `${count} ${many}`
+  }
 }
 
 const MONTH_NAMES = [

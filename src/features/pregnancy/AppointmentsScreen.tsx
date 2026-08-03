@@ -12,6 +12,7 @@ import type { Appointment, AppointmentType } from '../../data/types'
 import { formatDate, formatTime } from '../../lib/format'
 import { fileToDataUrl } from '../../lib/image'
 import { downloadAppointmentICS } from '../../lib/ics'
+import { useNow } from '../../lib/useNow'
 
 const TYPE_LABEL: Record<AppointmentType, string> = {
   checkup: 'متابعة',
@@ -34,7 +35,7 @@ export default function AppointmentsScreen() {
   const sorted = [...data.appointments].sort(
     (a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime(),
   )
-  const now = Date.now()
+  const now = useNow(60000)
   const upcoming = sorted.filter((a) => new Date(a.dateTime).getTime() >= now)
   const past = sorted.filter((a) => new Date(a.dateTime).getTime() < now).reverse()
 
@@ -106,7 +107,8 @@ export default function AppointmentsScreen() {
 }
 
 function AppointmentCard({ a, onDelete }: { a: Appointment; onDelete: () => void }) {
-  const upcoming = new Date(a.dateTime).getTime() >= Date.now()
+  const now = useNow(60000)
+  const upcoming = new Date(a.dateTime).getTime() >= now
   return (
     <Card className="!p-3.5">
       <div className="flex items-start gap-3">
@@ -169,7 +171,7 @@ function AddAppointmentSheet({ open, onClose }: { open: boolean; onClose: () => 
   function submit() {
     if (!title.trim() || !date) return
     const dateTime = new Date(`${date}T${time || '09:00'}`).toISOString()
-    addAppointment({ title: title.trim(), type, dateTime, location, notes, image })
+    void addAppointment({ title: title.trim(), type, dateTime, location, notes, image })
     reset()
     onClose()
   }

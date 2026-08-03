@@ -1,5 +1,23 @@
+import type { Photo } from '../data/types'
+
 // تحويل ملف صورة إلى Data URL مع تصغيره للحفاظ على مساحة التخزين المحلي.
 // (لاحقًا مع Firebase Storage نرفع الملف الأصلي بدل التخزين المحلي.)
+
+/**
+ * مصدر عرض الصورة.
+ *
+ * مصدر واحد لهذا المنطق في كل التطبيق: اليوم الصور Data URLs محلية،
+ * وبعد ربط Firebase Storage تصير روابط تنزيل. الشاشات تستدعي هذه الدالة
+ * فلا يتغيّر فيها سطر واحد عند التبديل.
+ */
+export function photoSrc(photo: Pick<Photo, 'dataUrl' | 'remoteUrl'>): string {
+  return photo.dataUrl ?? photo.remoteUrl ?? ''
+}
+
+/** حجم الصورة التقريبي بالبايت — يُحتسب فقط للصور المخزّنة محليًا */
+export function photoBytes(photo: Pick<Photo, 'dataUrl'>): number {
+  return (photo.dataUrl?.length ?? 0) * 2
+}
 
 export async function fileToDataUrl(file: File, maxSize = 1000): Promise<string> {
   const dataUrl = await readAsDataUrl(file)

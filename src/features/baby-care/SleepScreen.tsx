@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, EmptyState, StatTile } from '../../components/ui'
 import { useConfirm } from '../../components/Confirm'
@@ -6,6 +5,7 @@ import { MoonIcon, TrashIcon } from '../../components/icons'
 import { deleteSleep, endSleep, startSleep, useAppData } from '../../data/dataService'
 import { formatDuration, formatShortDate, formatTime } from '../../lib/format'
 import { isSameLocalDay } from '../../lib/localDate'
+import { useNow } from '../../lib/useNow'
 
 /** يحوّل الدقائق إلى «٣ س ٢٠ د» */
 function humanMinutes(min: number): string {
@@ -17,19 +17,15 @@ function humanMinutes(min: number): string {
 
 export default function SleepScreen() {
   const data = useAppData()
-  const [, tick] = useState(0)
   const { confirm, dialog } = useConfirm()
 
   const running = data.sleep.find((s) => !s.endedAt) ?? null
 
-  useEffect(() => {
-    if (!running) return
-    const t = setInterval(() => tick((n) => n + 1), 1000)
-    return () => clearInterval(t)
-  }, [running])
+  // المؤقّت يعمل فقط أثناء نوم فعلي — لا نبضة كل ثانية والشاشة ساكنة
+  const now = useNow(running ? 1000 : null)
 
   const elapsed = running
-    ? Math.floor((Date.now() - new Date(running.startedAt).getTime()) / 1000)
+    ? Math.floor((now - new Date(running.startedAt).getTime()) / 1000)
     : 0
 
   const finished = data.sleep.filter((s) => s.endedAt)

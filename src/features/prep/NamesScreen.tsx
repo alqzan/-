@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
-import { Button, Card, EmptyState, Field, Segmented, Sheet, cx } from '../../components/ui'
+import { Button, Card, EmptyState, Field, FieldGroup, Segmented, Sheet, cx } from '../../components/ui'
 import { useConfirm } from '../../components/Confirm'
 import { HeartFillIcon, HeartIcon, PlusIcon, TrashIcon } from '../../components/icons'
 import { addName, deleteName, toggleNameVote, useAppData } from '../../data/dataService'
@@ -128,7 +128,7 @@ function AddNameSheet({ open, onClose }: { open: boolean; onClose: () => void })
 
   function submit() {
     if (!name.trim()) return
-    addName({ name: name.trim(), meaning: meaning.trim() || undefined, gender, proposedBy })
+    void addName({ name: name.trim(), meaning: meaning.trim() || undefined, gender, proposedBy })
     setName('')
     setMeaning('')
     onClose()
@@ -142,7 +142,7 @@ function AddNameSheet({ open, onClose }: { open: boolean; onClose: () => void })
       <Field label="المعنى (اختياري)">
         <input className="input" value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder="معنى الاسم" />
       </Field>
-      <Field label="النوع">
+      <FieldGroup label="النوع">
         <Segmented
           value={gender}
           onChange={setGender}
@@ -152,8 +152,8 @@ function AddNameSheet({ open, onClose }: { open: boolean; onClose: () => void })
             { value: 'unknown', label: 'محايد' },
           ]}
         />
-      </Field>
-      <Field label="المقترِح">
+      </FieldGroup>
+      <FieldGroup label="المقترِح">
         <Segmented
           value={proposedBy}
           onChange={setProposedBy}
@@ -162,7 +162,7 @@ function AddNameSheet({ open, onClose }: { open: boolean; onClose: () => void })
             { value: 'dad', label: 'أبي' },
           ]}
         />
-      </Field>
+      </FieldGroup>
       <Button className="w-full mt-2" onClick={submit} disabled={!name.trim()}>
         إضافة الاسم
       </Button>

@@ -116,7 +116,7 @@ export default function VaccinesScreen() {
             title: 'حذف هذه الجرعة من الجدول؟',
             confirmLabel: 'حذف',
             onConfirm: () => {
-              deleteVaccine(v.id)
+              void deleteVaccine(v.id)
               setSelected(null)
             },
           })
@@ -159,7 +159,7 @@ function VaccineSheet({
           <Button
             className="w-full mb-2"
             onClick={() => {
-              setVaccineGiven(dose.id, date ? localDateToIso(date) : null)
+              void setVaccineGiven(dose.id, date ? localDateToIso(date) : null)
               onClose()
             }}
           >
@@ -171,7 +171,7 @@ function VaccineSheet({
               variant="ghost"
               className="w-full mb-2"
               onClick={() => {
-                setVaccineGiven(dose.id, null)
+                void setVaccineGiven(dose.id, null)
                 onClose()
               }}
             >
@@ -196,7 +196,7 @@ function AddVaccineSheet({ open, onClose }: { open: boolean; onClose: () => void
 
   function submit() {
     if (!name.trim()) return
-    addVaccine(name.trim(), months ? Number(months) : 0)
+    void addVaccine(name.trim(), months ? Number(months) : 0)
     setName('')
     setMonths('')
     onClose()

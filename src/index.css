@@ -101,9 +101,73 @@
   .book-title {
     @apply text-sage-700 font-bold text-lg mb-3 pb-1 border-b border-cream-300;
   }
+
+  /* ===== كتاب الذكريات ===== */
+  .book-cover {
+    @apply text-center py-10 px-4;
+  }
+
+  .book-cover-photo {
+    @apply w-28 h-28 rounded-full object-cover mx-auto mb-4 shadow-card ring-4 ring-white;
+  }
+
+  /* فاصل زخرفي صغير بدل خط ممتد — أقرب لروح الكتاب المطبوع */
+  .book-rule {
+    @apply mx-auto my-3 h-px w-16 bg-cream-300;
+  }
+
+  .book-stats {
+    @apply flex flex-wrap justify-center gap-x-6 gap-y-2 mt-6 pt-5 border-t border-cream-200;
+  }
+
+  .book-stat {
+    @apply text-center;
+  }
+
+  .book-stat-value {
+    @apply text-2xl font-extrabold text-sage-700 leading-none;
+  }
+
+  .book-stat-label {
+    @apply text-[11px] text-sage-400 mt-1;
+  }
+
+  .book-chapter {
+    @apply mb-10;
+  }
+
+  .book-chapter-title {
+    @apply text-sage-500 font-bold text-sm tracking-wide text-center mb-5
+           before:content-['—'] before:mx-2 after:content-['—'] after:mx-2;
+  }
+
+  .book-entry {
+    @apply break-inside-avoid;
+  }
+
+  .book-letter {
+    @apply bg-cream-50 rounded-2xl p-4 border border-cream-200;
+  }
+
+  .book-capsule {
+    @apply bg-sky-100/60 rounded-2xl p-4 border border-sky-200;
+  }
+
+  .book-milestone {
+    @apply flex items-start gap-3 bg-blush-100/50 rounded-2xl p-4;
+  }
+
+  .book-footer {
+    @apply text-center pt-6 pb-2;
+  }
 }
 
 /* ===== وضع الطباعة: كتاب الذكريات ===== */
+@page {
+  size: A4;
+  margin: 16mm 14mm;
+}
+
 @media print {
   body {
     background: #fff;
@@ -126,15 +190,37 @@
 
   .memory-book {
     color: #000;
+    /* الألوان الخلفية للبطاقات جزء من هوية الكتاب — نطلب من المتصفح طباعتها */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* الغلاف يملأ الصفحة الأولى وحده */
+  .book-cover {
+    break-after: page;
+    padding-top: 25vh;
+  }
+
+  /* كل شهر يبدأ صفحة جديدة — يقرأ كفصول لا كقائمة متصلة */
+  .book-chapter {
+    break-before: page;
+  }
+
+  .book-chapter-title,
+  .book-entry,
+  figure,
+  blockquote {
+    break-inside: avoid;
   }
 
   .memory-book img {
-    max-height: 9cm;
+    max-height: 11cm;
     object-fit: contain;
   }
 
-  section {
-    break-inside: auto;
+  .book-footer {
+    break-before: page;
+    padding-top: 30vh;
   }
 }
 

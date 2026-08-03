@@ -118,7 +118,7 @@ function AddGrowthSheet({ open, onClose }: { open: boolean; onClose: () => void 
 
   function submit() {
     if (!valid) return
-    addGrowth({
+    void addGrowth({
       date,
       weightKg: weight ? Number(weight) : undefined,
       lengthCm: length ? Number(length) : undefined,

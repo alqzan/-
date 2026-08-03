@@ -5,6 +5,7 @@ import { useConfirm } from '../../components/Confirm'
 import { PulseIcon } from '../../components/icons'
 import { addContraction, clearContractions, useAppData } from '../../data/dataService'
 import { formatDuration, formatTime } from '../../lib/format'
+import { useNow } from '../../lib/useNow'
 
 // الانقباضة الجارية تُحفظ حتى لا تضيع لو أُغلقت الشاشة أو الجوال أثناء المخاض
 const ACTIVE_KEY = 'tafalna:active-contraction'
@@ -22,14 +23,11 @@ function loadActive(): number | null {
 export default function ContractionsScreen() {
   const data = useAppData()
   const [startedAt, setStartedAt] = useState<number | null>(loadActive)
-  const [, tick] = useState(0)
   const { confirm, dialog } = useConfirm()
 
-  useEffect(() => {
-    if (startedAt == null) return
-    const t = setInterval(() => tick((n) => n + 1), 250)
-    return () => clearInterval(t)
-  }, [startedAt])
+  // ٢٥٠ ملّي أثناء انقباضة جارية (عدّاد سلس)، ودقيقة خلاف ذلك
+  // لأن نافذة «آخر ساعة» تحتاج إعادة حساب دورية أيضًا.
+  const now = useNow(startedAt != null ? 250 : 60000)
 
   useEffect(() => {
     try {
@@ -41,12 +39,12 @@ export default function ContractionsScreen() {
   }, [startedAt])
 
   const running = startedAt != null
-  const elapsed = running ? Math.floor((Date.now() - startedAt) / 1000) : 0
+  const elapsed = running ? Math.floor((now - startedAt) / 1000) : 0
 
   function toggle() {
     if (running && startedAt != null) {
       const dur = Math.round((Date.now() - startedAt) / 1000)
-      addContraction(new Date(startedAt).toISOString(), dur)
+      void addContraction(new Date(startedAt).toISOString(), dur)
       setStartedAt(null)
     } else {
       setStartedAt(Date.now())
@@ -66,11 +64,21 @@ export default function ContractionsScreen() {
   })
 
   const recent = withGaps.slice(-6).reverse()
-  const avgDur = sorted.length
-    ? Math.round(sorted.reduce((s, c) => s + c.durationSec, 0) / sorted.length)
+
+  // المتوسطات تُحسب على **آخر ساعة فقط**.
+  // احتسابها على السجل كله كان يضلّل: مَن بدأت التتبّع قبل أسبوع يظهر لها
+  // متوسط مخفَّف بانقباضات قديمة، وقاعدة ٥-١-١ تُقرأ من هذا الرقم بالذات.
+  const HOUR_MS = 60 * 60 * 1000
+  const inWindow = withGaps.filter((c) => now - new Date(c.startedAt).getTime() <= HOUR_MS)
+  const avgDur = inWindow.length
+    ? Math.round(inWindow.reduce((s, c) => s + c.durationSec, 0) / inWindow.length)
     : 0
-  const gaps = withGaps.map((c) => c.gapMin).filter((g): g is number => g != null)
+  const gaps = inWindow.map((c) => c.gapMin).filter((g): g is number => g != null)
   const avgGap = gaps.length ? Math.round(gaps.reduce((s, g) => s + g, 0) / gaps.length) : 0
+
+  // قاعدة ٥-١-١: كل ٥ دقائق أو أقل، مدّة ≥ ٦٠ ثانية، على مدى ساعة
+  const meets511 =
+    inWindow.length >= 8 && gaps.length > 0 && avgGap > 0 && avgGap <= 5 && avgDur >= 60
 
   return (
     <>
@@ -93,25 +101,47 @@ export default function ContractionsScreen() {
         </button>
       </Card>
 
-      {sorted.length > 0 && (
-        <div className="flex gap-3 mt-4">
-          <div className="card flex-1 text-center !p-3">
-            <div className="text-2xl font-bold text-sage-800">{formatDuration(avgDur)}</div>
-            <div className="text-xs text-sage-400">متوسط المدة</div>
+      {inWindow.length > 0 && (
+        <>
+          <div className="flex gap-3 mt-4">
+            <div className="card flex-1 text-center !p-3">
+              <div className="text-2xl font-bold text-sage-800">{formatDuration(avgDur)}</div>
+              <div className="text-xs text-sage-400">متوسط المدة</div>
+            </div>
+            <div className="card flex-1 text-center !p-3">
+              <div className="text-2xl font-bold text-sage-800">{avgGap || '—'} د</div>
+              <div className="text-xs text-sage-400">متوسط الفاصل</div>
+            </div>
+            <div className="card flex-1 text-center !p-3">
+              <div className="text-2xl font-bold text-sage-800">{inWindow.length}</div>
+              <div className="text-xs text-sage-400">خلال ساعة</div>
+            </div>
           </div>
-          <div className="card flex-1 text-center !p-3">
-            <div className="text-2xl font-bold text-sage-800">{avgGap || '—'} د</div>
-            <div className="text-xs text-sage-400">متوسط الفاصل</div>
-          </div>
-        </div>
+          <p className="text-[11px] text-sage-400 text-center mt-2">
+            المتوسطات محسوبة على آخر ساعة فقط
+          </p>
+        </>
       )}
 
-      <Card className="mt-4 bg-sky-100 !text-sky-300 border border-sky-200">
-        <p className="text-sm text-sage-600 leading-relaxed">
-          <span className="font-bold">تذكير:</span> إذا صارت الانقباضات كل ٥ دقائق، وتستمر
-          دقيقة تقريبًا، ولمدة ساعة — تواصلي مع طبيبتك. (قاعدة ٥-١-١ التقريبية)
-        </p>
-      </Card>
+      {meets511 ? (
+        <Card className="mt-4 bg-blush-100 border-2 border-blush-300">
+          <p className="text-sm text-sage-800 leading-relaxed">
+            <span className="font-bold">الانقباضات تطابق قاعدة ٥-١-١ تقريبًا</span> — كل{' '}
+            {avgGap} دقائق، بمدّة {formatDuration(avgDur)}، خلال الساعة الماضية.
+            تواصلي مع طبيبتك أو المستشفى الآن.
+          </p>
+          <p className="text-[11px] text-sage-500 mt-2">
+            هذا مؤشّر تقريبي للتذكير فقط ولا يغني عن رأي الطبيب.
+          </p>
+        </Card>
+      ) : (
+        <Card className="mt-4 bg-sky-100 border border-sky-200">
+          <p className="text-sm text-sage-600 leading-relaxed">
+            <span className="font-bold">تذكير:</span> إذا صارت الانقباضات كل ٥ دقائق، وتستمر
+            دقيقة تقريبًا، ولمدة ساعة — تواصلي مع طبيبتك. (قاعدة ٥-١-١ التقريبية)
+          </p>
+        </Card>
+      )}
 
       <div className="flex items-center justify-between mt-6 mb-3">
         <h2 className="section-title mb-0">آخر الانقباضات</h2>

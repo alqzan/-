@@ -129,7 +129,7 @@ function MilestoneSheet({
             <Button
               className="w-full mb-2"
               onClick={() => {
-                updateMilestone(milestone.id, {
+                void updateMilestone(milestone.id, {
                   achievedAt: date ? localDateToIso(date) : null,
                   note: note.trim() || undefined,
                 })
@@ -144,7 +144,7 @@ function MilestoneSheet({
                 variant="ghost"
                 className="w-full mb-2"
                 onClick={() => {
-                  updateMilestone(milestone.id, { achievedAt: null })
+                  void updateMilestone(milestone.id, { achievedAt: null })
                   onClose()
                 }}
               >
@@ -162,7 +162,7 @@ function MilestoneSheet({
                     message: 'سيُحذف المعلم والذكرى المكتوبة عنه نهائيًا.',
                     confirmLabel: 'حذف المعلم',
                     onConfirm: () => {
-                      deleteMilestone(milestone.id)
+                      void deleteMilestone(milestone.id)
                       onClose()
                     },
                   })
@@ -185,7 +185,7 @@ function AddMilestoneSheet({ open, onClose }: { open: boolean; onClose: () => vo
 
   function submit() {
     if (!title.trim()) return
-    addMilestone(title.trim(), emoji)
+    void addMilestone(title.trim(), emoji)
     setTitle('')
     setEmoji(EMOJI_CHOICES[0])
     onClose()

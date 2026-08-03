@@ -120,7 +120,7 @@ function RegisterBirthSheet({ open, onClose }: { open: boolean; onClose: () => v
   const [length, setLength] = useState('')
 
   function submit() {
-    updateChild({
+    void updateChild({
       name: name.trim() || 'مولودنا',
       bornAt: localDateToIso(date),
       birthWeightKg: weight ? Number(weight) : undefined,

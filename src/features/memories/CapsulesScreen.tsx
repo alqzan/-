@@ -12,6 +12,7 @@ import {
 } from '../../data/dataService'
 import type { Parent, TimeCapsule } from '../../data/types'
 import { formatDate, parentLabel } from '../../lib/format'
+import { useNow } from '../../lib/useNow'
 
 export default function CapsulesScreen() {
   const data = useAppData()
@@ -19,10 +20,13 @@ export default function CapsulesScreen() {
   const [editing, setEditing] = useState<TimeCapsule | null>(null)
   const { confirm, dialog } = useConfirm()
 
+  // الكبسولة تُفتح في لحظة معيّنة — نتفقّد الوقت كل دقيقة
+  const now = useNow(60000)
+
   const sorted = [...data.capsules].sort(
     (a, b) => new Date(a.openAt).getTime() - new Date(b.openAt).getTime(),
   )
-  const locked = sorted.filter((c) => new Date(c.openAt).getTime() > Date.now()).length
+  const locked = sorted.filter((c) => new Date(c.openAt).getTime() > now).length
 
   return (
     <>
@@ -100,7 +104,8 @@ function CapsuleCard({
   onEdit: () => void
   onDelete: () => void
 }) {
-  const canOpen = new Date(c.openAt).getTime() <= Date.now()
+  const now = useNow(60000)
+  const canOpen = new Date(c.openAt).getTime() <= now
   const revealed = c.isOpened
   const left = daysUntil(c.openAt)
 
@@ -177,9 +182,9 @@ function CapsuleSheet({
   function submit() {
     if (!valid) return
     if (capsule) {
-      updateCapsule(capsule.id, { title: title.trim(), message: message.trim(), author, openAt })
+      void updateCapsule(capsule.id, { title: title.trim(), message: message.trim(), author, openAt })
     } else {
-      addCapsule({ title: title.trim(), message: message.trim(), author, openAt })
+      void addCapsule({ title: title.trim(), message: message.trim(), author, openAt })
       setTitle('')
       setMessage('')
       setOpenAt('')

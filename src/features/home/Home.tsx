@@ -17,6 +17,8 @@ import { getFetalWeek } from '../../lib/fetalData'
 import { formatDate, formatTime, parentLabel, relativeFromNow } from '../../lib/format'
 import { ageInDays, isSameLocalDay } from '../../lib/localDate'
 import { daysSinceBackup } from '../../lib/backup'
+import { photoSrc } from '../../lib/image'
+import { useNow } from '../../lib/useNow'
 import type { JournalEntry, Photo } from '../../data/types'
 
 export default function Home() {
@@ -24,8 +26,10 @@ export default function Home() {
   const navigate = useNavigate()
   const born = !!data.child.bornAt
 
+  // «الموعد القادم» يتحوّل إلى ماضٍ بمرور الوقت — نتفقّده كل دقيقة
+  const now = useNow(60000)
   const nextAppt = [...data.appointments]
-    .filter((a) => new Date(a.dateTime).getTime() >= Date.now())
+    .filter((a) => new Date(a.dateTime).getTime() >= now)
     .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime())[0]
 
   const lastJournal = [...data.journal].sort(
@@ -108,7 +112,7 @@ export default function Home() {
             <div className="flex items-center gap-3">
               {flashback.kind === 'photo' ? (
                 <img
-                  src={flashback.photo.dataUrl}
+                  src={photoSrc(flashback.photo)}
                   alt={flashback.photo.caption ?? 'ذكرى'}
                   className="w-16 h-16 rounded-2xl object-cover shrink-0"
                 />

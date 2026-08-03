@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import BottomNav from './components/BottomNav'
 import Home from './features/home/Home'
@@ -23,26 +24,37 @@ import GrowthScreen from './features/baby-care/GrowthScreen'
 import VaccinesScreen from './features/baby-care/VaccinesScreen'
 import SettingsScreen from './features/settings/SettingsScreen'
 import Onboarding from './features/onboarding/Onboarding'
-import { useAppData, useStorageStatus } from './data/dataService'
+import { useAppData, useDataStatus, type DataStatus } from './data/dataService'
 
 export default function App() {
   const location = useLocation()
   const data = useAppData()
-  const storage = useStorageStatus()
+  const status = useDataStatus()
 
-  if (!data.setupComplete) return <Onboarding />
+  // كل انتقال يبدأ من أعلى الشاشة — بدونها تفتح الشاشة الجديدة
+  // من منتصفها لأن المتصفح يحتفظ بموضع التمرير السابق.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [location.pathname])
+
+  if (status.loading) return <BootScreen />
+
+  // التحذير يسبق كل شيء — بما في ذلك شاشة البداية.
+  // حين تتعذّر قراءة البيانات المحفوظة يبدو التطبيق وكأنه جديد تمامًا،
+  // فلو لم يظهر التحذير هنا لأعاد المستخدم التسجيل ظانًّا أن ذكرياته ضاعت،
+  // بينما هي سليمة على الجهاز تنتظر الاستعادة.
+  if (!data.setupComplete) {
+    return (
+      <>
+        <StatusBanner status={status} />
+        <Onboarding />
+      </>
+    )
+  }
 
   return (
     <div className="app-container">
-      {storage.state === 'error' && (
-        <div
-          role="alert"
-          className="sticky top-0 z-50 bg-red-700 text-white text-sm px-4 py-3 shadow-lg print:hidden"
-        >
-          <strong className="block">الحفظ غير متاح</strong>
-          <span>{storage.message}</span>
-        </div>
-      )}
+      <StatusBanner status={status} />
       <main className="screen animate-in" key={location.pathname}>
         <Routes>
           <Route path="/" element={<Home />} />
@@ -78,6 +90,34 @@ export default function App() {
         </Routes>
       </main>
       <BottomNav />
+    </div>
+  )
+}
+
+/** شريط تحذير ثابت أعلى الشاشة حين يتعذّر الحفظ أو القراءة */
+function StatusBanner({ status }: { status: DataStatus }) {
+  if (!status.error) return null
+  return (
+    <div
+      role="alert"
+      className="sticky top-0 z-50 bg-red-700 text-white text-sm px-4 py-3 shadow-lg print:hidden"
+    >
+      <strong className="block">
+        {status.readOnly ? 'وضع القراءة فقط' : 'الحفظ غير متاح'}
+      </strong>
+      <span className="leading-relaxed">{status.error}</span>
+    </div>
+  )
+}
+
+/** شاشة انتظار قصيرة أثناء قراءة التخزين — تمنع وميض شاشة البداية */
+function BootScreen() {
+  return (
+    <div className="min-h-screen grid place-items-center bg-cream-50">
+      <div className="text-center">
+        <div className="text-5xl mb-3 animate-pulse">👶</div>
+        <p className="text-sage-400 text-sm">لحظة…</p>
+      </div>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
-import { Button, Card, Field, ProgressBar, Segmented, cx } from '../../components/ui'
+import { Button, Card, Field, FieldGroup, ProgressBar, Segmented, cx } from '../../components/ui'
 import { useConfirm } from '../../components/Confirm'
 import { DownloadIcon, UploadIcon } from '../../components/icons'
 import {
@@ -8,13 +8,25 @@ import {
   importSnapshot,
   loadDemoData,
   resetAllData,
-  storageUsage,
   updateChild,
   useAppData,
+  useStorageUsage,
 } from '../../data/dataService'
 import { downloadBackup, formatBytes, readFileAsText } from '../../lib/backup'
+import { photoBytes as photoSize } from '../../lib/image'
 import { localDateInputValue, localDateToIso } from '../../lib/localDate'
 import type { Gender } from '../../data/types'
+
+/**
+ * يحوّل تاريخًا مخزّنًا (ISO أو "YYYY-MM-DD" من نسخة قديمة) إلى قيمة
+ * حقل `<input type="date">` بالتوقيت المحلي. الاقتطاع المباشر للنص لا يكفي:
+ * ISO مكتوب بتوقيت UTC، فقد يقع في يوم مختلف عن اليوم الذي اختاره المستخدم.
+ */
+function dateInput(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '' : localDateInputValue(d)
+}
 
 export default function SettingsScreen() {
   const data = useAppData()
@@ -22,14 +34,14 @@ export default function SettingsScreen() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [note, setNote] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
 
-  const usage = storageUsage()
-  const photoBytes = data.photos.reduce((sum, p) => sum + p.dataUrl.length * 2, 0)
+  const usage = useStorageUsage()
+  const photoBytes = data.photos.reduce((sum, p) => sum + photoSize(p), 0)
   const nearFull = usage.ratio > 0.75
 
   async function onImportFile(file: File) {
     try {
       const text = await readFileAsText(file)
-      const result = importSnapshot(text)
+      const result = await importSnapshot(text)
       setNote(
         result.ok
           ? { tone: 'ok', text: 'تمت الاستعادة بنجاح. بياناتكم رجعت كما كانت 💛' }
@@ -68,7 +80,7 @@ export default function SettingsScreen() {
           />
         </Field>
 
-        <Field label="الجنس">
+        <FieldGroup label="الجنس">
           <Segmented
             value={data.child.gender}
             onChange={(gender: Gender) => updateChild({ gender })}
@@ -78,7 +90,7 @@ export default function SettingsScreen() {
               { value: 'girl', label: 'بنت' },
             ]}
           />
-        </Field>
+        </FieldGroup>
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="اسم ماما">
@@ -109,16 +121,20 @@ export default function SettingsScreen() {
               <input
                 type="date"
                 className="input"
-                value={data.child.lmpDate ?? ''}
-                onChange={(e) => updateChild({ lmpDate: e.target.value || null })}
+                value={dateInput(data.child.lmpDate)}
+                onChange={(e) =>
+                  updateChild({ lmpDate: e.target.value ? localDateToIso(e.target.value) : null })
+                }
               />
             </Field>
             <Field label="موعد الولادة المتوقع">
               <input
                 type="date"
                 className="input"
-                value={data.child.dueDate ?? ''}
-                onChange={(e) => updateChild({ dueDate: e.target.value || null })}
+                value={dateInput(data.child.dueDate)}
+                onChange={(e) =>
+                  updateChild({ dueDate: e.target.value ? localDateToIso(e.target.value) : null })
+                }
               />
             </Field>
           </div>
@@ -129,7 +145,7 @@ export default function SettingsScreen() {
             <input
               type="date"
               className="input"
-              value={data.child.bornAt.slice(0, 10)}
+              value={dateInput(data.child.bornAt)}
               onChange={(e) =>
                 updateChild({
                   bornAt: e.target.value ? localDateToIso(e.target.value) : data.child.bornAt,
@@ -223,7 +239,7 @@ export default function SettingsScreen() {
                 'سيستبدل هذا بياناتكم الحالية ببيانات عرض (أسماء ورسائل ومواعيد وهمية) لاستعراض الواجهات.',
               confirmLabel: 'تحميل البيانات التجريبية',
               onConfirm: () => {
-                loadDemoData()
+                void loadDemoData()
                 setNote({ tone: 'ok', text: 'تم تحميل البيانات التجريبية.' })
               },
             })

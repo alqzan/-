@@ -23,7 +23,7 @@ import {
 } from '../../data/dataService'
 import { localDateInputValue } from '../../lib/localDate'
 import type { Parent, Photo } from '../../data/types'
-import { fileToDataUrl } from '../../lib/image'
+import { fileToDataUrl, photoSrc } from '../../lib/image'
 import { formatShortDate, monthKey, parentLabel } from '../../lib/format'
 
 type Filter = 'all' | 'favorites'
@@ -91,7 +91,7 @@ export default function MemoriesHub() {
         hidden
         onChange={(e) => {
           const f = e.target.files?.[0]
-          if (f) onPick(f)
+          if (f) void onPick(f)
           e.target.value = ''
         }}
       />
@@ -171,7 +171,7 @@ export default function MemoriesHub() {
                   onClick={() => setSelected(ph)}
                   className="aspect-square rounded-2xl overflow-hidden bg-cream-200 relative"
                 >
-                  <img src={ph.dataUrl} alt={ph.caption ?? 'ذكرى'} className="w-full h-full object-cover" />
+                  <img src={photoSrc(ph)} alt={ph.caption ?? 'ذكرى'} className="w-full h-full object-cover" />
                   {ph.favorite && (
                     <span className="absolute bottom-1.5 start-1.5 text-white drop-shadow">
                       <HeartFillIcon className="w-4 h-4" />
@@ -198,7 +198,7 @@ export default function MemoriesHub() {
                 message: 'الصورة تُحذف نهائيًا من هذا الجهاز ولا يمكن استرجاعها.',
                 confirmLabel: 'حذف الصورة',
                 onConfirm: () => {
-                  deletePhoto(openPhoto.id)
+                  void deletePhoto(openPhoto.id)
                   setSelected(null)
                 },
               })
@@ -218,7 +218,7 @@ function PhotoDetails({ photo, onDelete }: { photo: Photo; onDelete: () => void 
 
   return (
     <div>
-      <img src={photo.dataUrl} alt={photo.caption ?? ''} className="w-full rounded-2xl mb-3" />
+      <img src={photoSrc(photo)} alt={photo.caption ?? ''} className="w-full rounded-2xl mb-3" />
 
       {editing ? (
         <>
@@ -234,7 +234,7 @@ function PhotoDetails({ photo, onDelete }: { photo: Photo; onDelete: () => void 
             <Button
               className="flex-1"
               onClick={() => {
-                updatePhoto(photo.id, { caption: caption.trim() || undefined })
+                void updatePhoto(photo.id, { caption: caption.trim() || undefined })
                 setEditing(false)
               }}
             >
@@ -283,10 +283,15 @@ function AddPhotoSheet({ dataUrl, onClose }: { dataUrl: string | null; onClose: 
   const today = localDateInputValue()
   const [date, setDate] = useState(today)
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
-  function submit() {
-    if (!dataUrl) return
-    const ok = addPhoto({ dataUrl, caption: caption.trim() || undefined, author, date })
+  async function submit() {
+    if (!dataUrl || saving) return
+    setSaving(true)
+    // الحفظ الآن غير متزامن — ننتظر النتيجة الحقيقية قبل إغلاق النافذة،
+    // وإلا أغلقناها والصورة لم تصل التخزين أصلًا.
+    const ok = await addPhoto({ dataUrl, caption: caption.trim() || undefined, author, date })
+    setSaving(false)
     if (!ok) {
       setError(
         'لم تُحفظ الصورة — مساحة التخزين على هذا الجهاز ممتلئة. احذفوا صورًا قديمة أو نزّلوا نسخة احتياطية من الإعدادات.',
@@ -327,8 +332,8 @@ function AddPhotoSheet({ dataUrl, onClose }: { dataUrl: string | null; onClose: 
           {error}
         </p>
       )}
-      <Button variant="peach" className="w-full mt-2" onClick={submit}>
-        حفظ الذكرى
+      <Button variant="peach" className="w-full mt-2" onClick={() => void submit()} disabled={saving}>
+        {saving ? 'جارٍ الحفظ…' : 'حفظ الذكرى'}
       </Button>
     </Sheet>
   )

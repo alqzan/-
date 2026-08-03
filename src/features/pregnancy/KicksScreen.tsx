@@ -5,6 +5,7 @@ import { useConfirm } from '../../components/Confirm'
 import { FootIcon, TrashIcon } from '../../components/icons'
 import { addKickSession, deleteKickSession, uid, useAppData } from '../../data/dataService'
 import { formatDate, formatDuration, formatTime } from '../../lib/format'
+import { useNow } from '../../lib/useNow'
 
 const ACTIVE_KEY = 'tafalna:active-kicks'
 
@@ -20,15 +21,10 @@ function loadActive(): { startedAt: number; count: number } | null {
 export default function KicksScreen() {
   const data = useAppData()
   const [active, setActive] = useState<{ startedAt: number; count: number } | null>(loadActive)
-  const [, tick] = useState(0)
   const { confirm, dialog } = useConfirm()
 
-  // مؤقّت حيّ للجلسة النشطة
-  useEffect(() => {
-    if (!active) return
-    const t = setInterval(() => tick((n) => n + 1), 1000)
-    return () => clearInterval(t)
-  }, [active])
+  // مؤقّت حيّ للجلسة النشطة — يتوقّف تمامًا حين لا توجد جلسة
+  const now = useNow(active ? 1000 : null)
 
   useEffect(() => {
     try {
@@ -39,7 +35,7 @@ export default function KicksScreen() {
     }
   }, [active])
 
-  const elapsed = active ? Math.floor((Date.now() - active.startedAt) / 1000) : 0
+  const elapsed = active ? Math.floor((now - active.startedAt) / 1000) : 0
 
   function start() {
     setActive({ startedAt: Date.now(), count: 0 })
@@ -49,7 +45,7 @@ export default function KicksScreen() {
   }
   function finish() {
     if (!active) return
-    addKickSession({
+    void addKickSession({
       id: uid(),
       startedAt: new Date(active.startedAt).toISOString(),
       endedAt: new Date().toISOString(),

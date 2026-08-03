@@ -34,6 +34,27 @@ export default defineConfig({
         // نسبيّان حتى يعمل التثبيت من مسار فرعي كما يعمل من الجذر
         start_url: base,
         scope: base,
+        // اختصارات الضغط المطوّل على أيقونة التطبيق — أسرع طريق للتوثيق
+        shortcuts: [
+          {
+            name: 'توثيق صورة',
+            short_name: 'صورة',
+            url: `${base}?capture=photo`,
+            icons: [{ src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml' }],
+          },
+          {
+            name: 'كتابة رسالة',
+            short_name: 'رسالة',
+            url: `${base}?capture=letter`,
+            icons: [{ src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml' }],
+          },
+          {
+            name: 'رسالة صوتية',
+            short_name: 'صوت',
+            url: `${base}?capture=voice`,
+            icons: [{ src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml' }],
+          },
+        ],
         icons: [
           {
             src: 'favicon.svg',

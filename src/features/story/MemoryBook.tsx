@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, Segmented } from '../../components/ui'
-import { LockIcon, PrintIcon, QuoteIcon, StarIcon } from '../../components/icons'
+import { LockIcon, MicIcon, PrintIcon, QuoteIcon, StarIcon } from '../../components/icons'
+import VoicePlayer from '../../components/VoicePlayer'
+import { formatClock } from '../../lib/audio'
 import { EmbraceMark, Monogram } from '../../components/illustrations'
 import { useAppData } from '../../data/dataService'
 import { formatDate, parentLabel, pluralAr } from '../../lib/format'
@@ -9,7 +11,7 @@ import { photoSrc } from '../../lib/image'
 import { getPregnancyProgress } from '../../lib/pregnancy'
 import { ageInDays } from '../../lib/localDate'
 import { stageLabel } from './timeline'
-import type { Photo } from '../../data/types'
+import type { Photo, VoiceNote } from '../../data/types'
 
 type Scope = 'favorites' | 'all'
 
@@ -25,6 +27,7 @@ type Scope = 'favorites' | 'all'
 
 type Entry =
   | { kind: 'photo'; date: string; photo: Photo }
+  | { kind: 'voice'; date: string; voice: VoiceNote }
   | { kind: 'journal'; date: string; title?: string; text: string; author: 'mom' | 'dad' }
   | { kind: 'milestone'; date: string; title: string; note?: string }
   | { kind: 'capsule'; date: string; title: string; message: string; author: 'mom' | 'dad' }
@@ -40,6 +43,7 @@ export default function MemoryBook() {
     const photos = scope === 'favorites' && favorites.length ? favorites : data.photos
     const entries: Entry[] = [
       ...photos.map((p): Entry => ({ kind: 'photo', date: p.date, photo: p })),
+      ...data.voices.map((v): Entry => ({ kind: 'voice', date: v.date, voice: v })),
       ...data.journal.map(
         (j): Entry => ({
           kind: 'journal',
@@ -72,7 +76,7 @@ export default function MemoryBook() {
         ),
     ]
     return entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-  }, [data.photos, data.journal, data.milestones, data.capsules, favorites, scope])
+  }, [data.photos, data.journal, data.voices, data.milestones, data.capsules, favorites, scope])
 
   /** تجميع الخيط الزمني حسب الشهر ليصير للكتاب فصول */
   const chapters = useMemo(() => {
@@ -106,6 +110,7 @@ export default function MemoryBook() {
     () => [
       { value: data.photos.length, label: 'صورة' },
       { value: data.journal.length, label: 'رسالة' },
+      { value: data.voices.length, label: 'تسجيلًا' },
       { value: data.milestones.filter((m) => m.achievedAt).length, label: 'معلمًا' },
       { value: data.capsules.length, label: 'كبسولة' },
     ],
@@ -304,6 +309,29 @@ function BookEntry({ entry }: { entry: Entry }) {
           </span>
         </figcaption>
       </figure>
+    )
+  }
+
+  if (entry.kind === 'voice') {
+    return (
+      <div className="book-entry bg-paper-100 border border-line rounded-2xl p-4">
+        <div className="flex items-center gap-2 text-[11px] text-ink-400 mb-2">
+          <MicIcon className="w-3.5 h-3.5" />
+          <span>
+            رسالة صوتية من {parentLabel(entry.voice.author)} • {day}
+          </span>
+        </div>
+        {entry.voice.title && (
+          <div className="font-display font-bold text-ink-900 mb-2">{entry.voice.title}</div>
+        )}
+        {/* على الورق لا يُشغَّل صوت: نطبع المدة ونُبقي المشغّل للشاشة فقط */}
+        <div className="print:hidden">
+          <VoicePlayer voice={entry.voice} />
+        </div>
+        <div className="hidden print:block text-[13px] text-ink-500">
+          تسجيل مدّته {formatClock(entry.voice.durationSec)} — يُسمع داخل التطبيق.
+        </div>
+      </div>
     )
   }
 

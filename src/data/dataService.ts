@@ -21,6 +21,7 @@ import type {
   SleepEntry,
   TimeCapsule,
   VaccineDose,
+  VoiceNote,
 } from './types'
 import { emptyData, seedData } from './seed'
 import { migrate } from './migrate'
@@ -405,6 +406,18 @@ export function updateJournal(id: string, patch: Partial<Omit<JournalEntry, 'id'
 }
 export function deleteJournal(id: string) {
   return commit({ journal: data.journal.filter((j) => j.id !== id) })
+}
+
+// --- الرسائل الصوتية ---
+/** يُرجع false إذا امتلأت مساحة الجهاز ولم يُحفظ التسجيل */
+export function addVoice(v: Omit<VoiceNote, 'id'>): Promise<boolean> {
+  return commit({ voices: [{ ...v, id: uid() }, ...data.voices] })
+}
+export function updateVoice(id: string, patch: Partial<Pick<VoiceNote, 'title'>>) {
+  return commit({ voices: data.voices.map((v) => (v.id === id ? { ...v, ...patch } : v)) })
+}
+export function deleteVoice(id: string) {
+  return commit({ voices: data.voices.filter((v) => v.id !== id) })
 }
 
 // --- الكبسولة الزمنية ---

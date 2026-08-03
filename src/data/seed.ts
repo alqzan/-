@@ -1,7 +1,7 @@
 import type { AppData } from './types'
 
 /** رقم إصدار البيانات المخزّنة — يُستخدم للترقية عند تحديث التطبيق */
-export const DATA_VERSION = 3
+export const DATA_VERSION = 4
 
 export function emptyData(): AppData {
   return {
@@ -23,6 +23,7 @@ export function emptyData(): AppData {
     momLogs: [],
     photos: [],
     journal: [],
+    voices: [],
     capsules: [],
     milestones: builtInMilestones(),
     names: [],
@@ -127,6 +128,9 @@ export function seedData(): AppData {
         author: 'dad',
       },
     ],
+
+    // التسجيلات الصوتية لا تُولَّد في بيانات العرض — لا معنى لصوت مزيّف
+    voices: [],
 
     capsules: [
       {

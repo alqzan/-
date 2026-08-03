@@ -114,6 +114,45 @@ export const QuoteIcon = (p: IconProps) => (
   </svg>
 )
 
+/** ميكروفون — الرسالة الصوتية */
+export const MicIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="9" y="2.5" width="6" height="11.5" rx="3" />
+    <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0" />
+    <path d="M12 18v3.5M9 21.5h6" />
+  </svg>
+)
+
+/** تشغيل */
+export const PlayIcon = (p: IconProps) => (
+  <svg {...base({ ...p, fill: 'currentColor', stroke: 'currentColor' })}>
+    <path d="M8 5.5v13l11-6.5-11-6.5Z" strokeWidth="1.6" strokeLinejoin="round" />
+  </svg>
+)
+
+/** إيقاف مؤقّت */
+export const PauseIcon = (p: IconProps) => (
+  <svg {...base({ ...p, fill: 'currentColor', stroke: 'currentColor' })}>
+    <rect x="7" y="5" width="3.6" height="14" rx="1.2" />
+    <rect x="13.4" y="5" width="3.6" height="14" rx="1.2" />
+  </svg>
+)
+
+/** مشاركة */
+export const ShareIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M12 15.5V3.5M8 7l4-3.5L16 7" />
+    <path d="M5 13v6.5a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5V13" />
+  </svg>
+)
+
+/** شعلة — سلسلة التوثيق */
+export const FlameIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M12 3s5 4.2 5 9a5 5 0 0 1-10 0c0-2 1-3.4 2-4.5.3 1.6 1.2 2.3 2 2.3 1.2 0 1.8-1.2 1.5-3-.2-1.4-.5-2.6-.5-3.8Z" />
+  </svg>
+)
+
 // ===== المتابعة =====
 
 /** ركلة — قدم صغيرة */

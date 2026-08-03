@@ -10,8 +10,10 @@ import {
   HeartFillIcon,
   HeartIcon,
   LockIcon,
+  MicIcon,
   QuoteIcon,
   RulerIcon,
+  ShareIcon,
   SearchIcon,
   StarIcon,
   StoryIcon,
@@ -19,12 +21,16 @@ import {
 } from '../../components/icons'
 import { Button, EmptyState, Field, Sheet, cx } from '../../components/ui'
 import { useCapture } from '../../components/Capture'
+import VoicePlayer from '../../components/VoicePlayer'
+import { buildShareCard, shareCard } from '../../lib/shareCard'
 import Confirm from '../../components/Confirm'
 import {
   deleteCapsule,
   deleteJournal,
   deleteMilestone,
   deletePhoto,
+  deleteVoice,
+  updateVoice,
   togglePhotoFavorite,
   updateJournal,
   updateMilestone,
@@ -39,6 +45,7 @@ import {
   chapterize,
   filterStory,
   searchStory,
+  stageLabel,
   storyStats,
   type StoryFilter,
   type StoryItem,
@@ -53,6 +60,7 @@ const FILTERS: Array<{ value: StoryFilter; label: string }> = [
   { value: 'all', label: 'الكل' },
   { value: 'photo', label: 'صور' },
   { value: 'letter', label: 'رسائل' },
+  { value: 'voice', label: 'أصوات' },
   { value: 'milestone', label: 'لحظات' },
 ]
 
@@ -90,6 +98,8 @@ export default function Story() {
           {pluralAr(stats.photos, 'صورة واحدة', 'صورتان', 'صور', 'صورة')}
           {' • '}
           {pluralAr(stats.letters, 'رسالة واحدة', 'رسالتان', 'رسائل', 'رسالة')}
+          {' • '}
+          {pluralAr(stats.voices, 'تسجيل واحد', 'تسجيلان', 'تسجيلات', 'تسجيلًا')}
           {' • '}
           {pluralAr(stats.milestones, 'لحظة واحدة', 'لحظتان', 'لحظات', 'لحظة')}
         </p>
@@ -239,6 +249,7 @@ function DoorButton({
 const KIND_LABEL: Record<StoryItem['kind'], string> = {
   photo: 'صورة',
   letter: 'رسالة',
+  voice: 'رسالة صوتية',
   milestone: 'لحظة أولى',
   capsule: 'كبسولة',
   appointment: 'موعد',
@@ -252,6 +263,8 @@ function KindIcon({ kind, className }: { kind: StoryItem['kind']; className?: st
       return <CameraIcon className={className} />
     case 'letter':
       return <FeatherIcon className={className} />
+    case 'voice':
+      return <MicIcon className={className} />
     case 'milestone':
     case 'birth':
       return <StarIcon className={className} />
@@ -272,64 +285,74 @@ function StoryEntry({ item, onOpen }: { item: StoryItem; onOpen: () => void }) {
     <div className="relative pb-4">
       <span className={cx('timeline-node', highlight && 'timeline-node-active')} />
 
-      <button onClick={onOpen} className="block w-full text-right card card-press !p-0 overflow-hidden">
-        {/* الصورة تملأ عرض البطاقة — الذكرى تستحق حجمًا */}
-        {item.photo && (
-          <img
-            src={photoSrc(item.photo)}
-            alt={item.body ?? 'ذكرى'}
-            className="w-full aspect-[4/3] object-cover"
-            loading="lazy"
-          />
-        )}
-        {item.image && !item.photo && (
-          <img src={item.image} alt={item.title ?? ''} className="w-full aspect-[4/3] object-cover" loading="lazy" />
-        )}
+      <div className="card card-press !p-0 overflow-hidden">
+        <button onClick={onOpen} className="block w-full text-right">
+          {/* الصورة تملأ عرض البطاقة — الذكرى تستحق حجمًا */}
+          {item.photo && (
+            <img
+              src={photoSrc(item.photo)}
+              alt={item.body ?? 'ذكرى'}
+              className="w-full aspect-[4/3] object-cover"
+              loading="lazy"
+            />
+          )}
+          {item.image && !item.photo && (
+            <img src={item.image} alt={item.title ?? ''} className="w-full aspect-[4/3] object-cover" loading="lazy" />
+          )}
 
-        <div className="p-4">
-          <div className="flex items-center gap-2 text-[11px] text-ink-400 mb-2">
-            <KindIcon kind={item.kind} className="w-3.5 h-3.5" />
-            <span>{KIND_LABEL[item.kind]}</span>
-            <span className="text-ink-200">•</span>
-            <span className="tnum">{day} {new Date(item.date).toLocaleDateString('ar', { month: 'long' })}</span>
-            {item.author && (
-              <>
-                <span className="text-ink-200">•</span>
-                <span>{parentLabel(item.author)}</span>
-              </>
+          <div className="p-4">
+            <div className="flex items-center gap-2 text-[11px] text-ink-400 mb-2">
+              <KindIcon kind={item.kind} className="w-3.5 h-3.5" />
+              <span>{KIND_LABEL[item.kind]}</span>
+              <span className="text-ink-200">•</span>
+              <span className="tnum">{day} {new Date(item.date).toLocaleDateString('ar', { month: 'long' })}</span>
+              {item.author && (
+                <>
+                  <span className="text-ink-200">•</span>
+                  <span>{parentLabel(item.author)}</span>
+                </>
+              )}
+              {item.favorite && <HeartFillIcon className="w-3.5 h-3.5 text-clay-400 ms-auto" />}
+            </div>
+
+            {item.title && (
+              <h3 className="font-display font-bold text-[17px] text-ink-900 leading-snug">
+                {item.title}
+              </h3>
             )}
-            {item.favorite && <HeartFillIcon className="w-3.5 h-3.5 text-clay-400 ms-auto" />}
-          </div>
 
-          {item.title && (
-            <h3 className="font-display font-bold text-[17px] text-ink-900 leading-snug">
-              {item.title}
-            </h3>
-          )}
-
-          {item.locked ? (
-            <p className="flex items-center gap-2 text-[13px] text-brass-600 mt-2">
-              <LockIcon className="w-4 h-4" />
-              مقفلة — {item.meta}
-            </p>
-          ) : (
-            item.body && (
-              <p
-                className={cx(
-                  'prose-note mt-1.5',
-                  item.kind === 'letter' ? 'line-clamp-4' : 'line-clamp-3',
-                )}
-              >
-                {item.body}
+            {item.locked ? (
+              <p className="flex items-center gap-2 text-[13px] text-brass-600 mt-2">
+                <LockIcon className="w-4 h-4" />
+                مقفلة — {item.meta}
               </p>
-            )
-          )}
+            ) : (
+              item.body && (
+                <p
+                  className={cx(
+                    'prose-note mt-1.5',
+                    item.kind === 'letter' ? 'line-clamp-4' : 'line-clamp-3',
+                  )}
+                >
+                  {item.body}
+                </p>
+              )
+            )}
 
-          {item.meta && !item.locked && (
-            <p className="text-[12px] text-ink-400 mt-2 tnum">{item.meta}</p>
-          )}
-        </div>
-      </button>
+            {item.meta && !item.locked && (
+              <p className="text-[12px] text-ink-400 mt-2 tnum">{item.meta}</p>
+            )}
+          </div>
+        </button>
+
+        {/* المشغّل داخل البطاقة لكن خارج زرّ الفتح: زرّ داخل زرّ بناء غير
+            صالح، والتشغيل يجب ألّا يفتح شاشة التفاصيل */}
+        {item.voice && (
+          <div className="px-4 pb-4 -mt-1">
+            <VoicePlayer voice={item.voice} />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -337,10 +360,12 @@ function StoryEntry({ item, onOpen }: { item: StoryItem; onOpen: () => void }) {
 // ============ تفاصيل العنصر ============
 
 function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () => void }) {
+  const data = useAppData()
   const [editing, setEditing] = useState(false)
   const [text, setText] = useState('')
   const [title, setTitle] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const { toast } = useCapture()
 
   // نُهيّئ حقول التعديل عند فتح عنصر جديد
@@ -355,8 +380,10 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
 
   if (!item) return null
 
-  const editable = ['photo', 'letter', 'milestone'].includes(item.kind)
-  const deletable = ['photo', 'letter', 'milestone', 'capsule'].includes(item.kind)
+  const editable = ['photo', 'letter', 'milestone', 'voice'].includes(item.kind)
+  const deletable = ['photo', 'letter', 'milestone', 'capsule', 'voice'].includes(item.kind)
+  // الكبسولة المقفلة لا تُشارَك: نصّها سرّ حتى موعده
+  const shareable = !item.locked
 
   const save = async () => {
     if (item.kind === 'photo') await updatePhoto(item.id, { caption: text.trim() || undefined })
@@ -364,8 +391,31 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
       await updateJournal(item.id, { title: title.trim() || undefined, text: text.trim() })
     else if (item.kind === 'milestone')
       await updateMilestone(item.id, { title: title.trim(), note: text.trim() || undefined })
+    else if (item.kind === 'voice') await updateVoice(item.id, { title: title.trim() || undefined })
     setEditing(false)
     toast('حُفظ التعديل')
+  }
+
+  /** بطاقة صورة أنيقة بدل لقطة الشاشة */
+  const share = async () => {
+    setSharing(true)
+    try {
+      const at = new Date(item.date)
+      const stage = stageLabel(data.child, at)
+      const blob = await buildShareCard({
+        imageSrc: item.photo ? photoSrc(item.photo) : (item.image ?? undefined),
+        title: item.title,
+        body: item.body ?? (item.voice ? 'رسالة صوتية' : undefined),
+        meta: stage ? `${formatDate(item.date)} • ${stage}` : formatDate(item.date),
+        childName: data.child.name || 'طفلنا',
+      })
+      const outcome = await shareCard(blob, `tafalna-${item.key.replace(':', '-')}.png`)
+      if (outcome === 'downloaded') toast('نُزّلت البطاقة كصورة')
+    } catch {
+      toast('تعذّر تجهيز البطاقة')
+    } finally {
+      setSharing(false)
+    }
   }
 
   const remove = async () => {
@@ -373,6 +423,7 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
     else if (item.kind === 'letter') await deleteJournal(item.id)
     else if (item.kind === 'milestone') await deleteMilestone(item.id)
     else if (item.kind === 'capsule') await deleteCapsule(item.id)
+    else if (item.kind === 'voice') await deleteVoice(item.id)
     setConfirmDelete(false)
     onClose()
     toast('حُذف العنصر')
@@ -396,6 +447,11 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
         {item.image && !item.photo && (
           <img src={item.image} alt="" className="w-full rounded-2xl border border-line mb-4" />
         )}
+        {item.voice && (
+          <div className="card !bg-paper-100 mb-4">
+            <VoicePlayer voice={item.voice} />
+          </div>
+        )}
 
         {editing ? (
           <>
@@ -404,13 +460,15 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
                 <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
               </Field>
             )}
-            <Field label={item.kind === 'photo' ? 'التعليق' : 'النص'}>
-              <textarea
-                className="input font-serif leading-[1.9] min-h-[8rem]"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-              />
-            </Field>
+            {item.kind !== 'voice' && (
+              <Field label={item.kind === 'photo' ? 'التعليق' : 'النص'}>
+                <textarea
+                  className="input font-serif leading-[1.9] min-h-[8rem]"
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                />
+              </Field>
+            )}
             <div className="flex gap-2.5">
               <Button onClick={save} className="flex-1">
                 <CheckIcon className="w-4 h-4" /> حفظ
@@ -453,6 +511,11 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
                     <HeartIcon className="w-4 h-4" />
                   )}
                   مفضّلة
+                </button>
+              )}
+              {shareable && (
+                <button onClick={() => void share()} disabled={sharing} className="btn-ghost">
+                  <ShareIcon className="w-4 h-4" /> {sharing ? 'جارٍ التجهيز…' : 'مشاركة'}
                 </button>
               )}
               {editable && (

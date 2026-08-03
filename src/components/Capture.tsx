@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   BottleIcon,
   CalendarIcon,
@@ -19,6 +19,7 @@ import {
   DropIcon,
   FeatherIcon,
   FootIcon,
+  MicIcon,
   MomIcon,
   MoonIcon,
   RulerIcon,
@@ -26,6 +27,7 @@ import {
   WaveIcon,
 } from './icons'
 import { Button, Field, FieldGroup, Segmented, Sheet, cx } from './ui'
+import VoiceForm from './VoiceForm'
 import {
   addAppointment,
   addCapsule,
@@ -56,6 +58,7 @@ import type { AppointmentType, Mood, Parent } from '../data/types'
 type CaptureKind =
   | 'photo'
   | 'letter'
+  | 'voice'
   | 'milestone'
   | 'capsule'
   | 'appointment'
@@ -95,6 +98,32 @@ function rememberAuthor(p: Parent) {
   }
 }
 
+/** أنواع يجوز فتحها عبر الرابط (اختصارات التطبيق) */
+const URL_KINDS: CaptureKind[] = ['photo', 'letter', 'voice', 'milestone']
+
+/**
+ * يفتح لوحة التوثيق حين يُفتح التطبيق من اختصار مثل `?capture=photo`،
+ * ثم يمسح المعامل حتى لا تعود اللوحة عند كل رجوع أو إعادة تحميل.
+ */
+function useCaptureShortcut(open: CaptureApi['open']) {
+  const [params, setParams] = useSearchParams()
+  const requested = params.get('capture')
+
+  useEffect(() => {
+    if (!requested) return
+    const kind = URL_KINDS.find((k) => k === requested)
+    if (kind) open(kind)
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('capture')
+        return next
+      },
+      { replace: true },
+    )
+  }, [requested, open, setParams])
+}
+
 export function CaptureProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const [kind, setKind] = useState<CaptureKind | null>(null)
@@ -121,6 +150,8 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
     }),
     [toast],
   )
+
+  useCaptureShortcut(api.open)
 
   const close = useCallback(() => {
     setOpen(false)
@@ -172,6 +203,7 @@ function ToastHost({ message }: { message: string | null }) {
 const TITLES: Record<CaptureKind, string> = {
   photo: 'صورة',
   letter: 'رسالة',
+  voice: 'رسالة صوتية',
   milestone: 'معلَم',
   capsule: 'كبسولة زمنية',
   appointment: 'موعد',
@@ -209,6 +241,7 @@ function CaptureSheet({
       )}
       {kind === 'photo' && <PhotoForm onDone={onDone} />}
       {kind === 'letter' && <LetterForm prefill={prefill} onDone={onDone} />}
+      {kind === 'voice' && <VoiceFormShell onDone={onDone} />}
       {kind === 'milestone' && <MilestoneForm onDone={onDone} />}
       {kind === 'capsule' && <CapsuleForm onDone={onDone} />}
       {kind === 'appointment' && <AppointmentForm onDone={onDone} />}
@@ -236,6 +269,7 @@ function ChooserView({
   const documents: Array<{ kind: CaptureKind; label: string; hint: string; icon: ReactNode }> = [
     { kind: 'photo', label: 'صورة', hint: 'لحظة بالصورة', icon: <CameraIcon className="w-5 h-5" /> },
     { kind: 'letter', label: 'رسالة', hint: 'كلام لطفلكم', icon: <FeatherIcon className="w-5 h-5" /> },
+    { kind: 'voice', label: 'صوت', hint: 'يسمع صوتكم', icon: <MicIcon className="w-5 h-5" /> },
     { kind: 'milestone', label: 'معلَم', hint: 'أول مرة يفعلها', icon: <StarIcon className="w-5 h-5" /> },
     { kind: 'capsule', label: 'كبسولة', hint: 'تُفتح مستقبلًا', icon: <CapsuleIcon className="w-5 h-5" /> },
     { kind: 'appointment', label: 'موعد', hint: 'فحص أو زيارة', icon: <CalendarIcon className="w-5 h-5" /> },
@@ -354,6 +388,21 @@ function QuickButton({
 }
 
 // ============ نماذج التوثيق ============
+
+/**
+ * غلاف نموذج الصوت: يمسك «بقلم مَن» هنا كي يبقى `VoiceForm` مشغولًا
+ * بالتسجيل وحده، ويستخدم منتقي الكاتب نفسه الذي تستخدمه بقية النماذج.
+ */
+function VoiceFormShell({ onDone }: { onDone: (m: string) => void }) {
+  const [author, setAuthor] = useState<Parent>(lastAuthor())
+  return (
+    <VoiceForm
+      author={author}
+      authorPicker={<AuthorPicker value={author} onChange={setAuthor} />}
+      onDone={onDone}
+    />
+  )
+}
 
 function AuthorPicker({ value, onChange }: { value: Parent; onChange: (p: Parent) => void }) {
   const data = useAppData()

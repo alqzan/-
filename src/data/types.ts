@@ -83,6 +83,28 @@ export interface Photo {
   favorite?: boolean
 }
 
+/**
+ * رسالة صوتية للطفل.
+ *
+ * الصوت أبقى من النص: بعد عشرين سنة سيقرأ الطفل كلماتكم، لكنه هنا
+ * **يسمع** أصواتكم كما كانت. لذلك التسجيل مواطن أول في الحكاية لا مرفق.
+ */
+export interface VoiceNote {
+  id: string
+  /** التسجيل مضمّن كـ Data URL — مسار التخزين المحلي */
+  dataUrl?: string
+  /** مسار الملف في Firebase Storage — يُملأ بعد الربط بدل `dataUrl` */
+  storagePath?: string
+  /** رابط التنزيل الجاهز للتشغيل */
+  remoteUrl?: string
+  title?: string
+  /** مدة التسجيل بالثواني */
+  durationSec: number
+  date: string
+  author: Parent
+  authorUid?: string
+}
+
 export interface JournalEntry {
   id: string
   title?: string
@@ -202,6 +224,7 @@ export interface AppData {
   momLogs: MomLog[]
   photos: Photo[]
   journal: JournalEntry[]
+  voices: VoiceNote[]
   capsules: TimeCapsule[]
   milestones: Milestone[]
   names: NameIdea[]

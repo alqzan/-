@@ -15,19 +15,21 @@ import type {
   Parent,
   Photo,
   TimeCapsule,
+  VoiceNote,
 } from '../../data/types'
 import { getPregnancyProgress } from '../../lib/pregnancy'
 
 export type StoryKind =
   | 'photo'
   | 'letter'
+  | 'voice'
   | 'milestone'
   | 'capsule'
   | 'appointment'
   | 'growth'
   | 'birth'
 
-export type StoryFilter = 'all' | 'photo' | 'letter' | 'milestone'
+export type StoryFilter = 'all' | 'photo' | 'letter' | 'voice' | 'milestone'
 
 export interface StoryItem {
   /** معرّف فريد داخل الخيط (النوع + معرّف السجل) */
@@ -47,6 +49,8 @@ export interface StoryItem {
   meta?: string
   /** كبسولة لم يحن موعدها بعد */
   locked?: boolean
+  /** التسجيل الصوتي — يُشغَّل داخل البطاقة */
+  voice?: VoiceNote
 }
 
 export interface StoryChapter {
@@ -67,6 +71,7 @@ const MONTHS = [
 const KIND_OF_FILTER: Record<Exclude<StoryFilter, 'all'>, StoryKind[]> = {
   photo: ['photo'],
   letter: ['letter', 'capsule'],
+  voice: ['voice'],
   milestone: ['milestone', 'birth', 'growth', 'appointment'],
 }
 
@@ -80,6 +85,18 @@ function photoItem(p: Photo): StoryItem {
     author: p.author,
     favorite: p.favorite,
     photo: p,
+  }
+}
+
+function voiceItem(v: VoiceNote): StoryItem {
+  return {
+    key: `voice:${v.id}`,
+    id: v.id,
+    kind: 'voice',
+    date: v.date,
+    title: v.title,
+    author: v.author,
+    voice: v,
   }
 }
 
@@ -180,6 +197,7 @@ export function buildStory(data: AppData, now: Date = new Date()): StoryItem[] {
   const items: StoryItem[] = [
     ...data.photos.map(photoItem),
     ...data.journal.map(letterItem),
+    ...data.voices.map(voiceItem),
     ...data.milestones.map(milestoneItem).filter(isItem),
     ...data.capsules.map((c) => capsuleItem(c, now)),
     ...data.appointments.map((a) => appointmentItem(a, now)).filter(isItem),
@@ -272,11 +290,13 @@ export function storyStats(data: AppData) {
   return {
     photos: data.photos.length,
     letters: data.journal.length,
+    voices: data.voices.length,
     milestones: data.milestones.filter((m) => m.achievedAt).length,
     capsules: data.capsules.length,
     total:
       data.photos.length +
       data.journal.length +
+      data.voices.length +
       data.milestones.filter((m) => m.achievedAt).length +
       data.capsules.length,
   }

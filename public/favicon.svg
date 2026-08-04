@@ -1,18 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#6b9e78"/>
-      <stop offset="1" stop-color="#4f8460"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <!-- قلب حاضن -->
-  <path fill="#fbf7f0" d="M256 392c-8 0-15-3-21-8-42-37-116-92-116-165 0-45 34-79 76-79 25 0 47 12 61 32 14-20 36-32 61-32 42 0 76 34 76 79 0 73-74 128-116 165-6 5-13 8-21 8z" opacity="0.28"/>
-  <!-- وجه طفل -->
-  <circle cx="256" cy="238" r="86" fill="#fbf7f0"/>
-  <circle cx="226" cy="230" r="10" fill="#3d694c"/>
-  <circle cx="286" cy="230" r="10" fill="#3d694c"/>
-  <path d="M228 268q28 24 56 0" stroke="#e07a4f" stroke-width="9" stroke-linecap="round" fill="none"/>
-  <circle cx="206" cy="256" r="12" fill="#f5b99e" opacity="0.7"/>
-  <circle cx="306" cy="256" r="12" fill="#f5b99e" opacity="0.7"/>
+  <!-- أيقونة «طفلنا»: ورق دافئ + الأقواس الحاضنة نفسها المرسومة داخل التطبيق -->
+  <rect width="512" height="512" rx="112" fill="#F8F3EA"/>
+  <g fill="none" stroke="#A9532A" stroke-linecap="round">
+    <path d="M96 368c0-88 72-160 160-160s160 72 160 160" stroke-width="20"/>
+    <path d="M154 368c0-56 46-102 102-102s102 46 102 102" stroke-width="20" opacity="0.6"/>
+    <path d="M212 368c0-24 20-44 44-44s44 20 44 44" stroke-width="20" opacity="0.32"/>
+  </g>
+  <circle cx="256" cy="146" r="28" fill="#A9532A"/>
 </svg>

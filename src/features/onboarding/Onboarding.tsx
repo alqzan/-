@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Button, Card, Field, FieldGroup, Segmented } from '../../components/ui'
+import { EmbraceMark } from '../../components/illustrations'
 import { completeSetup } from '../../data/dataService'
 import { localDateToIso } from '../../lib/localDate'
 import type { Gender } from '../../data/types'
@@ -45,13 +46,14 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-cream-100 via-cream-50 to-sage-50 px-5 py-8">
-      <div className="mx-auto max-w-md">
-        <div className="text-center mb-6">
-          <div className="text-6xl mb-3">🤍</div>
-          <h1 className="text-3xl font-extrabold text-sage-800">نبدأ قصة طفلنا</h1>
-          <p className="text-sage-500 mt-2 leading-relaxed">
-            مكان خاص يحفظ الرحلة والرسائل والصور الجميلة منذ البداية.
+    <div className="min-h-screen bg-gradient-to-b from-paper-100 via-paper-50 to-paper-100 px-5 py-8">
+      <div className="mx-auto max-w-[27rem]">
+        <div className="text-center mb-8">
+          <EmbraceMark className="w-28 h-20 mx-auto text-clay-300" />
+          <p className="eyebrow mt-4">طفلنا</p>
+          <h1 className="title-lg mt-2">نبدأ الحكاية</h1>
+          <p className="text-ink-500 mt-2.5 leading-relaxed text-[15px]">
+            مكان واحد يحفظ الرحلة والرسائل والصور — من قبل ما يجي، إلى ما بعد ما يكبر.
           </p>
         </div>
 
@@ -104,9 +106,17 @@ export default function Onboarding() {
             </Field>
           )}
 
-          {error && <p role="alert" className="text-sm text-red-700 bg-red-50 rounded-2xl p-3 mb-3">{error}</p>}
-          <Button className="w-full py-3" onClick={submit}>ابدأوا القصة</Button>
-          <p className="text-xs text-sage-400 text-center mt-3">يمكن تعديل هذه المعلومات لاحقًا.</p>
+          {error && (
+            <p role="alert" className="text-sm text-clay-700 bg-clay-50 border border-clay-100 rounded-2xl p-3.5 mb-4">
+              {error}
+            </p>
+          )}
+          <Button className="w-full py-3" onClick={submit}>
+            ابدأوا الحكاية
+          </Button>
+          <p className="text-[12px] text-ink-400 text-center mt-3.5">
+            كل هذي المعلومات تتعدّل لاحقًا من الإعدادات.
+          </p>
         </Card>
       </div>
     </div>

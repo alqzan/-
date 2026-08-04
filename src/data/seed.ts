@@ -1,7 +1,7 @@
 import type { AppData } from './types'
 
 /** رقم إصدار البيانات المخزّنة — يُستخدم للترقية عند تحديث التطبيق */
-export const DATA_VERSION = 3
+export const DATA_VERSION = 4
 
 export function emptyData(): AppData {
   return {
@@ -23,6 +23,7 @@ export function emptyData(): AppData {
     momLogs: [],
     photos: [],
     journal: [],
+    voices: [],
     capsules: [],
     milestones: builtInMilestones(),
     names: [],
@@ -115,7 +116,7 @@ export function seedData(): AppData {
       {
         id: 'j1',
         title: 'أول ركلة حسّيت فيها',
-        text: 'اليوم حسّيت بأول ركلة واضحة! لحظة ما بنساها أبدًا. كأنك تسلّم علينا من هناك 💛',
+        text: 'اليوم حسّيت بأول ركلة واضحة! لحظة ما بنساها أبدًا. كأنك تسلّم علينا من هناك',
         date: dateOnly(-9),
         author: 'mom',
       },
@@ -128,11 +129,14 @@ export function seedData(): AppData {
       },
     ],
 
+    // التسجيلات الصوتية لا تُولَّد في بيانات العرض — لا معنى لصوت مزيّف
+    voices: [],
+
     capsules: [
       {
         id: 'c1',
         title: 'تُفتح في عيد ميلادك الأول',
-        message: 'حبيبنا، يوم ما تقرأ هذي الرسالة تكون كملت سنة! كنت أحلى هدية وصلتنا. نحبك 🎂',
+        message: 'حبيبنا، يوم ما تقرأ هذي الرسالة تكون كملت سنة! كنت أحلى هدية وصلتنا. نحبك',
         author: 'mom',
         openAt: dateOnly(480),
         createdAt: isoAt(-7),
@@ -204,22 +208,22 @@ export function builtInVaccines() {
 }
 
 function builtInMilestones() {
-  const items: Array<[string, string]> = [
-    ['أول ابتسامة', '😊'],
-    ['أول ضحكة', '😄'],
-    ['رفع الرأس', '🙆'],
-    ['التقلّب', '🔄'],
-    ['أول سنّة', '🦷'],
-    ['الجلوس', '🪑'],
-    ['الحبو', '🐣'],
-    ['أول كلمة', '🗣️'],
-    ['الوقوف', '🧍'],
-    ['أول خطوة', '👣'],
+  const items: string[] = [
+    'أول ابتسامة',
+    'أول ضحكة',
+    'رفع الرأس',
+    'التقلّب',
+    'أول سنّة',
+    'الجلوس',
+    'الحبو',
+    'أول كلمة',
+    'الوقوف',
+    'أول خطوة',
   ]
-  return items.map(([title, emoji], i) => ({
+  return items.map((title, i) => ({
     id: `ms${i + 1}`,
     title,
-    emoji,
+    emoji: '',
     achievedAt: null,
     builtIn: true,
   }))

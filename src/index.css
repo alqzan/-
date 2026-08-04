@@ -2,7 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== خط ثمانية Thmanyah Sans (مستضاف محليًا) ===== */
+/* =========================================================
+   خط ثمانية — ثلاث عائلات بأدوار مختلفة
+   Sans: الواجهة والأزرار والأرقام الصغيرة
+   Serif Display: العناوين والأرقام الكبيرة (صوت التطبيق)
+   Serif Text: النصوص الطويلة — الرسائل وكتاب الذكريات
+   ========================================================= */
 @font-face {
   font-family: 'Thmanyah Sans';
   font-style: normal;
@@ -25,11 +30,32 @@
   src: url('/fonts/thmanyahsans-Bold.woff2') format('woff2');
 }
 @font-face {
-  font-family: 'Thmanyah Sans';
+  font-family: 'Thmanyah Serif Display';
   font-style: normal;
-  font-weight: 800;
+  font-weight: 500;
   font-display: swap;
-  src: url('/fonts/thmanyahsans-Black.woff2') format('woff2');
+  src: url('/fonts/thmanyahserifdisplay-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Thmanyah Serif Display';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/thmanyahserifdisplay-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Thmanyah Serif Text';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/thmanyahseriftext-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Thmanyah Serif Text';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/thmanyahseriftext-Medium.woff2') format('woff2');
 }
 
 @layer base {
@@ -44,125 +70,174 @@
   }
 
   body {
-    @apply bg-cream-100 text-sage-800 font-sans antialiased;
-    /* منع السحب/التكبير المزعج على الجوال */
+    @apply bg-paper-200 text-ink-800 font-sans antialiased;
     overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* شريط تمرير ناعم */
+  /* الأرقام العربية-الهندية غير مستخدمة؛ نضمن اتجاه الأرقام اللاتينية داخل النص العربي */
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+  }
+
   ::-webkit-scrollbar {
     width: 0;
     height: 0;
   }
+
+  ::selection {
+    @apply bg-clay-100 text-ink-900;
+  }
 }
 
 @layer components {
-  .app-container {
-    @apply mx-auto w-full max-w-md min-h-full bg-cream-100 relative;
+  /* ===== الهيكل ===== */
+  .app-shell {
+    /* عمود واحد بعرض الجوال، على سطح ورقي فاتح داخل خلفية أغمق قليلًا */
+    @apply mx-auto w-full max-w-[30rem] min-h-full bg-paper-50 relative;
+    box-shadow: 0 0 60px -30px rgba(43, 33, 25, 0.4);
   }
 
   .screen {
-    @apply px-4 pb-28 pt-2;
+    @apply px-5 pb-32 pt-1;
   }
 
+  /* ===== البطاقات ===== */
   .card {
-    @apply bg-white rounded-card shadow-card p-4;
+    @apply bg-white rounded-card border border-line/70 shadow-card p-4;
   }
 
+  .card-press {
+    @apply transition duration-200 ease-smooth active:scale-[0.985] active:brightness-[0.99];
+  }
+
+  /* ===== الأزرار ===== */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 rounded-full font-medium
+           transition duration-200 ease-smooth active:scale-95
+           disabled:opacity-40 disabled:pointer-events-none;
   }
 
   .btn-primary {
-    @apply btn bg-sage-400 text-white px-5 py-2.5 shadow-soft hover:bg-sage-500;
+    @apply btn bg-ink-900 text-paper-50 px-5 py-2.5 hover:bg-ink-800;
+  }
+
+  .btn-clay {
+    @apply btn bg-clay-500 text-white px-5 py-2.5 hover:bg-clay-600;
   }
 
   .btn-ghost {
-    @apply btn bg-sage-100 text-sage-700 px-4 py-2 hover:bg-sage-200;
+    @apply btn bg-paper-200 text-ink-700 px-4 py-2 hover:bg-paper-300;
   }
 
-  .btn-peach {
-    @apply btn bg-peach-400 text-white px-5 py-2.5 hover:bg-peach-500;
+  .btn-outline {
+    @apply btn border border-ink-200 text-ink-700 px-4 py-2 hover:bg-paper-100;
+  }
+
+  .btn-icon {
+    @apply btn w-10 h-10 bg-white border border-line text-ink-600 shadow-card hover:bg-paper-100;
   }
 
   .chip {
-    @apply inline-flex items-center gap-1 rounded-full bg-sage-100 text-sage-700 text-sm px-3 py-1;
+    @apply inline-flex items-center gap-1.5 rounded-full bg-paper-200 text-ink-600
+           text-[13px] px-3 py-1;
   }
 
+  .chip-clay {
+    @apply chip bg-clay-50 text-clay-600;
+  }
+
+  /* ===== النماذج ===== */
   .input {
-    @apply w-full rounded-2xl border border-cream-300 bg-cream-50 px-4 py-3 text-sage-800 placeholder:text-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-300;
+    @apply w-full rounded-2xl border border-line bg-paper-50 px-4 py-3 text-ink-900
+           placeholder:text-ink-300 transition
+           focus:outline-none focus:border-clay-300 focus:ring-4 focus:ring-clay-50;
+  }
+
+  .label {
+    @apply block text-[13px] font-medium text-ink-500 mb-1.5;
+  }
+
+  /* ===== العناوين ===== */
+  .eyebrow {
+    /* سطر صغير فوق العنوان — نبرة «توثيق» */
+    @apply text-[11px] font-medium tracking-[0.14em] text-ink-400 uppercase;
+  }
+
+  .title-lg {
+    @apply font-display font-bold text-[26px] leading-[1.35] text-ink-900;
+  }
+
+  .title-md {
+    @apply font-display font-bold text-xl leading-snug text-ink-900;
   }
 
   .section-title {
-    @apply text-sage-700 font-bold text-lg mb-3;
+    @apply font-display font-bold text-lg text-ink-900;
   }
 
-  .book-title {
-    @apply text-sage-700 font-bold text-lg mb-3 pb-1 border-b border-cream-300;
+  .prose-note {
+    /* نص الرسائل والذكريات — سيرف للقراءة الطويلة */
+    @apply font-serif text-[15.5px] leading-[1.9] text-ink-700;
+  }
+
+  /* فاصل زخرفي بنقطة في المنتصف */
+  .rule-dot {
+    @apply flex items-center gap-3 text-ink-200;
+  }
+  .rule-dot::before,
+  .rule-dot::after {
+    content: '';
+    @apply h-px flex-1 bg-line;
+  }
+
+  /* ===== الخط الزمني ===== */
+  .timeline {
+    @apply relative;
+  }
+  /* الخيط العمودي يمرّ على يمين البطاقات — جهة بداية القراءة في RTL */
+  .timeline::before {
+    content: '';
+    @apply absolute top-2 bottom-2 w-px bg-line;
+    inset-inline-start: 0.4375rem;
+    inset-inline-end: auto;
+  }
+
+  .timeline-node {
+    @apply absolute w-[0.875rem] h-[0.875rem] rounded-full bg-paper-50 border-2 border-ink-200;
+    inset-inline-start: 0;
+    top: 1.15rem;
+  }
+
+  .timeline-node-active {
+    @apply bg-clay-500 border-clay-500;
   }
 
   /* ===== كتاب الذكريات ===== */
-  .book-cover {
-    @apply text-center py-10 px-4;
-  }
-
-  .book-cover-photo {
-    @apply w-28 h-28 rounded-full object-cover mx-auto mb-4 shadow-card ring-4 ring-white;
-  }
-
-  /* فاصل زخرفي صغير بدل خط ممتد — أقرب لروح الكتاب المطبوع */
   .book-rule {
-    @apply mx-auto my-3 h-px w-16 bg-cream-300;
-  }
-
-  .book-stats {
-    @apply flex flex-wrap justify-center gap-x-6 gap-y-2 mt-6 pt-5 border-t border-cream-200;
-  }
-
-  .book-stat {
-    @apply text-center;
-  }
-
-  .book-stat-value {
-    @apply text-2xl font-extrabold text-sage-700 leading-none;
-  }
-
-  .book-stat-label {
-    @apply text-[11px] text-sage-400 mt-1;
-  }
-
-  .book-chapter {
-    @apply mb-10;
-  }
-
-  .book-chapter-title {
-    @apply text-sage-500 font-bold text-sm tracking-wide text-center mb-5
-           before:content-['—'] before:mx-2 after:content-['—'] after:mx-2;
+    @apply block mx-auto my-4 h-px w-16 bg-line;
   }
 
   .book-entry {
     @apply break-inside-avoid;
   }
+}
 
-  .book-letter {
-    @apply bg-cream-50 rounded-2xl p-4 border border-cream-200;
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
-  .book-capsule {
-    @apply bg-sky-100/60 rounded-2xl p-4 border border-sky-200;
-  }
-
-  .book-milestone {
-    @apply flex items-start gap-3 bg-blush-100/50 rounded-2xl p-4;
-  }
-
-  .book-footer {
-    @apply text-center pt-6 pb-2;
+  /* أرقام بعرض ثابت كي لا ترتجف العدّادات الحيّة */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
   }
 }
 
-/* ===== وضع الطباعة: كتاب الذكريات ===== */
+/* ===== الطباعة: كتاب الذكريات ===== */
 @page {
   size: A4;
   margin: 16mm 14mm;
@@ -173,15 +248,15 @@
     background: #fff;
   }
 
-  /* نخفي كل ما ليس جزءًا من الكتاب: التنقّل، الترويسات، الأزرار */
   nav,
-  header:not(.memory-book header) {
+  .print\:hidden {
     display: none !important;
   }
 
-  .app-container {
+  .app-shell {
     max-width: none;
     background: #fff;
+    box-shadow: none;
   }
 
   .screen {
@@ -190,18 +265,15 @@
 
   .memory-book {
     color: #000;
-    /* الألوان الخلفية للبطاقات جزء من هوية الكتاب — نطلب من المتصفح طباعتها */
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
-  /* الغلاف يملأ الصفحة الأولى وحده */
   .book-cover {
     break-after: page;
-    padding-top: 25vh;
+    padding-top: 22vh;
   }
 
-  /* كل شهر يبدأ صفحة جديدة — يقرأ كفصول لا كقائمة متصلة */
   .book-chapter {
     break-before: page;
   }
@@ -224,18 +296,11 @@
   }
 }
 
-/* حركة ظهور لطيفة */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-in {
-  animation: fadeInUp 0.35s ease both;
 }

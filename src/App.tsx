@@ -1,27 +1,26 @@
 import { useEffect } from 'react'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import BottomNav from './components/BottomNav'
-import Home from './features/home/Home'
-import PregnancyHub from './features/pregnancy/PregnancyHub'
-import KicksScreen from './features/pregnancy/KicksScreen'
-import ContractionsScreen from './features/pregnancy/ContractionsScreen'
-import AppointmentsScreen from './features/pregnancy/AppointmentsScreen'
-import DevelopmentScreen from './features/pregnancy/DevelopmentScreen'
-import MomScreen from './features/pregnancy/MomScreen'
-import MemoriesHub from './features/memories/MemoriesHub'
-import JournalScreen from './features/memories/JournalScreen'
-import CapsulesScreen from './features/memories/CapsulesScreen'
-import MilestonesScreen from './features/memories/MilestonesScreen'
-import MemoryBook from './features/memories/MemoryBook'
-import PrepHub from './features/prep/PrepHub'
-import NamesScreen from './features/prep/NamesScreen'
-import ChecklistScreen from './features/prep/ChecklistScreen'
-import BabyCare from './features/baby-care/BabyCare'
-import FeedingScreen from './features/baby-care/FeedingScreen'
-import DiapersScreen from './features/baby-care/DiapersScreen'
-import SleepScreen from './features/baby-care/SleepScreen'
-import GrowthScreen from './features/baby-care/GrowthScreen'
-import VaccinesScreen from './features/baby-care/VaccinesScreen'
+import { CaptureProvider } from './components/Capture'
+import { EmbraceMark } from './components/illustrations'
+import Today from './features/today/Today'
+import Story from './features/story/Story'
+import MemoryBook from './features/story/MemoryBook'
+import CapsulesScreen from './features/story/CapsulesScreen'
+import MilestonesScreen from './features/story/MilestonesScreen'
+import Track from './features/track/Track'
+import KicksScreen from './features/track/KicksScreen'
+import ContractionsScreen from './features/track/ContractionsScreen'
+import AppointmentsScreen from './features/track/AppointmentsScreen'
+import DevelopmentScreen from './features/track/DevelopmentScreen'
+import MomScreen from './features/track/MomScreen'
+import FeedingScreen from './features/track/FeedingScreen'
+import DiapersScreen from './features/track/DiapersScreen'
+import SleepScreen from './features/track/SleepScreen'
+import GrowthScreen from './features/track/GrowthScreen'
+import VaccinesScreen from './features/track/VaccinesScreen'
+import NamesScreen from './features/track/NamesScreen'
+import ChecklistScreen from './features/track/ChecklistScreen'
 import SettingsScreen from './features/settings/SettingsScreen'
 import Onboarding from './features/onboarding/Onboarding'
 import { useAppData, useDataStatus, type DataStatus } from './data/dataService'
@@ -53,44 +52,41 @@ export default function App() {
   }
 
   return (
-    <div className="app-container">
-      <StatusBanner status={status} />
-      <main className="screen animate-in" key={location.pathname}>
-        <Routes>
-          <Route path="/" element={<Home />} />
+    <CaptureProvider>
+      <div className="app-shell">
+        <StatusBanner status={status} />
+        <main className="screen animate-rise" key={location.pathname}>
+          <Routes>
+            <Route path="/" element={<Today />} />
 
-          <Route path="/pregnancy" element={<PregnancyHub />} />
-          <Route path="/pregnancy/development" element={<DevelopmentScreen />} />
-          <Route path="/pregnancy/kicks" element={<KicksScreen />} />
-          <Route path="/pregnancy/contractions" element={<ContractionsScreen />} />
-          <Route path="/pregnancy/appointments" element={<AppointmentsScreen />} />
-          <Route path="/pregnancy/mom" element={<MomScreen />} />
+            <Route path="/story" element={<Story />} />
+            <Route path="/story/book" element={<MemoryBook />} />
+            <Route path="/story/capsules" element={<CapsulesScreen />} />
+            <Route path="/story/milestones" element={<MilestonesScreen />} />
 
-          <Route path="/memories" element={<MemoriesHub />} />
-          <Route path="/memories/journal" element={<JournalScreen />} />
-          <Route path="/memories/capsules" element={<CapsulesScreen />} />
-          <Route path="/memories/milestones" element={<MilestonesScreen />} />
-          <Route path="/memories/book" element={<MemoryBook />} />
+            <Route path="/track" element={<Track />} />
+            <Route path="/track/development" element={<DevelopmentScreen />} />
+            <Route path="/track/kicks" element={<KicksScreen />} />
+            <Route path="/track/contractions" element={<ContractionsScreen />} />
+            <Route path="/track/appointments" element={<AppointmentsScreen />} />
+            <Route path="/track/mom" element={<MomScreen />} />
+            <Route path="/track/feeding" element={<FeedingScreen />} />
+            <Route path="/track/diapers" element={<DiapersScreen />} />
+            <Route path="/track/sleep" element={<SleepScreen />} />
+            <Route path="/track/growth" element={<GrowthScreen />} />
+            <Route path="/track/vaccines" element={<VaccinesScreen />} />
+            <Route path="/track/names" element={<NamesScreen />} />
+            <Route path="/track/hospital" element={<ChecklistScreen list="hospital" />} />
+            <Route path="/track/shopping" element={<ChecklistScreen list="shopping" />} />
 
-          <Route path="/prep" element={<PrepHub />} />
-          <Route path="/prep/names" element={<NamesScreen />} />
-          <Route path="/prep/hospital" element={<ChecklistScreen list="hospital" />} />
-          <Route path="/prep/shopping" element={<ChecklistScreen list="shopping" />} />
+            <Route path="/settings" element={<SettingsScreen />} />
 
-          <Route path="/baby-care" element={<BabyCare />} />
-          <Route path="/baby-care/feeding" element={<FeedingScreen />} />
-          <Route path="/baby-care/diapers" element={<DiapersScreen />} />
-          <Route path="/baby-care/sleep" element={<SleepScreen />} />
-          <Route path="/baby-care/growth" element={<GrowthScreen />} />
-          <Route path="/baby-care/vaccines" element={<VaccinesScreen />} />
-
-          <Route path="/settings" element={<SettingsScreen />} />
-
-          <Route path="*" element={<Home />} />
-        </Routes>
-      </main>
-      <BottomNav />
-    </div>
+            <Route path="*" element={<Today />} />
+          </Routes>
+        </main>
+        <BottomNav />
+      </div>
+    </CaptureProvider>
   )
 }
 
@@ -100,9 +96,9 @@ function StatusBanner({ status }: { status: DataStatus }) {
   return (
     <div
       role="alert"
-      className="sticky top-0 z-50 bg-red-700 text-white text-sm px-4 py-3 shadow-lg print:hidden"
+      className="sticky top-0 z-40 bg-clay-700 text-white text-sm px-5 py-3 shadow-lift print:hidden"
     >
-      <strong className="block">
+      <strong className="block font-display">
         {status.readOnly ? 'وضع القراءة فقط' : 'الحفظ غير متاح'}
       </strong>
       <span className="leading-relaxed">{status.error}</span>
@@ -113,10 +109,10 @@ function StatusBanner({ status }: { status: DataStatus }) {
 /** شاشة انتظار قصيرة أثناء قراءة التخزين — تمنع وميض شاشة البداية */
 function BootScreen() {
   return (
-    <div className="min-h-screen grid place-items-center bg-cream-50">
-      <div className="text-center">
-        <div className="text-5xl mb-3 animate-pulse">👶</div>
-        <p className="text-sage-400 text-sm">لحظة…</p>
+    <div className="min-h-screen grid place-items-center bg-paper-100">
+      <div className="text-center animate-fade">
+        <EmbraceMark className="w-20 h-14 mx-auto text-clay-300" />
+        <p className="text-ink-400 text-sm mt-3">لحظة…</p>
       </div>
     </div>
   )

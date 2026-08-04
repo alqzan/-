@@ -16,9 +16,9 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
+    // بلا baseUrl: TypeScript 6 يحذّر منه، وحلّ المسارات النسبية يكفي هنا
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src", "*.config.ts", "vite.config.singlefile.ts"]

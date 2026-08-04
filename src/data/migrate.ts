@@ -16,6 +16,7 @@ import type {
   SleepEntry,
   TimeCapsule,
   VaccineDose,
+  VoiceNote,
 } from './types'
 import { DATA_VERSION, builtInVaccines, emptyData } from './seed'
 
@@ -192,6 +193,25 @@ const journal = (r: Record<string, unknown>): JournalEntry | null => {
   }
 }
 
+const voice = (r: Record<string, unknown>): VoiceNote | null => {
+  const d = date(r.date)
+  const src = str(r.localKey) ?? str(r.dataUrl) ?? str(r.storagePath) ?? str(r.remoteUrl)
+  // تسجيل بلا مصدر صوت = صفّ ميّت؛ إسقاطه أنظف من عرض مشغّل لا يعمل
+  if (!d || !src) return null
+  return {
+    id: id(r.id),
+    localKey: str(r.localKey),
+    dataUrl: str(r.dataUrl),
+    storagePath: str(r.storagePath),
+    remoteUrl: str(r.remoteUrl),
+    title: str(r.title),
+    durationSec: Math.max(0, num(r.durationSec) ?? 0),
+    date: d,
+    author: parentOf(r.author),
+    authorUid: str(r.authorUid),
+  }
+}
+
 const capsule = (r: Record<string, unknown>): TimeCapsule | null => {
   const openAt = date(r.openAt)
   const message = str(r.message)
@@ -214,7 +234,7 @@ const milestone = (r: Record<string, unknown>): Milestone | null => {
   return {
     id: id(r.id),
     title,
-    emoji: str(r.emoji) || '⭐',
+    emoji: str(r.emoji) ?? '',
     achievedAt: date(r.achievedAt) ?? null,
     builtIn: bool(r.builtIn) ?? false,
     note: str(r.note),
@@ -333,6 +353,8 @@ export function migrate(parsed: unknown): AppData | null {
     momLogs: clean(raw.momLogs, base.momLogs, momLog),
     photos: clean(raw.photos, base.photos, photo),
     journal: clean(raw.journal, base.journal, journal),
+    // أُضيفت في الإصدار ٤ — النسخ الأقدم تبدأ بقائمة فارغة
+    voices: clean(raw.voices, base.voices, voice),
     capsules: clean(raw.capsules, base.capsules, capsule),
     milestones: clean(raw.milestones, base.milestones, milestone),
     names: clean(raw.names, base.names, nameIdea),

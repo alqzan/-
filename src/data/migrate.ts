@@ -195,11 +195,12 @@ const journal = (r: Record<string, unknown>): JournalEntry | null => {
 
 const voice = (r: Record<string, unknown>): VoiceNote | null => {
   const d = date(r.date)
-  const src = str(r.dataUrl) ?? str(r.storagePath) ?? str(r.remoteUrl)
+  const src = str(r.localKey) ?? str(r.dataUrl) ?? str(r.storagePath) ?? str(r.remoteUrl)
   // تسجيل بلا مصدر صوت = صفّ ميّت؛ إسقاطه أنظف من عرض مشغّل لا يعمل
   if (!d || !src) return null
   return {
     id: id(r.id),
+    localKey: str(r.localKey),
     dataUrl: str(r.dataUrl),
     storagePath: str(r.storagePath),
     remoteUrl: str(r.remoteUrl),

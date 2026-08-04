@@ -2,15 +2,17 @@
 // تسجيل الصوت — غلاف رقيق حول MediaRecorder.
 //
 // الغرض: تبقى الواجهة جاهلة بفروق المتصفحات (Safari لا يدعم webm/opus،
-// وأسماء الأنواع تختلف)، وتبقى المدة والحجم تحت السيطرة لأن التخزين
-// المحلي محدود ونحن نضع صوتًا بجانب صور المستخدم.
+// وأسماء الأنواع تختلف).
+//
+// لا سقف زمني للتسجيل: الصوت يُحفظ في مخزن الوسائط (IndexedDB) لا داخل
+// بيانات التطبيق، فحدّه هو مساحة الجهاز لا حصّة localStorage الضيّقة.
 // =============================================================
 
-/** أقصى مدة للتسجيل — رسالة قصيرة تُسمع، لا محاضرة تملأ التخزين */
-export const MAX_VOICE_SECONDS = 90
-
-/** جودة كافية للصوت البشري وبثلث حجم الافتراضي */
+/** جودة كافية للصوت البشري وبثلث حجم الافتراضي — تُطيل الممكن قبل امتلاء الجهاز */
 const AUDIO_BITS_PER_SECOND = 32000
+
+/** بعد هذه المدة نُنبّه أن التسجيل صار طويلًا (بلا إيقافه) */
+export const LONG_RECORDING_SECONDS = 5 * 60
 
 const PREFERRED_TYPES = [
   'audio/webm;codecs=opus',
@@ -33,7 +35,8 @@ function pickMimeType(): string | undefined {
 }
 
 export interface Recording {
-  dataUrl: string
+  /** التسجيل الخام — يُخزَّن كما هو بلا تضخّم base64 */
+  blob: Blob
   durationSec: number
 }
 
@@ -77,15 +80,10 @@ export class VoiceRecorder {
       }
       recorder.onstop = () => {
         this.stoppedAt = Date.now()
-        const blob = new Blob(this.chunks, { type: recorder.mimeType || 'audio/webm' })
-        const reader = new FileReader()
-        reader.onload = () =>
-          resolve({
-            dataUrl: reader.result as string,
-            durationSec: Math.max(1, Math.round((this.stoppedAt - this.startedAt) / 1000)),
-          })
-        reader.onerror = () => reject(new Error('تعذّرت قراءة التسجيل'))
-        reader.readAsDataURL(blob)
+        resolve({
+          blob: new Blob(this.chunks, { type: recorder.mimeType || 'audio/webm' }),
+          durationSec: Math.max(1, Math.round((this.stoppedAt - this.startedAt) / 1000)),
+        })
       }
       recorder.stop()
       this.releaseMic()
@@ -120,7 +118,14 @@ export function formatClock(totalSec: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-/** حجم تقريبي لتسجيل مخزَّن كـ Data URL */
-export function voiceBytes(voice: { dataUrl?: string }): number {
+/** حجم التسجيلات المضمّنة داخل البيانات (البديل حين يتعذّر مخزن الوسائط) */
+export function inlineVoiceBytes(voice: { dataUrl?: string }): number {
   return (voice.dataUrl?.length ?? 0) * 2
+}
+
+/** «١٢٫٤ م.ب» — حجم مقروء */
+export function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} بايت`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} ك.ب`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} م.ب`
 }

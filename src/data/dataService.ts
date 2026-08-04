@@ -26,6 +26,16 @@ import type {
 import { emptyData, seedData } from './seed'
 import { migrate } from './migrate'
 import {
+  blobToDataUrl,
+  dataUrlToBlob,
+  deleteAudio,
+  getAudio,
+  isMediaStoreSupported,
+  keepOnly,
+  newMediaKey,
+  putAudio,
+} from './mediaStore'
+import {
   LOCAL_STORAGE_LIMIT_BYTES,
   LocalStorageAdapter,
   type StorageAdapter,
@@ -299,8 +309,60 @@ export function useStorageUsage(): UsageView {
 // النسخ الاحتياطي — الحماية الأهم لبيانات محفوظة على جهاز واحد
 // ============================================================
 
+/**
+ * نسخة فورية ومتزامنة — تُستخدم في شاشة الانهيار حيث لا يصحّ انتظار شيء.
+ * لا تتضمّن ملفات الصوت (فهي خارج البيانات في مخزن الوسائط).
+ */
 export function exportSnapshot(): string {
   return JSON.stringify(data, null, 2)
+}
+
+/**
+ * النسخة الكاملة: تُضمّن كل تسجيل صوتي داخل الملف كـ Data URL.
+ *
+ * بدون هذا يكون «النسخ الاحتياطي» كذبة لطيفة: ملف يستعيد كل شيء
+ * إلا أصوات الوالدين. الملف يكبر، وهذا ثمن مقبول لضمانة لا تُنقَض.
+ */
+export async function exportSnapshotWithMedia(): Promise<string> {
+  const voices = await Promise.all(
+    data.voices.map(async (v) => {
+      if (v.dataUrl || !v.localKey) return v
+      const blob = await getAudio(v.localKey)
+      if (!blob) return v
+      try {
+        return { ...v, dataUrl: await blobToDataUrl(blob) }
+      } catch {
+        return v
+      }
+    }),
+  )
+  return JSON.stringify({ ...data, voices }, null, 2)
+}
+
+/**
+ * يُخرج التسجيلات المضمّنة في ملف النسخة إلى مخزن الوسائط.
+ * بدونها ترجع الأصوات إلى داخل بيانات التطبيق فتلتهم حصّة التخزين
+ * التي هربنا منها أصلًا.
+ */
+async function hydrateMedia(next: AppData): Promise<AppData> {
+  if (!isMediaStoreSupported()) return next
+  const voices = await Promise.all(
+    next.voices.map(async (v) => {
+      if (!v.dataUrl) return v
+      try {
+        const key = v.localKey ?? newMediaKey()
+        await putAudio(key, await dataUrlToBlob(v.dataUrl))
+        return { ...v, localKey: key, dataUrl: undefined }
+      } catch {
+        // تعذّر المخزن: نُبقي التسجيل مضمّنًا بدل أن نفقده
+        return v
+      }
+    }),
+  )
+  const hydrated = { ...next, voices }
+  // تنظيف ما لم يعد مذكورًا في البيانات الجديدة
+  await keepOnly(voices.flatMap((v) => (v.localKey ? [v.localKey] : [])))
+  return hydrated
 }
 
 /** يستبدل كل البيانات بنسخة احتياطية بعد التحقق منها */
@@ -317,7 +379,7 @@ export async function importSnapshot(
   if (!migrated) {
     return { ok: false, error: 'الملف لا يبدو نسخة احتياطية من «طفلنا».' }
   }
-  const saved = await replaceAll(migrated)
+  const saved = await replaceAll(await hydrateMedia(migrated))
   return saved
     ? { ok: true }
     : { ok: false, error: 'تعذّر حفظ النسخة على هذا الجهاز — المساحة قد تكون ممتلئة.' }
@@ -417,6 +479,9 @@ export function updateVoice(id: string, patch: Partial<Pick<VoiceNote, 'title'>>
   return commit({ voices: data.voices.map((v) => (v.id === id ? { ...v, ...patch } : v)) })
 }
 export function deleteVoice(id: string) {
+  // الملف الصوتي يُحذف من مخزن الوسائط أيضًا، وإلا بقي يشغل المساحة بلا صاحب
+  const key = data.voices.find((v) => v.id === id)?.localKey
+  if (key) void deleteAudio(key)
   return commit({ voices: data.voices.filter((v) => v.id !== id) })
 }
 
@@ -570,7 +635,9 @@ export function deleteVaccine(id: string) {
 // ============================================================
 
 /** يمسح كل شيء ويعود لشاشة البداية — لا رجعة، تسبقه رسالة تأكيد في الواجهة */
-export function resetAllData() {
+export async function resetAllData() {
+  // المسح يشمل مخزن الوسائط، وإلا بقيت التسجيلات تشغل المساحة بعد «مسح كل شيء»
+  await keepOnly([])
   return replaceAll(emptyData())
 }
 

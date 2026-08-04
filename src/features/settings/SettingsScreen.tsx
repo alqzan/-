@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ScreenHeader } from '../../components/Header'
 import { Button, Card, Field, FieldGroup, ProgressBar, Segmented, cx } from '../../components/ui'
 import { useConfirm } from '../../components/Confirm'
@@ -14,7 +14,8 @@ import {
 } from '../../data/dataService'
 import { downloadBackup, formatBytes, readFileAsText } from '../../lib/backup'
 import { photoBytes as photoSize } from '../../lib/image'
-import { voiceBytes } from '../../lib/audio'
+import { inlineVoiceBytes } from '../../lib/audio'
+import { audioUsage } from '../../data/mediaStore'
 import { localDateInputValue, localDateToIso } from '../../lib/localDate'
 import type { Gender } from '../../data/types'
 
@@ -34,10 +35,23 @@ export default function SettingsScreen() {
   const { confirm, dialog } = useConfirm()
   const fileRef = useRef<HTMLInputElement>(null)
   const [note, setNote] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
+  const [backingUp, setBackingUp] = useState(false)
 
   const usage = useStorageUsage()
   const photoBytes = data.photos.reduce((sum, p) => sum + photoSize(p), 0)
-  const audioBytes = data.voices.reduce((sum, v) => sum + voiceBytes(v), 0)
+  // التسجيلات خارج حصّة localStorage: نقرأ حجمها من مخزن الوسائط مباشرة
+  const [mediaBytes, setMediaBytes] = useState(0)
+  useEffect(() => {
+    let alive = true
+    void audioUsage().then((bytes) => {
+      if (alive) setMediaBytes(bytes)
+    })
+    return () => {
+      alive = false
+    }
+  }, [data.voices])
+  const audioBytes =
+    mediaBytes + data.voices.reduce((sum, v) => sum + inlineVoiceBytes(v), 0)
   const nearFull = usage.ratio > 0.75
 
   async function onImportFile(file: File) {
@@ -173,9 +187,9 @@ export default function SettingsScreen() {
         </div>
         <ProgressBar value={usage.ratio} />
         <p className="text-xs text-ink-400 mt-2 leading-relaxed">
-          الصور تشغل {formatBytes(photoBytes)} ({data.photos.length} صورة)، والتسجيلات
-          الصوتية {formatBytes(audioBytes)} ({data.voices.length} تسجيل).
-          التخزين الحالي محلي في المتصفح، ولذلك المساحة محدودة.
+          الصور تشغل {formatBytes(photoBytes)} من هذه الحصّة ({data.photos.length} صورة).
+          التسجيلات الصوتية ({data.voices.length}) محفوظة في مخزن منفصل أوسع بكثير
+          وتشغل {formatBytes(audioBytes)}، فلا تزاحم بقية البيانات.
         </p>
         {nearFull && (
           <p className="text-sm text-clay-700 bg-clay-50 rounded-2xl p-3 mt-3 leading-relaxed">
@@ -195,12 +209,20 @@ export default function SettingsScreen() {
         <div className="flex gap-3">
           <Button
             className="flex-1 py-3"
-            onClick={() => {
-              const name = downloadBackup()
-              setNote({ tone: 'ok', text: `تم تنزيل النسخة: ${name}` })
+            disabled={backingUp}
+            onClick={async () => {
+              setBackingUp(true)
+              try {
+                const name = await downloadBackup()
+                setNote({ tone: 'ok', text: `تم تنزيل النسخة: ${name}` })
+              } catch {
+                setNote({ tone: 'error', text: 'تعذّر تجهيز النسخة الاحتياطية.' })
+              } finally {
+                setBackingUp(false)
+              }
             }}
           >
-            <DownloadIcon className="w-5 h-5" /> تنزيل نسخة
+            <DownloadIcon className="w-5 h-5" /> {backingUp ? 'جارٍ التجهيز…' : 'تنزيل نسخة'}
           </Button>
           <Button variant="ghost" className="flex-1 py-3" onClick={() => fileRef.current?.click()}>
             <UploadIcon className="w-5 h-5" /> استعادة

@@ -91,7 +91,15 @@ export interface Photo {
  */
 export interface VoiceNote {
   id: string
-  /** التسجيل مضمّن كـ Data URL — مسار التخزين المحلي */
+  /**
+   * مفتاح التسجيل في مخزن الوسائط (IndexedDB) — المسار الاعتيادي.
+   * الصوت لا يعيش داخل بيانات التطبيق حتى لا يبتلع حصّة localStorage.
+   */
+  localKey?: string
+  /**
+   * التسجيل مضمّنًا كـ Data URL — يُستخدم في ملفات النسخ الاحتياطي،
+   * وكبديل حين يتعذّر فتح مخزن الوسائط (تصفّح خاص مثلًا).
+   */
   dataUrl?: string
   /** مسار الملف في Firebase Storage — يُملأ بعد الربط بدل `dataUrl` */
   storagePath?: string

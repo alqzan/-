@@ -1,4 +1,4 @@
-import { exportSnapshot } from '../data/dataService'
+import { exportSnapshot, exportSnapshotWithMedia } from '../data/dataService'
 import { localDateInputValue } from './localDate'
 
 // نسخ احتياطي محلي: كل شيء محفوظ على جهاز واحد،
@@ -23,9 +23,21 @@ export function daysSinceBackup(): number | null {
   return Math.max(0, Math.floor(diff / 86400000))
 }
 
-/** ينزّل كل البيانات كملف JSON باسم مؤرّخ */
-export function downloadBackup(): string {
-  const json = exportSnapshot()
+/**
+ * ينزّل كل البيانات كملف JSON باسم مؤرّخ.
+ *
+ * `includeMedia` تُضمّن التسجيلات الصوتية في الملف — الوضع الافتراضي،
+ * لأن نسخة بلا أصوات ليست نسخة. تُعطَّل فقط في مسار الانهيار حيث لا
+ * يصحّ انتظار قراءة مخزن الوسائط.
+ */
+export async function downloadBackup(includeMedia = true): Promise<string> {
+  let json: string
+  try {
+    json = includeMedia ? await exportSnapshotWithMedia() : exportSnapshot()
+  } catch {
+    // تعذّر جلب الصوت: ننزّل البيانات على الأقل بدل ألّا ننزّل شيئًا
+    json = exportSnapshot()
+  }
   const filename = `tafalna-backup-${localDateInputValue()}.json`
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)

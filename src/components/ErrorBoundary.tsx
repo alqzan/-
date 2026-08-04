@@ -34,12 +34,17 @@ export default class ErrorBoundary extends Component<Props, State> {
     console.error('[طفلنا] خطأ غير متوقع:', error, info.componentStack)
   }
 
-  private handleBackup = () => {
+  private handleBackup = async () => {
+    // نحاول النسخة الكاملة (بالتسجيلات)، فإن تعذّر مخزن الوسائط والواجهة
+    // منهارة أصلًا ننزّل البيانات وحدها بدل ألّا ننزّل شيئًا.
     try {
-      const name = downloadBackup()
-      this.setState({ downloaded: name })
+      this.setState({ downloaded: await downloadBackup(true) })
     } catch {
-      this.setState({ downloaded: 'تعذّر التنزيل' })
+      try {
+        this.setState({ downloaded: await downloadBackup(false) })
+      } catch {
+        this.setState({ downloaded: 'تعذّر التنزيل' })
+      }
     }
   }
 
@@ -59,7 +64,7 @@ export default class ErrorBoundary extends Component<Props, State> {
 
           <div className="card text-start">
             <button
-              onClick={this.handleBackup}
+              onClick={() => void this.handleBackup()}
               className="btn btn-primary w-full py-3.5 mb-3"
             >
               تنزيل نسخة احتياطية

@@ -11,7 +11,8 @@ export default defineConfig({
   test: {
     // jsdom يوفّر localStorage و window المطلوبين لاختبارات طبقة التخزين
     environment: 'jsdom',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
+    setupFiles: ['src/test/setup.ts'],
     // نثبّت المنطقة الزمنية: اختبارات التواريخ تحرس ضد انزياح اليوم،
     // فلا يصحّ أن تتغيّر نتيجتها بتغيّر جهاز المطوّر أو خادم CI.
     env: { TZ: 'Asia/Riyadh' },

@@ -69,6 +69,13 @@
     height: 100%;
   }
 
+  html {
+    /* أي عنصر يتجاوز عرض الشاشة يُقصّ بدل أن يجرّ الصفحة كلها أفقيًا.
+       نستعمل clip لا hidden: hidden يحوّل الجذر إلى حاوية تمرير فيتعطّل
+       position: sticky لشريط التحذير أعلى الشاشة. */
+    overflow-x: clip;
+  }
+
   body {
     @apply bg-paper-200 text-ink-800 font-sans antialiased;
     overscroll-behavior-y: none;
@@ -98,10 +105,18 @@
     /* عمود واحد بعرض الجوال، على سطح ورقي فاتح داخل خلفية أغمق قليلًا */
     @apply mx-auto w-full max-w-[30rem] min-h-full bg-paper-50 relative;
     box-shadow: 0 0 60px -30px rgba(43, 33, 25, 0.4);
+    /* الصفحة تمتدّ خلف شريط الحالة والشقّ (viewport-fit=cover)،
+       فنُزيح المحتوى إلى أسفلهما بدل أن يختفي خلفهما. */
+    padding-top: env(safe-area-inset-top);
   }
 
   .screen {
-    @apply px-5 pb-32 pt-1;
+    @apply pt-1;
+    /* الجوانب: هامش ثابت + إزاحة الشقّ في الوضع الأفقي */
+    padding-inline-start: calc(1.25rem + env(safe-area-inset-right));
+    padding-inline-end: calc(1.25rem + env(safe-area-inset-left));
+    /* الأسفل: مساحة الشريط السفلي + شريط الإيماءات */
+    padding-bottom: calc(8rem + env(safe-area-inset-bottom));
   }
 
   /* ===== البطاقات ===== */
@@ -154,6 +169,20 @@
     @apply w-full rounded-2xl border border-line bg-paper-50 px-4 py-3 text-ink-900
            placeholder:text-ink-300 transition
            focus:outline-none focus:border-clay-300 focus:ring-4 focus:ring-clay-50;
+    /* حقول التاريخ والوقت على iOS تأخذ مظهرًا أصليًا (menulist-button) بعرض
+       ذاتي يتجاهل w-full، فتخرج من البطاقة وتجرّ الصفحة أفقيًا.
+       إلغاء المظهر الأصلي مع min-width: 0 يعيدها إلى عرض حاويتها. */
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* قيمة التاريخ تُحاذى مع بداية السطر (يمينًا في RTL) بدل توسيطها،
+     والارتفاع الأدنى يمنع انكماش الحقل الفارغ على iOS. */
+  .input::-webkit-date-and-time-value {
+    text-align: start;
+    min-height: 1.5em;
   }
 
   .label {
@@ -228,6 +257,16 @@
 @layer utilities {
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* إزاحة الشقّ يمينًا ويسارًا — تظهر في الوضع الأفقي */
+  .safe-inline {
+    padding-inline-start: env(safe-area-inset-right);
+    padding-inline-end: env(safe-area-inset-left);
   }
 
   /* أرقام بعرض ثابت كي لا ترتجف العدّادات الحيّة */

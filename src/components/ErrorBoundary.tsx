@@ -53,7 +53,7 @@ export default class ErrorBoundary extends Component<Props, State> {
     if (!error) return this.props.children
 
     return (
-      <div className="min-h-screen bg-paper-50 px-5 py-10 flex items-center justify-center">
+      <div className="min-h-dvh bg-paper-50 px-5 py-10 flex items-center justify-center">
         <div className="w-full max-w-md text-center">
           <EmbraceMark className="w-24 h-16 mx-auto mb-5 text-clay-300" />
           <h1 className="title-lg mb-3">صار خلل غير متوقّع</h1>

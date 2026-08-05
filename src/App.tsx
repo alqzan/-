@@ -96,7 +96,9 @@ function StatusBanner({ status }: { status: DataStatus }) {
   return (
     <div
       role="alert"
-      className="sticky top-0 z-40 bg-clay-700 text-white text-sm px-5 py-3 shadow-lift print:hidden"
+      className="sticky z-40 bg-clay-700 text-white text-sm px-5 py-3 shadow-lift print:hidden"
+      // يلتصق تحت شريط الحالة لا خلفه: top: 0 كان يُخفي نصّه عند التمرير.
+      style={{ top: 'env(safe-area-inset-top)' }}
     >
       <strong className="block font-display">
         {status.readOnly ? 'وضع القراءة فقط' : 'الحفظ غير متاح'}
@@ -109,7 +111,7 @@ function StatusBanner({ status }: { status: DataStatus }) {
 /** شاشة انتظار قصيرة أثناء قراءة التخزين — تمنع وميض شاشة البداية */
 function BootScreen() {
   return (
-    <div className="min-h-screen grid place-items-center bg-paper-100">
+    <div className="min-h-dvh grid place-items-center bg-paper-100">
       <div className="text-center animate-fade">
         <EmbraceMark className="w-20 h-14 mx-auto text-clay-300" />
         <p className="text-ink-400 text-sm mt-3">لحظة…</p>

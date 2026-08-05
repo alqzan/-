@@ -46,7 +46,15 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-paper-100 via-paper-50 to-paper-100 px-5 py-8">
+    <div
+      className="min-h-dvh bg-gradient-to-b from-paper-100 via-paper-50 to-paper-100 px-5"
+      style={{
+        // شاشة البداية خارج app-shell، فتحمل إزاحة الشقّ بنفسها:
+        // بدونها يختفي شعار التطبيق وعنوانه خلف شريط الحالة على الجوال.
+        paddingTop: 'calc(2rem + env(safe-area-inset-top))',
+        paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))',
+      }}
+    >
       <div className="mx-auto max-w-[27rem]">
         <div className="text-center mb-8">
           <EmbraceMark className="w-28 h-20 mx-auto text-clay-300" />

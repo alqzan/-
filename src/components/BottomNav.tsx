@@ -26,7 +26,7 @@ export default function BottomNav() {
   return (
     <nav className="fixed bottom-0 inset-x-0 z-30 pointer-events-none print:hidden">
       <div className="mx-auto max-w-[30rem] pointer-events-auto">
-        <div className="bg-paper-50/95 backdrop-blur border-t border-line px-1 safe-bottom">
+        <div className="bg-paper-50/95 backdrop-blur border-t border-line px-1 safe-bottom safe-inline">
           <ul className="flex items-stretch">
             {LEFT.map((item) => (
               <NavItem key={item.to} {...item} />

@@ -240,8 +240,13 @@ export function Sheet({
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className="relative w-full max-w-[30rem] bg-paper-50 rounded-t-sheet px-5 pt-3 pb-8
-                   shadow-sheet animate-sheet-up max-h-[88vh] overflow-y-auto outline-none"
+        className="relative w-full max-w-[30rem] bg-paper-50 rounded-t-sheet px-5 pt-3
+                   shadow-sheet animate-sheet-up max-h-[88dvh] overflow-y-auto outline-none"
+        style={{
+          // dvh لا vh: شريط عنوان سفاري المتحرّك يجعل vh أكبر من المرئي فيُقصّ أسفل النافذة.
+          // والحشوة السفلية تتجاوز شريط الإيماءات كي لا يقع آخر زرّ تحته.
+          paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))',
+        }}
       >
         {/* مقبض السحب — إشارة بصرية أن النافذة تُغلق للأسفل */}
         <div className="mx-auto w-10 h-1 rounded-full bg-ink-200 mb-4" />

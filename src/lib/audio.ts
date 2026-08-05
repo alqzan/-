@@ -80,13 +80,19 @@ export class VoiceRecorder {
       }
       recorder.onstop = () => {
         this.stoppedAt = Date.now()
+        // الميكروفون يُغلق هنا لا قبل: إنهاء مسار الصوت قبل أن يُخرج
+        // المسجّل آخر قطعة يقصّ أواخر الجملة على بعض المتصفحات (سفاري).
+        this.releaseMic()
         resolve({
           blob: new Blob(this.chunks, { type: recorder.mimeType || 'audio/webm' }),
           durationSec: Math.max(1, Math.round((this.stoppedAt - this.startedAt) / 1000)),
         })
       }
+      recorder.onerror = () => {
+        this.releaseMic()
+        reject(new Error('توقّف التسجيل بخطأ'))
+      }
       recorder.stop()
-      this.releaseMic()
     })
   }
 

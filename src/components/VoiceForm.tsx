@@ -12,6 +12,7 @@ import {
 import { addVoice } from '../data/dataService'
 import {
   blobToDataUrl,
+  deleteAudio,
   isMediaStoreSupported,
   newMediaKey,
   putAudio,
@@ -155,8 +156,14 @@ export default function VoiceForm({
       author,
     })
     setBusy(false)
-    if (ok) onDone('حُفظت الرسالة الصوتية')
-    else setError('المساحة على الجهاز ممتلئة — احذفوا صورًا أو تسجيلات، أو خذوا نسخة احتياطية.')
+    if (ok) {
+      onDone('حُفظت الرسالة الصوتية')
+      return
+    }
+    // لم تُحفظ البطاقة، فالملف الصوتي بلا صاحب: نحذفه بدل أن يبقى
+    // يشغل مساحة لا تظهر في أي شاشة — والمساحة هي سبب الفشل أصلًا.
+    if (localKey) void deleteAudio(localKey)
+    setError('المساحة على الجهاز ممتلئة — احذفوا صورًا أو تسجيلات، أو خذوا نسخة احتياطية.')
   }
 
   const long = seconds >= LONG_RECORDING_SECONDS

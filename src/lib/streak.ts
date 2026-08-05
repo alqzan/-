@@ -7,8 +7,6 @@
 // صورة أو سطر يكفي ليبقى الخيط متّصلًا.
 // =============================================================
 
-const WEEK_MS = 7 * 86400000
-
 export interface StreakInfo {
   /** عدد الأسابيع المتتالية التي فيها توثيق (تشمل الأسبوع الحالي) */
   weeks: number
@@ -26,6 +24,21 @@ function weekStart(d: Date): number {
   start.setDate(start.getDate() - start.getDay())
   start.setHours(0, 0, 0, 0)
   return start.getTime()
+}
+
+/**
+ * الأسبوع الذي يسبق أسبوعًا معيّنًا.
+ *
+ * الطرح بـ ٧×٨٦٤٠٠٠٠٠ يبدو صحيحًا وليس كذلك: الأسبوع الذي يتغيّر فيه
+ * التوقيت الصيفي طوله ٢٣ أو ٢٥ ساعة، فيقع الناتج داخل الأسبوع السابق أو
+ * بعده — فتنكسر سلسلة متّصلة أو تُحسب واحدة غير متّصلة. الحساب بالتقويم
+ * (سبعة أيام للخلف ثم بداية اليوم) صحيح في كل المناطق الزمنية.
+ */
+function previousWeek(weekStartMs: number): number {
+  const d = new Date(weekStartMs)
+  d.setDate(d.getDate() - 7)
+  d.setHours(0, 0, 0, 0)
+  return d.getTime()
 }
 
 /**
@@ -51,10 +64,10 @@ export function documentationStreak(dates: string[], now: Date = new Date()): St
 
   let streak = 0
   // نبدأ من الأسبوع الحالي إن كان فيه توثيق، وإلا من الأسبوع الذي قبله
-  let cursor = weeks.has(current) ? current : current - WEEK_MS
+  let cursor = weeks.has(current) ? current : previousWeek(current)
   while (weeks.has(cursor)) {
     streak += 1
-    cursor -= WEEK_MS
+    cursor = previousWeek(cursor)
   }
 
   // أطول سلسلة: نمشي على الأسابيع المرتّبة ونعدّ المتجاورة
@@ -63,13 +76,15 @@ export function documentationStreak(dates: string[], now: Date = new Date()): St
   let run = 0
   let previous: number | null = null
   for (const w of sorted) {
-    run = previous !== null && w - previous === WEEK_MS ? run + 1 : 1
+    run = previous !== null && previousWeek(w) === previous ? run + 1 : 1
     previous = w
     if (run > best) best = run
   }
 
-  const recentWeeks: boolean[] = []
-  for (let i = 7; i >= 0; i--) recentWeeks.push(weeks.has(current - i * WEEK_MS))
+  // آخر ثمانية أسابيع من الأقدم إلى الأحدث
+  const recent: number[] = [current]
+  for (let i = 0; i < 7; i++) recent.unshift(previousWeek(recent[0]))
+  const recentWeeks = recent.map((w) => weeks.has(w))
 
   return {
     weeks: streak,

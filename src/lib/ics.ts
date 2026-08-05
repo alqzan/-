@@ -20,6 +20,42 @@ function escapeText(text: string): string {
   return text.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n')
 }
 
+/** حدّ السطر في iCalendar: ٧٥ ثمانية (octet) لا ٧٥ حرفًا */
+const MAX_OCTETS = 75
+const encoder = new TextEncoder()
+
+/**
+ * يطوي السطور الطويلة حسب RFC 5545.
+ *
+ * الحدّ يُقاس بالبايتات لا بالحروف، والحرف العربي بايتان في UTF-8 — فعنوان
+ * موعد من ٤٠ حرفًا يتجاوز الحدّ وحده. المتساهلون من قارئي التقويم يقبلونه،
+ * والمتشدّدون يرفضون الملف كله فلا يُضاف الموعد أصلًا.
+ *
+ * الطيّ يكون بين المحارف لا داخلها: قصّ منتصف حرف متعدّد البايتات يفسد
+ * الترميز ويحوّل العنوان إلى رموز.
+ */
+function foldLine(line: string): string {
+  const out: string[] = []
+  let current = ''
+  let octets = 0
+  // أول سطر يسع ٧٥، وما بعده يبدأ بمسافة فيسع ٧٤
+  let limit = MAX_OCTETS
+
+  for (const char of line) {
+    const size = encoder.encode(char).length
+    if (octets + size > limit) {
+      out.push(current)
+      current = ''
+      octets = 0
+      limit = MAX_OCTETS - 1
+    }
+    current += char
+    octets += size
+  }
+  out.push(current)
+  return out.join('\r\n ')
+}
+
 export function appointmentToICS(a: Appointment): string {
   const start = new Date(a.dateTime)
   const end = new Date(start.getTime() + 60 * 60 * 1000) // ساعة افتراضية
@@ -46,6 +82,7 @@ export function appointmentToICS(a: Appointment): string {
     'END:VCALENDAR',
   ]
     .filter(Boolean)
+    .map(foldLine)
     .join('\r\n')
 }
 

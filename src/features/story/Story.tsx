@@ -125,7 +125,11 @@ export default function Story() {
       </div>
 
       {/* الفلاتر والبحث */}
-      <div className="sticky top-0 z-20 -mx-5 px-5 pt-4 pb-3 bg-paper-50/95 backdrop-blur mt-5">
+      {/* يلتصق تحت شريط الحالة لا خلفه (الصفحة تمتدّ خلف الشقّ) */}
+      <div
+        className="sticky z-20 -mx-5 px-5 pt-4 pb-3 bg-paper-50/95 backdrop-blur mt-5"
+        style={{ top: 'env(safe-area-inset-top)' }}
+      >
         <div className="flex items-center gap-2">
           <div className="flex-1 flex gap-1.5 overflow-x-auto">
             {FILTERS.map((f) => (

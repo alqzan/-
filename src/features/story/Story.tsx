@@ -12,7 +12,6 @@ import {
   LockIcon,
   MicIcon,
   QuoteIcon,
-  RulerIcon,
   ShareIcon,
   SearchIcon,
   StarIcon,
@@ -255,9 +254,8 @@ const KIND_LABEL: Record<StoryItem['kind'], string> = {
   letter: 'رسالة',
   voice: 'رسالة صوتية',
   milestone: 'لحظة أولى',
-  capsule: 'كبسولة',
+  capsule: 'رسالة للمستقبل',
   appointment: 'موعد',
-  growth: 'قياس',
   birth: 'الولادة',
 }
 
@@ -276,8 +274,6 @@ function KindIcon({ kind, className }: { kind: StoryItem['kind']; className?: st
       return <CapsuleIcon className={className} />
     case 'appointment':
       return <CalendarIcon className={className} />
-    case 'growth':
-      return <RulerIcon className={className} />
   }
 }
 

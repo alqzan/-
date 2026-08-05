@@ -29,7 +29,7 @@ describe('buildStory', () => {
     expect(items.map((i) => i.key)).toEqual(['letter:j1', 'milestone:m1', 'photo:p1'])
   })
 
-  it('يستبعد المعالم غير المتحقّقة والمواعيد القادمة', () => {
+  it('يستبعد المواعيد القادمة والموعد الإداري الفارغ', () => {
     const data = makeData({
       appointments: [
         {
@@ -40,15 +40,68 @@ describe('buildStory', () => {
         },
         {
           id: 'a2',
-          title: 'موعد ماضٍ',
+          title: 'متابعة روتينية',
           dateTime: '2026-05-20T12:00:00.000Z',
+          type: 'checkup',
+        },
+        {
+          id: 'a3',
+          title: 'موعد بملاحظة بيضاء',
+          dateTime: '2026-05-21T12:00:00.000Z',
+          type: 'checkup',
+          notes: '   ',
+        },
+      ],
+    })
+
+    expect(buildStory(data, NOW)).toHaveLength(0)
+  })
+
+  it('يُبقي الموعد الماضي إذا حمل صورة سونار أو ملاحظة تستحق الحفظ', () => {
+    const data = makeData({
+      appointments: [
+        {
+          id: 'a1',
+          title: 'سونار الأسبوع ٢٠',
+          dateTime: '2026-05-10T12:00:00.000Z',
           type: 'ultrasound',
+          image: 'data:image/png;base64,xx',
+        },
+        {
+          id: 'a2',
+          title: 'متابعة',
+          dateTime: '2026-05-12T12:00:00.000Z',
+          type: 'checkup',
+          notes: 'سمعنا نبضه لأول مرة',
         },
       ],
     })
 
     const items = buildStory(data, NOW)
-    expect(items.map((i) => i.id)).toEqual(['a2'])
+    expect(items.map((i) => i.id).sort()).toEqual(['a1', 'a2'])
+  })
+
+  it('لا تظهر قياسات النمو داخل الحكاية — مكانها المتابعة', () => {
+    const data = makeData({
+      growth: [
+        { id: 'g1', date: '2026-05-05T12:00:00.000Z', weightKg: 3.4, lengthCm: 50 },
+      ],
+      journal: [{ id: 'j1', text: 'رسالة', date: '2026-05-06T12:00:00.000Z', author: 'mom' }],
+    })
+
+    const items = buildStory(data, NOW)
+    expect(items.map((i) => i.key)).toEqual(['letter:j1'])
+  })
+
+  it('يستبعد المعالم غير المتحقّقة', () => {
+    const data = makeData({
+      milestones: [
+        { id: 'm1', title: 'أول ابتسامة', emoji: '', achievedAt: '2026-04-01T12:00:00.000Z', builtIn: true },
+        { id: 'm2', title: 'أول خطوة', emoji: '', achievedAt: null, builtIn: true },
+      ],
+    })
+
+    expect(buildStory(data, NOW).map((i) => i.id)).toEqual(['m1'])
   })
 
   it('يقفل الكبسولة التي لم يحن موعدها ولا يكشف نصّها', () => {

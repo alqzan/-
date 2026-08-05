@@ -16,6 +16,7 @@ import {
   CameraIcon,
   CapsuleIcon,
   CheckIcon,
+  ChevronDownIcon,
   DropIcon,
   FeatherIcon,
   FootIcon,
@@ -46,6 +47,7 @@ import {
 } from '../data/dataService'
 import { fileToDataUrl } from '../lib/image'
 import { localDateInputValue, localDateToIso } from '../lib/localDate'
+import { promptsForToday } from '../lib/prompts'
 import type { AppointmentType, Mood, Parent } from '../data/types'
 
 // =============================================================
@@ -53,6 +55,11 @@ import type { AppointmentType, Mood, Parent } from '../data/types'
 //
 // قبل هذا كان على الوالدين معرفة أيّ شاشة تحفظ أيّ نوع؛ الآن زر واحد
 // في كل مكان: يختار النوع، يكتب، ويرجع لما كان فيه. لا تنقّل ولا ضياع.
+//
+// وللنافذة ترتيب مقصود: الذكرى أولًا (صورة/صوت/كلمات)، ثم فكرة تعين من
+// لا يدري بماذا يبدأ، ثم اللحظات التي تبقى، وأخيرًا المتابعة السريعة
+// مطويّة. الأرقام اليومية مفيدة، لكنها ليست سبب وجود التطبيق — فلا
+// تُعرض بوزن الذكرى نفسه.
 // =============================================================
 
 type CaptureKind =
@@ -169,7 +176,10 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
         open={open}
         kind={kind}
         prefill={prefill}
-        onPick={setKind}
+        onPick={(k, pre) => {
+          setKind(k)
+          if (pre) setPrefill(pre)
+        }}
         onClose={close}
         onDone={(text) => {
           close()
@@ -206,11 +216,11 @@ const TITLES: Record<CaptureKind, string> = {
   photo: 'صورة',
   letter: 'رسالة',
   voice: 'رسالة صوتية',
-  milestone: 'معلَم',
-  capsule: 'كبسولة زمنية',
-  appointment: 'موعد',
-  growth: 'قياس',
-  mom: 'يوم الأم',
+  milestone: 'لحظة أولى',
+  capsule: 'رسالة للمستقبل',
+  appointment: 'موعد جديد',
+  growth: 'قياس النمو',
+  mom: 'متابعة الأم',
 }
 
 function CaptureSheet({
@@ -224,7 +234,7 @@ function CaptureSheet({
   open: boolean
   kind: CaptureKind | null
   prefill: { title?: string; text?: string }
-  onPick: (k: CaptureKind) => void
+  onPick: (k: CaptureKind, prefill?: { title?: string; text?: string }) => void
   onClose: () => void
   onDone: (message: string) => void
 }) {
@@ -235,8 +245,8 @@ function CaptureSheet({
     <Sheet
       open={open}
       onClose={onClose}
-      title={kind ? TITLES[kind] : 'وثّقوا هذه اللحظة'}
-      subtitle={kind ? undefined : 'كل ما تحفظونه هنا يدخل حكاية طفلكم تلقائيًا'}
+      title={kind ? TITLES[kind] : 'وش ودّكم تحفظون؟'}
+      subtitle={kind ? undefined : 'اختاروا ذكرى، أو خذوا فكرة جاهزة لليوم'}
     >
       {kind === null && (
         <ChooserView born={born} onPick={onPick} onDone={onDone} onClose={onClose} />
@@ -260,111 +270,280 @@ function ChooserView({
   onClose,
 }: {
   born: boolean
+  onPick: (k: CaptureKind, prefill?: { title?: string; text?: string }) => void
+  onDone: (message: string) => void
+  onClose: () => void
+}) {
+  return (
+    <div>
+      <MemorySection onPick={onPick} />
+      <IdeaSection born={born} onPick={onPick} />
+      <KeepsakeSection onPick={onPick} />
+      <QuickTrackSection born={born} onPick={onPick} onDone={onDone} onClose={onClose} />
+    </div>
+  )
+}
+
+// ============ ١ • احفظوا الذكرى ============
+
+const MEMORIES: Array<{ kind: CaptureKind; label: string; hint: string; icon: ReactNode }> = [
+  { kind: 'photo', label: 'صورة', hint: 'بالصورة', icon: <CameraIcon className="w-6 h-6" /> },
+  { kind: 'voice', label: 'صوت', hint: 'بصوتكم', icon: <MicIcon className="w-6 h-6" /> },
+  { kind: 'letter', label: 'رسالة', hint: 'بالكلمات', icon: <FeatherIcon className="w-6 h-6" /> },
+]
+
+function MemorySection({ onPick }: { onPick: (k: CaptureKind) => void }) {
+  return (
+    <section>
+      <div className="eyebrow mb-2.5">احفظوا الذكرى</div>
+      <div className="grid grid-cols-3 gap-2.5">
+        {MEMORIES.map((m) => (
+          <button
+            key={m.kind}
+            onClick={() => onPick(m.kind)}
+            className="card card-press !p-4 flex flex-col items-center justify-center gap-2
+                       min-h-[7rem] !bg-clay-50 !border-clay-100"
+          >
+            <span className="w-12 h-12 rounded-full bg-white text-clay-500 grid place-items-center">
+              {m.icon}
+            </span>
+            <span className="text-center leading-tight">
+              <span className="block font-display font-bold text-[15px] text-ink-900">
+                {m.label}
+              </span>
+              <span className="block text-[12px] text-ink-400 mt-0.5">{m.hint}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+// ============ ٢ • فكرة لليوم ============
+
+/**
+ * فكرة واحدة معروضة، وثلاث في الجيب.
+ *
+ * «فكرة ثانية» تدور بين أفكار اليوم نفسه لا بين أفكار جديدة كل ضغطة:
+ * من رفض فكرة ثم عاد إليها وجدها كما تركها، ومن أغلق النافذة وفتحها
+ * وجد اليوم نفسه — الثبات هنا جزء من الطمأنينة.
+ */
+function IdeaSection({
+  born,
+  onPick,
+}: {
+  born: boolean
+  onPick: (k: CaptureKind, prefill?: { title?: string; text?: string }) => void
+}) {
+  const ideas = useMemo(() => promptsForToday(born), [born])
+  const [index, setIndex] = useState(0)
+  const idea = ideas[index % ideas.length]
+
+  return (
+    <section className="mt-6">
+      <div className="eyebrow mb-2.5">فكرة لليوم</div>
+      <div className="rounded-card border border-brass-100 bg-brass-50 p-4">
+        <p className="font-serif text-[16px] leading-[1.9] text-ink-800">{idea}</p>
+        <div className="flex items-center gap-2 mt-4">
+          <button
+            onClick={() => onPick('letter', { title: idea })}
+            className="btn-clay !py-2.5 min-h-[44px] text-[14px]"
+          >
+            اكتبوا عنها
+          </button>
+          <button
+            onClick={() => setIndex((i) => (i + 1) % ideas.length)}
+            className="min-h-[44px] px-3 rounded-full text-[13px] font-medium text-ink-500
+                       transition active:scale-95"
+          >
+            فكرة ثانية
+          </button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ============ ٣ • لحظات تبقى ============
+
+const KEEPSAKES: Array<{ kind: CaptureKind; label: string; hint: string; icon: ReactNode }> = [
+  {
+    kind: 'milestone',
+    label: 'لحظة أولى',
+    hint: 'أول مرة أو إنجاز',
+    icon: <StarIcon className="w-5 h-5" />,
+  },
+  {
+    kind: 'capsule',
+    label: 'رسالة للمستقبل',
+    hint: 'تُفتح في موعد تختارونه',
+    icon: <CapsuleIcon className="w-5 h-5" />,
+  },
+]
+
+function KeepsakeSection({ onPick }: { onPick: (k: CaptureKind) => void }) {
+  return (
+    <section className="mt-6">
+      <div className="eyebrow mb-2.5">لحظات تبقى</div>
+      <div className="grid grid-cols-2 gap-2.5">
+        {KEEPSAKES.map((k) => (
+          <button
+            key={k.kind}
+            onClick={() => onPick(k.kind)}
+            // بلا قصّ: «رسالة للمستقبل» لا تُختصر إلى «رسالة للمستقـ…»
+            className="card card-press !p-3.5 flex items-start gap-2.5 text-right min-h-[3.75rem]"
+          >
+            <span className="w-9 h-9 rounded-full bg-clay-50 text-clay-500 grid place-items-center shrink-0">
+              {k.icon}
+            </span>
+            <span className="min-w-0">
+              <span className="block font-medium text-ink-900 text-[14px] leading-snug">
+                {k.label}
+              </span>
+              <span className="block text-[11px] text-ink-400 leading-snug mt-0.5">{k.hint}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+// ============ ٤ • المتابعة السريعة ============
+
+/**
+ * قسم واحد مطويّ افتراضيًا.
+ *
+ * الأرقام اليومية (رضعة، حفاض، ركلة…) تُسجَّل كثيرًا، لكن عرضها مفتوحة
+ * كان يزاحم الذكريات على أول شاشة. مطويّة: ضغطة واحدة تفتحها لمن يريدها،
+ * ولا تعترض طريق من جاء يحفظ صورة.
+ */
+function QuickTrackSection({
+  born,
+  onPick,
+  onDone,
+  onClose,
+}: {
+  born: boolean
   onPick: (k: CaptureKind) => void
   onDone: (message: string) => void
   onClose: () => void
 }) {
   const data = useAppData()
   const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
   const openSleep = data.sleep.find((s) => !s.endedAt)
 
-  const documents: Array<{ kind: CaptureKind; label: string; hint: string; icon: ReactNode }> = [
-    { kind: 'photo', label: 'صورة', hint: 'لحظة بالصورة', icon: <CameraIcon className="w-5 h-5" /> },
-    { kind: 'letter', label: 'رسالة', hint: 'كلام لطفلكم', icon: <FeatherIcon className="w-5 h-5" /> },
-    { kind: 'voice', label: 'صوت', hint: 'يسمع صوتكم', icon: <MicIcon className="w-5 h-5" /> },
-    { kind: 'milestone', label: 'معلَم', hint: 'أول مرة يفعلها', icon: <StarIcon className="w-5 h-5" /> },
-    { kind: 'capsule', label: 'كبسولة', hint: 'تُفتح مستقبلًا', icon: <CapsuleIcon className="w-5 h-5" /> },
-    { kind: 'appointment', label: 'موعد', hint: 'فحص أو زيارة', icon: <CalendarIcon className="w-5 h-5" /> },
-    born
-      ? { kind: 'growth', label: 'قياس', hint: 'وزن وطول', icon: <RulerIcon className="w-5 h-5" /> }
-      : { kind: 'mom', label: 'يوم الأم', hint: 'وزن ومزاج', icon: <MomIcon className="w-5 h-5" /> },
-  ]
+  const items: Array<{ key: string; label: string; icon: ReactNode; onClick: () => void }> = born
+    ? [
+        {
+          key: 'feeding',
+          label: 'رضعة',
+          icon: <BottleIcon className="w-5 h-5" />,
+          onClick: async () => {
+            await addFeeding({ startedAt: new Date().toISOString(), kind: 'breast' })
+            onDone('سُجّلت الرضعة')
+          },
+        },
+        {
+          key: 'diaper',
+          label: 'حفاض',
+          icon: <DropIcon className="w-5 h-5" />,
+          onClick: async () => {
+            await addDiaper('wet')
+            onDone('سُجّل الحفاض')
+          },
+        },
+        {
+          key: 'sleep',
+          label: openSleep ? 'إنهاء النوم' : 'بداية النوم',
+          icon: <MoonIcon className="w-5 h-5" />,
+          onClick: async () => {
+            if (openSleep) {
+              await endSleep(openSleep.id)
+              onDone('انتهت غفوة')
+            } else {
+              await startSleep()
+              onDone('بدأت الغفوة')
+            }
+          },
+        },
+        {
+          key: 'appointment',
+          label: 'موعد جديد',
+          icon: <CalendarIcon className="w-5 h-5" />,
+          onClick: () => onPick('appointment'),
+        },
+        {
+          key: 'growth',
+          label: 'قياس النمو',
+          icon: <RulerIcon className="w-5 h-5" />,
+          onClick: () => onPick('growth'),
+        },
+      ]
+    : [
+        {
+          key: 'kick',
+          label: 'ركلة',
+          icon: <FootIcon className="w-5 h-5" />,
+          onClick: async () => {
+            const now = new Date().toISOString()
+            await addKickSession({ id: uid(), startedAt: now, endedAt: now, count: 1 })
+            onDone('سُجّلت ركلة')
+          },
+        },
+        {
+          key: 'contraction',
+          label: 'انقباضة',
+          icon: <WaveIcon className="w-5 h-5" />,
+          onClick: () => {
+            // الانقباضة تحتاج مؤقّتًا حيًّا، فمكانها شاشتها لا نافذة سريعة
+            onClose()
+            navigate('/track/contractions')
+          },
+        },
+        {
+          key: 'appointment',
+          label: 'موعد جديد',
+          icon: <CalendarIcon className="w-5 h-5" />,
+          onClick: () => onPick('appointment'),
+        },
+        {
+          key: 'mom',
+          label: 'متابعة الأم',
+          icon: <MomIcon className="w-5 h-5" />,
+          onClick: () => onPick('mom'),
+        },
+      ]
 
   return (
-    <div>
-      {/* تسجيل بضغطة — لا نموذج ولا شاشة */}
-      <div className="eyebrow mb-2.5">تسجيل سريع</div>
-      <div className="grid grid-cols-3 gap-2.5 mb-7">
-        {born ? (
-          <>
-            <QuickButton
-              icon={<BottleIcon className="w-5 h-5" />}
-              label="رضعة"
-              onClick={async () => {
-                await addFeeding({ startedAt: new Date().toISOString(), kind: 'breast' })
-                onDone('سُجّلت الرضعة')
-              }}
-            />
-            <QuickButton
-              icon={<DropIcon className="w-5 h-5" />}
-              label="حفاض"
-              onClick={async () => {
-                await addDiaper('wet')
-                onDone('سُجّل الحفاض')
-              }}
-            />
-            <QuickButton
-              icon={<MoonIcon className="w-5 h-5" />}
-              label={openSleep ? 'إنهاء النوم' : 'بداية نوم'}
-              onClick={async () => {
-                if (openSleep) {
-                  await endSleep(openSleep.id)
-                  onDone('انتهت غفوة')
-                } else {
-                  await startSleep()
-                  onDone('بدأت الغفوة')
-                }
-              }}
-            />
-          </>
-        ) : (
-          <>
-            <QuickButton
-              icon={<FootIcon className="w-5 h-5" />}
-              label="ركلة"
-              onClick={async () => {
-                const now = new Date().toISOString()
-                await addKickSession({ id: uid(), startedAt: now, endedAt: now, count: 1 })
-                onDone('سُجّلت ركلة')
-              }}
-            />
-            <QuickButton
-              icon={<WaveIcon className="w-5 h-5" />}
-              label="انقباضة"
-              onClick={() => {
-                // الانقباضة تحتاج مؤقّتًا حيًّا، فمكانها شاشتها لا نافذة سريعة
-                onClose()
-                navigate('/track/contractions')
-              }}
-            />
-            <QuickButton
-              icon={<MomIcon className="w-5 h-5" />}
-              label="يومي"
-              onClick={() => onPick('mom')}
-            />
-          </>
-        )}
-      </div>
+    <section className="mt-6">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="w-full min-h-[44px] flex items-center justify-between gap-3 rounded-2xl
+                   border border-line bg-paper-100 px-4 py-3 text-right transition active:scale-[0.99]"
+      >
+        <span className="min-w-0">
+          <span className="block text-[14px] font-medium text-ink-700">المتابعة السريعة</span>
+          <span className="block text-[11px] text-ink-400 mt-0.5">
+            {born ? 'رضعة، حفاض، نوم، موعد، قياس' : 'ركلة، انقباضة، موعد، متابعة الأم'}
+          </span>
+        </span>
+        <ChevronDownIcon
+          className={cx('w-4 h-4 text-ink-400 shrink-0 transition duration-200', open && 'rotate-180')}
+        />
+      </button>
 
-      <div className="eyebrow mb-2.5">توثيق</div>
-      <div className="grid grid-cols-2 gap-2.5">
-        {documents.map((d) => (
-          <button
-            key={d.kind}
-            onClick={() => onPick(d.kind)}
-            className="card card-press !p-3.5 flex items-center gap-3 text-right"
-          >
-            <span className="w-10 h-10 rounded-full bg-clay-50 text-clay-500 grid place-items-center shrink-0">
-              {d.icon}
-            </span>
-            <span className="min-w-0">
-              <span className="block font-medium text-ink-900">{d.label}</span>
-              <span className="block text-[12px] text-ink-400 truncate">{d.hint}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
+      {open && (
+        <div className="grid grid-cols-3 gap-2.5 mt-2.5">
+          {items.map((item) => (
+            <QuickButton key={item.key} icon={item.icon} label={item.label} onClick={item.onClick} />
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -381,10 +560,10 @@ function QuickButton({
     <button
       onClick={onClick}
       className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-line
-                 bg-paper-100 py-3.5 text-ink-700 transition active:scale-95"
+                 bg-paper-100 py-3.5 min-h-[4.5rem] text-ink-700 transition active:scale-95"
     >
       <span className="text-clay-500">{icon}</span>
-      <span className="text-[13px]">{label}</span>
+      <span className="text-[13px] text-center leading-tight">{label}</span>
     </button>
   )
 }
@@ -613,7 +792,7 @@ function MilestoneForm({ onDone }: { onDone: (m: string) => void }) {
           setBusy(true)
           await addMilestoneAchieved(title.trim(), localDateToIso(date), note.trim() || undefined)
           setBusy(false)
-          onDone('أُضيف المعلَم')
+          onDone('أُضيفت اللحظة الأولى')
         }}
       />
     </div>
@@ -678,7 +857,7 @@ function CapsuleForm({ onDone }: { onDone: (m: string) => void }) {
             openAt: localDateToIso(openAt),
           })
           setBusy(false)
-          onDone('أُقفلت الكبسولة')
+          onDone('حُفظت الرسالة للمستقبل')
         }}
       />
     </div>

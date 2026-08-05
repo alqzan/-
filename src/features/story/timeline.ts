@@ -9,7 +9,6 @@ import type {
   AppData,
   Appointment,
   ChildProfile,
-  GrowthEntry,
   JournalEntry,
   Milestone,
   Parent,
@@ -27,7 +26,6 @@ export type StoryKind =
   | 'milestone'
   | 'capsule'
   | 'appointment'
-  | 'growth'
   | 'birth'
 
 export type StoryFilter = 'all' | 'photo' | 'letter' | 'voice' | 'milestone'
@@ -79,7 +77,7 @@ const KIND_OF_FILTER: Record<Exclude<StoryFilter, 'all'>, StoryKind[]> = {
   photo: ['photo'],
   letter: ['letter', 'capsule'],
   voice: ['voice'],
-  milestone: ['milestone', 'birth', 'growth', 'appointment'],
+  milestone: ['milestone', 'birth', 'appointment'],
 }
 
 function photoItem(p: Photo): StoryItem {
@@ -147,9 +145,18 @@ function capsuleItem(c: TimeCapsule, now: Date): StoryItem {
   }
 }
 
+/**
+ * الموعد لا يدخل الحكاية لمجرّد أنه موعد.
+ *
+ * «متابعة الأربعاء ١٠ ص» سطرٌ إداريّ لا ذكرى؛ إقحامه بين الصور والرسائل
+ * يمدّد الخيط بما لا يُقرأ. أما موعد حملَ صورة سونار أو ملاحظة كتبها
+ * الوالدان فقد صار لحظة تستحق الحفظ — وهذا وحده ما يعبر.
+ */
 function appointmentItem(a: Appointment, now: Date): StoryItem | null {
   // المواعيد القادمة مكانها شاشة المتابعة، أما الحكاية فتحكي ما مضى
   if (new Date(a.dateTime).getTime() > now.getTime()) return null
+  const worthKeeping = !!a.image || !!a.notes?.trim()
+  if (!worthKeeping) return null
   return {
     key: `appointment:${a.id}`,
     id: a.id,
@@ -159,22 +166,6 @@ function appointmentItem(a: Appointment, now: Date): StoryItem | null {
     body: a.notes,
     image: a.image ?? null,
     meta: a.location,
-  }
-}
-
-function growthItem(g: GrowthEntry): StoryItem | null {
-  const bits: string[] = []
-  if (g.weightKg) bits.push(`${g.weightKg} كجم`)
-  if (g.lengthCm) bits.push(`${g.lengthCm} سم`)
-  if (g.headCm) bits.push(`محيط الرأس ${g.headCm} سم`)
-  if (bits.length === 0) return null
-  return {
-    key: `growth:${g.id}`,
-    id: g.id,
-    kind: 'growth',
-    date: g.date,
-    title: 'قياس جديد',
-    meta: bits.join(' • '),
   }
 }
 
@@ -199,7 +190,12 @@ function formatDay(iso: string): string {
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
 }
 
-/** كل ما وُثّق، مرتّبًا من الأحدث إلى الأقدم */
+/**
+ * كل ما وُثّق، مرتّبًا من الأحدث إلى الأقدم.
+ *
+ * قياسات النمو ليست هنا عن قصد: مكانها شاشة «المتابعة» حيث تُقرأ منحنىً
+ * لا سجلًّا مفردًا، وإقحام «٣٫٤ كجم» بين رسالة وصورة يقطع نبرة الحكاية.
+ */
 export function buildStory(data: AppData, now: Date = new Date()): StoryItem[] {
   const items: StoryItem[] = [
     ...data.photos.map(photoItem),
@@ -208,7 +204,6 @@ export function buildStory(data: AppData, now: Date = new Date()): StoryItem[] {
     ...data.milestones.map(milestoneItem).filter(isItem),
     ...data.capsules.map((c) => capsuleItem(c, now)),
     ...data.appointments.map((a) => appointmentItem(a, now)).filter(isItem),
-    ...data.growth.map(growthItem).filter(isItem),
     birthItem(data.child),
   ].filter(isItem)
 

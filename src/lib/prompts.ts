@@ -1,6 +1,8 @@
 // =============================================================
-// «سؤال اليوم» — أهمّ ما يوثَّق هو ما لا يخطر على البال أن يوثَّق.
-// سؤال واحد كل يوم، ثابت طوال اليوم، يتغيّر بتغيّر المرحلة.
+// «سؤال اليوم» و«فكرة لليوم» — أهمّ ما يوثَّق هو ما لا يخطر على البال
+// أن يوثَّق. سؤال واحد كل يوم، ثابت طوال اليوم، يتغيّر بتغيّر المرحلة.
+// وفي نافذة الإضافة ثلاث أفكار لليوم نفسه: من لم تناسبه الأولى وجد
+// بديلًا دون أن تتبدّل الأفكار تحت يده بين فتح وفتح.
 // =============================================================
 
 const PREGNANCY_PROMPTS = [
@@ -49,13 +51,29 @@ const BABY_PROMPTS = [
   'اكتبوا له شي تبونه يقراه لمّا يصير أب.',
 ]
 
+/** رقم اليوم في السنة — أساس الثبات: التاريخ لا العشوائية */
+function dayOfYear(now: Date): number {
+  const start = new Date(now.getFullYear(), 0, 0)
+  return Math.floor((now.getTime() - start.getTime()) / 86400000)
+}
+
 /**
- * سؤال اليوم — ثابت خلال اليوم نفسه (مشتقّ من التاريخ لا من العشوائية)،
- * فلا يتبدّل بين كل فتح وفتح للتطبيق.
+ * ثلاث أفكار لليوم — ثابتة خلال اليوم نفسه ومختلفة عن بعضها.
+ *
+ * المباعدة بخطوة ثلث القائمة تضمن ألّا تتكرّر الفكرة (فـ٢×الخطوة أصغر من
+ * طول القائمة دائمًا)، وألّا تكون الثلاث متجاورة في القائمة فتتشابه نبرتها.
+ */
+export function promptsForToday(born: boolean, now: Date = new Date()): string[] {
+  const list = born ? BABY_PROMPTS : PREGNANCY_PROMPTS
+  const base = dayOfYear(now) % list.length
+  const step = Math.max(1, Math.floor(list.length / 3))
+  return [0, 1, 2].map((k) => list[(base + k * step) % list.length])
+}
+
+/**
+ * سؤال اليوم — أولى أفكار اليوم بعينها، حتى يبقى سؤال الرئيسية
+ * وسؤال نافذة الإضافة شيئًا واحدًا لا اثنين متنافرين.
  */
 export function promptOfTheDay(born: boolean, now: Date = new Date()): string {
-  const list = born ? BABY_PROMPTS : PREGNANCY_PROMPTS
-  const start = new Date(now.getFullYear(), 0, 0)
-  const dayOfYear = Math.floor((now.getTime() - start.getTime()) / 86400000)
-  return list[dayOfYear % list.length]
+  return promptsForToday(born, now)[0]
 }

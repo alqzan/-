@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Card, ProgressRing, StatTile, cx } from '../../components/ui'
+import { Card, ProgressRing, StatTile } from '../../components/ui'
 import {
   ArchiveIcon,
   ChevronLeftIcon,
@@ -8,7 +8,6 @@ import {
   CameraIcon,
   DropIcon,
   FeatherIcon,
-  FlameIcon,
   MoonIcon,
   StarIcon,
 } from '../../components/icons'
@@ -22,7 +21,6 @@ import { ageInDays, ageInMonths, isSameLocalDay } from '../../lib/localDate'
 import { daysSinceBackup } from '../../lib/backup'
 import { photoSrc } from '../../lib/image'
 import { promptOfTheDay } from '../../lib/prompts'
-import { documentationStreak } from '../../lib/streak'
 import { useNow } from '../../lib/useNow'
 import { buildStory } from '../story/timeline'
 import type { JournalEntry, Photo } from '../../data/types'
@@ -47,11 +45,6 @@ export default function Today() {
   const story = buildStory(data, new Date(now))
   const recent = story.slice(0, 6)
   const hasContent = recent.length > 0
-  // السلسلة تُحسب من كل ما وُثّق فعلًا — لا من الصور وحدها
-  const streak = documentationStreak(
-    story.filter((i) => i.kind !== 'appointment').map((i) => i.date),
-    new Date(now),
-  )
   const sinceBackup = daysSinceBackup()
   const needsBackup = hasContent && (sinceBackup === null || sinceBackup > 30)
   const prompt = promptOfTheDay(born)
@@ -87,8 +80,6 @@ export default function Today() {
         </span>
         <ChevronLeftIcon className="w-4 h-4 text-clay-300 mt-3 shrink-0" />
       </button>
-
-      {hasContent && <StreakCard streak={streak} onDocument={() => open()} />}
 
       {born && <TodaySummary />}
 
@@ -227,78 +218,6 @@ function untilLabel(iso: string, now: number): string {
   if (days <= 0) return 'اليوم'
   if (days === 1) return 'بكرة'
   return `بعد ${pluralAr(days, 'يوم', 'يومين', 'أيام', 'يومًا')}`
-}
-
-// ============ سلسلة التوثيق ============
-
-function StreakCard({
-  streak,
-  onDocument,
-}: {
-  streak: ReturnType<typeof documentationStreak>
-  onDocument: () => void
-}) {
-  // انقطاع طويل: ندعو للعودة بلطف بدل أن نعرض سلسلة صفرية بلا معنى
-  const lapsed = streak.weeks === 0 || (streak.daysSince !== null && streak.daysSince > 14)
-
-  if (lapsed) {
-    return (
-      <Card className="mt-7 !bg-paper-100 flex items-start gap-3.5">
-        <span className="w-10 h-10 rounded-full bg-white text-ink-400 grid place-items-center shrink-0 border border-line">
-          <FeatherIcon className="w-5 h-5" />
-        </span>
-        <span className="flex-1">
-          <span className="block font-medium text-ink-900 text-[15px]">
-            {streak.daysSince === null
-              ? 'ابدأوا الحكاية اليوم'
-              : `مضى ${pluralAr(streak.daysSince, 'يوم', 'يومان', 'أيام', 'يومًا')} بلا توثيق`}
-          </span>
-          <span className="block text-[12px] text-ink-500 mt-1 leading-relaxed">
-            سطر واحد يكفي — هذي الأيام هي اللي تُنسى أول.
-          </span>
-          <button onClick={onDocument} className="btn-ghost mt-3 !py-1.5 !text-[13px]">
-            وثّقوا شيئًا الآن
-          </button>
-        </span>
-      </Card>
-    )
-  }
-
-  return (
-    <section className="mt-7">
-      <div className="eyebrow mb-2.5">سلسلة التوثيق</div>
-      <Card className="flex items-center gap-4">
-        <span className="w-11 h-11 rounded-full bg-clay-50 text-clay-500 grid place-items-center shrink-0">
-          <FlameIcon className="w-5 h-5" />
-        </span>
-        <span className="flex-1 min-w-0">
-          {/* الصفة تتبع المعدود: «أسبوعٌ متتالٍ» لا «أسبوع متتالية» */}
-          <span className="block font-display font-bold text-ink-900">
-            {streak.weeks === 1
-              ? 'أسبوع متتالٍ'
-              : streak.weeks === 2
-                ? 'أسبوعان متتاليان'
-                : `${pluralAr(streak.weeks, 'أسبوع', 'أسبوعان', 'أسابيع', 'أسبوعًا')} متتالية`}
-          </span>
-          <span className="block text-[12px] text-ink-400 mt-0.5">
-            {streak.best > streak.weeks ? `أطول سلسلة: ${streak.best}` : 'هذي أطول سلسلة لكم'}
-          </span>
-        </span>
-        {/* آخر ثمانية أسابيع: المملوء وثّقتم فيه */}
-        <span className="flex gap-1 shrink-0" aria-hidden="true">
-          {streak.recentWeeks.map((filled, i) => (
-            <span
-              key={i}
-              className={cx(
-                'w-2 h-6 rounded-full',
-                filled ? 'bg-clay-400' : 'bg-paper-300',
-              )}
-            />
-          ))}
-        </span>
-      </Card>
-    </section>
-  )
 }
 
 // ============ بطاقات المرحلة ============

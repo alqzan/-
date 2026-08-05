@@ -257,7 +257,8 @@ export function Sheet({
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 grid place-items-center rounded-full bg-paper-200 text-ink-500 shrink-0"
+            // ٤٤ بكسل: أصغر من ذلك يُخطئه الإبهام على الجوال
+            className="w-11 h-11 grid place-items-center rounded-full bg-paper-200 text-ink-500 shrink-0"
             aria-label="إغلاق"
           >
             <CloseIcon className="w-5 h-5" />

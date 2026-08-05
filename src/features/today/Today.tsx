@@ -272,8 +272,13 @@ function StreakCard({
           <FlameIcon className="w-5 h-5" />
         </span>
         <span className="flex-1 min-w-0">
+          {/* الصفة تتبع المعدود: «أسبوعٌ متتالٍ» لا «أسبوع متتالية» */}
           <span className="block font-display font-bold text-ink-900">
-            {pluralAr(streak.weeks, 'أسبوع', 'أسبوعان', 'أسابيع', 'أسبوعًا')} متتالية
+            {streak.weeks === 1
+              ? 'أسبوع متتالٍ'
+              : streak.weeks === 2
+                ? 'أسبوعان متتاليان'
+                : `${pluralAr(streak.weeks, 'أسبوع', 'أسبوعان', 'أسابيع', 'أسبوعًا')} متتالية`}
           </span>
           <span className="block text-[12px] text-ink-400 mt-0.5">
             {streak.best > streak.weeks ? `أطول سلسلة: ${streak.best}` : 'هذي أطول سلسلة لكم'}

@@ -35,7 +35,7 @@ for (const name of fontFiles) {
 // نسخة مستقلة كاملة (مستند HTML كامل بالخطوط مضمّنة) — تُفتح مباشرة بأي متصفح
 // بدون خادم أو تسجيل دخول. نحذف روابط الأصول الخارجية (الأيقونة) لتفادي طلبات فاشلة.
 const standalone = html
-  .replace(/<link[^>]*rel="icon"[^>]*>/gi, '')
+  .replace(/<link[^>]*rel="(icon|apple-touch-icon)"[^>]*>/gi, '')
   .replace(/<link[^>]*rel="preload"[^>]*fonts[^>]*>/gi, '')
 writeFileSync(path.join(root, 'dist-single', 'tafalna-standalone.html'), standalone)
 
@@ -46,7 +46,7 @@ const headInner = (html.match(/<head[^>]*>([\s\S]*?)<\/head>/i)?.[1] ?? '')
   .replace(/<meta[^>]*charset[^>]*>/gi, '')
   .replace(/<meta[^>]*viewport[^>]*>/gi, '')
   // نحذف رابط الأيقونة (يوفّرها الـ Artifact ولا يوجد الملف داخل الشظية)
-  .replace(/<link[^>]*rel="icon"[^>]*>/gi, '')
+  .replace(/<link[^>]*rel="(icon|apple-touch-icon)"[^>]*>/gi, '')
 const bodyInner = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)?.[1] ?? ''
 
 const fragment = `${headInner}\n${bodyInner}`

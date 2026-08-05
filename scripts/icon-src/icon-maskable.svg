@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!--
+    نسخة maskable: أندرويد يقصّ الأيقونة بأشكال مختلفة (دائرة، مربّع مدوّر…)
+    ويضمن ظهور الـ ٨٠٪ الوسطى فقط. لذلك نُصغّر الرسم إلى ٧٠٪ حول المركز
+    ونمدّ الخلفية إلى الحوافّ — فلا يُقصّ طرف قوس مهما كان شكل القناع.
+  -->
+  <rect width="512" height="512" fill="#F8F3EA"/>
+  <g transform="translate(256 256) scale(0.7) translate(-256 -256)">
+    <g fill="none" stroke="#A9532A" stroke-linecap="round">
+      <path d="M96 368c0-88 72-160 160-160s160 72 160 160" stroke-width="20"/>
+      <path d="M154 368c0-56 46-102 102-102s102 46 102 102" stroke-width="20" opacity="0.6"/>
+      <path d="M212 368c0-24 20-44 44-44s44 20 44 44" stroke-width="20" opacity="0.32"/>
+    </g>
+    <circle cx="256" cy="146" r="28" fill="#A9532A"/>
+  </g>
+</svg>

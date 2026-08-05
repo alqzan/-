@@ -187,7 +187,9 @@ function ToastHost({ message }: { message: string | null }) {
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-28 inset-x-0 z-[60] flex justify-center px-6 print:hidden pointer-events-none"
+      className="fixed inset-x-0 z-[60] flex justify-center px-6 print:hidden pointer-events-none"
+      // فوق الشريط السفلي وشريط الإيماءات معًا، وإلا اختفت الرسالة خلفهما
+      style={{ bottom: 'calc(7rem + env(safe-area-inset-bottom))' }}
     >
       <div className="animate-rise bg-ink-900 text-paper-50 rounded-full px-5 py-2.5 text-sm shadow-lift flex items-center gap-2">
         <CheckIcon className="w-4 h-4 text-clay-200" />

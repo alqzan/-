@@ -18,6 +18,7 @@ import type {
   VoiceNote,
 } from '../../data/types'
 import { getPregnancyProgress } from '../../lib/pregnancy'
+import { pluralAr } from '../../lib/format'
 
 export type StoryKind =
   | 'photo'
@@ -66,6 +67,12 @@ export interface StoryChapter {
 const MONTHS = [
   'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
   'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+]
+
+/** أسماء الأشهر بالترتيب: «الشهر الثالث» أقرب إلى لسان الناس من «الشهر 3» */
+const ORDINALS = [
+  '', 'الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس',
+  'السابع', 'الثامن', 'التاسع', 'العاشر', 'الحادي عشر',
 ]
 
 const KIND_OF_FILTER: Record<Exclude<StoryFilter, 'all'>, StoryKind[]> = {
@@ -218,11 +225,32 @@ export function filterStory(items: StoryItem[], filter: StoryFilter): StoryItem[
   return items.filter((i) => kinds.includes(i.kind))
 }
 
+/**
+ * يوحّد النصّ قبل المقارنة.
+ *
+ * لا أحد يكتب بحثه بالتشكيل، ولا أحد يميّز «أحمد» عن «احمد» وهو يبحث عن
+ * ابنه. المقارنة الحرفية كانت تُرجع «لا نتائج» عن ذكريات موجودة فعلًا،
+ * وهذا أسوأ ما يفعله بحثٌ في تطبيق ذكريات. فنُسقط التشكيل والتطويل،
+ * ونوحّد صور الألف والياء والتاء المربوطة، ونتجاهل حالة الحروف اللاتينية.
+ */
+function normalizeAr(text: string): string {
+  return (
+    text
+      // التشكيل وعلامات الهمزة المنفصلة (064B–065F و0670) والتطويل (0640)
+      .replace(/[ً-ٰٟـ]/g, '')
+      .replace(/[أإآٱ]/g, 'ا') // أ إ آ ٱ ← ا
+      .replace(/[ىئ]/g, 'ي') // ى ئ ← ي
+      .replace(/ؤ/g, 'و') // ؤ ← و
+      .replace(/ة/g, 'ه') // ة ← ه
+      .toLowerCase()
+  )
+}
+
 export function searchStory(items: StoryItem[], query: string): StoryItem[] {
-  const q = query.trim()
+  const q = normalizeAr(query.trim())
   if (!q) return items
   return items.filter((i) =>
-    `${i.title ?? ''} ${i.body ?? ''} ${i.meta ?? ''}`.includes(q),
+    normalizeAr(`${i.title ?? ''} ${i.body ?? ''} ${i.meta ?? ''}`).includes(q),
   )
 }
 
@@ -237,16 +265,13 @@ export function stageLabel(child: ChildProfile, at: Date): string {
       const months =
         (at.getFullYear() - born.getFullYear()) * 12 + (at.getMonth() - born.getMonth())
       if (months <= 0) return 'شهر الولادة'
-      if (months === 1) return 'الشهر الأول'
-      if (months === 2) return 'الشهر الثاني'
-      if (months < 12) return `الشهر ${months}`
+      if (months < 12) return `الشهر ${ORDINALS[months]}`
       const years = Math.floor(months / 12)
       const rest = months % 12
-      return rest === 0
-        ? years === 1
-          ? 'السنة الأولى'
-          : `${years} سنوات`
-        : `${years} سنة و${rest} شهر`
+      const yearsLabel =
+        years === 1 ? 'سنة' : years === 2 ? 'سنتان' : pluralAr(years, 'سنة', 'سنتان', 'سنوات', 'سنة')
+      if (rest === 0) return years === 1 ? 'السنة الأولى' : yearsLabel
+      return `${yearsLabel} و${pluralAr(rest, 'شهر', 'شهران', 'أشهر', 'شهرًا')}`
     }
   }
 

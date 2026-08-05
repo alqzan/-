@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- iOS يتجاهل أيقونات SVG عند «إضافة إلى الشاشة الرئيسية» ويضع لقطة
+         من الصفحة مكانها، فلا بدّ من PNG بمقاس ١٨٠ صراحةً. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
     <!-- بلا maximum-scale/user-scalable: منع التكبير يعيق القراءة، وأمٌّ متعبة
          في الثالثة فجرًا تحتاج تكبير النص أكثر من أي أحد. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />

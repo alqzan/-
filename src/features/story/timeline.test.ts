@@ -116,6 +116,29 @@ describe('searchStory', () => {
     expect(searchStory(items, 'ركلة').map((i) => i.id)).toEqual(['j1'])
     expect(searchStory(items, '  ').map((i) => i.id)).toHaveLength(2)
   })
+
+  it('يتجاهل التشكيل وصور الهمزة والتاء المربوطة', () => {
+    const items = buildStory(
+      makeData({
+        journal: [
+          {
+            id: 'j1',
+            title: 'أوّل ابتسامة',
+            text: 'ضَحِكَ اليوم',
+            date: '2026-05-01T12:00:00.000Z',
+            author: 'mom',
+          },
+        ],
+      }),
+      NOW,
+    )
+
+    // ألف بلا همزة، وتشكيل مفقود، وتاء مربوطة مكتوبة هاءً — كلها يجب أن تجد الذكرى
+    for (const q of ['اول', 'أول', 'ابتسامه', 'ضحك', 'ابتسامة']) {
+      expect(searchStory(items, q).map((i) => i.id), `البحث عن «${q}»`).toEqual(['j1'])
+    }
+    expect(searchStory(items, 'خطوة')).toHaveLength(0)
+  })
 })
 
 describe('chapterize', () => {
@@ -148,5 +171,16 @@ describe('stageLabel', () => {
     expect(stageLabel(child, new Date('2026-01-20T12:00:00.000Z'))).toBe('شهر الولادة')
     expect(stageLabel(child, new Date('2026-02-15T12:00:00.000Z'))).toBe('الشهر الأول')
     expect(stageLabel(child, new Date('2027-01-15T12:00:00.000Z'))).toBe('السنة الأولى')
+  })
+
+  it('يستعمل أسماء الأشهر لا أرقامها، ويصرّف السنين والأشهر عربيًا', () => {
+    const base = emptyData()
+    const child = { ...base.child, bornAt: '2026-01-10T12:00:00.000Z' }
+
+    expect(stageLabel(child, new Date('2026-04-15T12:00:00.000Z'))).toBe('الشهر الثالث')
+    expect(stageLabel(child, new Date('2026-12-15T12:00:00.000Z'))).toBe('الشهر الحادي عشر')
+    // سنة وثلاثة أشهر — لا «1 سنة و3 شهر»
+    expect(stageLabel(child, new Date('2027-04-15T12:00:00.000Z'))).toBe('سنة و3 أشهر')
+    expect(stageLabel(child, new Date('2028-01-15T12:00:00.000Z'))).toBe('سنتان')
   })
 })

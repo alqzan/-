@@ -15,7 +15,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       workbox: {
         // الخطوط جزء من هوية التطبيق ومن تجربة العمل بلا شبكة،
         // فتُخزّن مسبقًا مع بقية الأصول لا عند أول طلب.
@@ -40,34 +40,33 @@ export default defineConfig({
             name: 'توثيق صورة',
             short_name: 'صورة',
             url: `${base}?capture=photo`,
-            icons: [{ src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml' }],
+            icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
           },
           {
             name: 'كتابة رسالة',
             short_name: 'رسالة',
             url: `${base}?capture=letter`,
-            icons: [{ src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml' }],
+            icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
           },
           {
             name: 'رسالة صوتية',
             short_name: 'صوت',
             url: `${base}?capture=voice`,
-            icons: [{ src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml' }],
+            icons: [{ src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
           },
         ],
+        // PNG أولًا ثم SVG: كثير من مشغّلات أندرويد و iOS لا تقبل SVG
+        // كأيقونة تثبيت، فتظهر أيقونة عامة أو لقطة من الصفحة بدل الأيقونة.
         icons: [
+          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
           {
-            src: 'favicon.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
-            purpose: 'any',
-          },
-          {
-            src: 'favicon.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
+            src: 'icons/icon-maskable-512.png',
+            sizes: '512x512',
+            type: 'image/png',
             purpose: 'maskable',
           },
+          { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
         ],
       },
     }),

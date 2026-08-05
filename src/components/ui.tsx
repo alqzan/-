@@ -5,7 +5,7 @@ import {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { CloseIcon } from './icons'
+import { BackIcon, CloseIcon } from './icons'
 
 // ============ أدوات مساعدة ============
 export function cx(...parts: Array<string | false | null | undefined>): string {
@@ -170,12 +170,15 @@ export function Button({ variant = 'primary', className, type = 'button', ...res
 export function Sheet({
   open,
   onClose,
+  onBack,
   title,
   subtitle,
   children,
 }: {
   open: boolean
   onClose: () => void
+  /** إن مُرّر ظهر زرّ رجوع بجانب العنوان — للنوافذ ذات الخطوتين */
+  onBack?: () => void
   title: string
   subtitle?: string
   children: ReactNode
@@ -251,9 +254,23 @@ export function Sheet({
         {/* مقبض السحب — إشارة بصرية أن النافذة تُغلق للأسفل */}
         <div className="mx-auto w-10 h-1 rounded-full bg-ink-200 mb-4" />
         <div className="flex items-start justify-between gap-3 mb-5">
-          <div>
-            <h3 className="title-md">{title}</h3>
-            {subtitle && <p className="text-[13px] text-ink-400 mt-1">{subtitle}</p>}
+          <div className={cx('flex gap-2.5 min-w-0', onBack ? 'items-center' : 'items-start')}>
+            {onBack && (
+              // زرّ الرجوع يشارك الإغلاق شكله وحجمه ويقابله في الطرف الآخر:
+              // من اختار النوع الخطأ يرجع للاختيارات بدل إغلاق النافذة وفتحها.
+              <button
+                onClick={onBack}
+                title="رجوع"
+                className="w-11 h-11 grid place-items-center rounded-full bg-paper-200 text-ink-500 shrink-0"
+                aria-label="رجوع"
+              >
+                <BackIcon className="w-5 h-5" />
+              </button>
+            )}
+            <div className="min-w-0">
+              <h3 className="title-md">{title}</h3>
+              {subtitle && <p className="text-[13px] text-ink-400 mt-1">{subtitle}</p>}
+            </div>
           </div>
           <button
             onClick={onClose}

@@ -160,6 +160,12 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
 
   useCaptureShortcut(api.open)
 
+  /** رجوع إلى شاشة الاختيارات دون إغلاق النافذة — لمن اختار النوع الخطأ */
+  const back = useCallback(() => {
+    setKind(null)
+    setPrefill({})
+  }, [])
+
   const close = useCallback(() => {
     setOpen(false)
     // نؤجّل تصفير النوع حتى تنتهي حركة الإغلاق فلا يومض المحتوى
@@ -180,6 +186,7 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
           setKind(k)
           if (pre) setPrefill(pre)
         }}
+        onBack={back}
         onClose={close}
         onDone={(text) => {
           close()
@@ -228,6 +235,7 @@ function CaptureSheet({
   kind,
   prefill,
   onPick,
+  onBack,
   onClose,
   onDone,
 }: {
@@ -235,6 +243,7 @@ function CaptureSheet({
   kind: CaptureKind | null
   prefill: { title?: string; text?: string }
   onPick: (k: CaptureKind, prefill?: { title?: string; text?: string }) => void
+  onBack: () => void
   onClose: () => void
   onDone: (message: string) => void
 }) {
@@ -244,6 +253,8 @@ function CaptureSheet({
   return (
     <Sheet
       open={open}
+      // على شاشة الاختيارات لا رجوع — هي أول الطريق
+      onBack={kind ? onBack : undefined}
       onClose={onClose}
       title={kind ? TITLES[kind] : 'وش ودّكم تحفظون؟'}
       subtitle={kind ? undefined : 'اختاروا ذكرى، أو خذوا فكرة جاهزة لليوم'}
@@ -435,24 +446,31 @@ function QuickTrackSection({
   const [open, setOpen] = useState(false)
   const openSleep = data.sleep.find((s) => !s.endedAt)
 
-  const items: Array<{ key: string; label: string; icon: ReactNode; onClick: () => void }> = born
+  const items: Array<{
+    key: string
+    label: string
+    icon: ReactNode
+    onClick: () => void | Promise<void>
+  }> = born
     ? [
         {
           key: 'feeding',
-          label: 'رضعة',
+          // التسمية صريحة بما تحفظه الضغطة: التسجيل السريع بضغطة واحدة،
+          // فلا يصحّ أن يخفي نوعًا افتراضيًا خلف كلمة عامة.
+          label: 'رضعة طبيعية',
           icon: <BottleIcon className="w-5 h-5" />,
           onClick: async () => {
             await addFeeding({ startedAt: new Date().toISOString(), kind: 'breast' })
-            onDone('سُجّلت الرضعة')
+            onDone('سُجّلت رضعة طبيعية')
           },
         },
         {
           key: 'diaper',
-          label: 'حفاض',
+          label: 'حفاض مبلل',
           icon: <DropIcon className="w-5 h-5" />,
           onClick: async () => {
             await addDiaper('wet')
-            onDone('سُجّل الحفاض')
+            onDone('سُجّل حفاض مبلل')
           },
         },
         {
@@ -517,6 +535,8 @@ function QuickTrackSection({
         },
       ]
 
+  const spans = quickSpans(items.length)
+
   return (
     <section className="mt-6">
       <button
@@ -537,9 +557,15 @@ function QuickTrackSection({
       </button>
 
       {open && (
-        <div className="grid grid-cols-3 gap-2.5 mt-2.5">
-          {items.map((item) => (
-            <QuickButton key={item.key} icon={item.icon} label={item.label} onClick={item.onClick} />
+        <div className="grid grid-cols-6 gap-2.5 mt-2.5">
+          {items.map((item, i) => (
+            <QuickButton
+              key={item.key}
+              className={spans[i]}
+              icon={item.icon}
+              label={item.label}
+              onClick={item.onClick}
+            />
           ))}
         </div>
       )}
@@ -547,20 +573,60 @@ function QuickTrackSection({
   )
 }
 
+/**
+ * توزيع الأزرار على صفوف ممتلئة.
+ *
+ * الشبكة ستة أعمدة كي تقبل القسمة على ٢ و٣ معًا: أربعة أزرار تُعرض
+ * ٢×٢، وخمسة تُعرض ثلاثة ثم اثنين ممدودين. لا يبقى في آخر صف زرّ
+ * يتيم بجانبه فراغ.
+ */
+function quickSpans(count: number): string[] {
+  if (count % 2 === 0) return Array.from({ length: count }, () => 'col-span-3')
+  const tail = count % 3
+  return Array.from({ length: count }, (_, i) =>
+    i < count - tail ? 'col-span-2' : tail === 1 ? 'col-span-6' : 'col-span-3',
+  )
+}
+
+/**
+ * زرّ تسجيل بضغطة واحدة — ومعه حارس النقر المزدوج.
+ *
+ * الحفظ غير متزامن، والنافذة لا تُغلق إلا بعد وصوله؛ فكانت النقرة
+ * الثانية في تلك الأجزاء من الثانية تسجّل رضعة أو حفاضًا ثانيًا لا
+ * وجود له. القفل يُرفع بعد انتهاء العملية كي يبقى الزرّ صالحًا لو
+ * بقيت النافذة مفتوحة (أزرار تفتح نموذجًا بدل أن تحفظ).
+ */
 function QuickButton({
   icon,
   label,
   onClick,
+  className,
 }: {
   icon: ReactNode
   label: string
-  onClick: () => void
+  onClick: () => void | Promise<void>
+  className?: string
 }) {
+  const running = useRef(false)
+
+  const handleClick = async () => {
+    if (running.current) return
+    running.current = true
+    try {
+      await onClick()
+    } finally {
+      running.current = false
+    }
+  }
+
   return (
     <button
-      onClick={onClick}
-      className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-line
-                 bg-paper-100 py-3.5 min-h-[4.5rem] text-ink-700 transition active:scale-95"
+      onClick={handleClick}
+      className={cx(
+        `flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-line
+         bg-paper-100 py-3.5 min-h-[4.5rem] text-ink-700 transition active:scale-95`,
+        className,
+      )}
     >
       <span className="text-clay-500">{icon}</span>
       <span className="text-[13px] text-center leading-tight">{label}</span>

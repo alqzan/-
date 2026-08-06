@@ -662,13 +662,14 @@ export interface SyncedFields {
  * لقطة من الحقول القابلة للمزامنة فقط.
  *
  * `photos` و`voices` غائبتان عمدًا — لا تُذكَران هنا إطلاقًا فلا تصلان
- * إلى الشبكة بأي شكل. صورة الموعد (`Appointment.image`) وسيط ثقيل
- * كذلك فتُسقَط قبل الإرسال، وتبقى نسختها المحلية كما هي.
+ * إلى الشبكة بأي شكل. صورة الموعد (`Appointment.image`) وصورة ملف
+ * الطفل (`child.photo`) وسيطان ثقيلان كذلك فتُسقَطان قبل الإرسال،
+ * وتبقى نسختاهما المحلية كما هي.
  */
 export function syncableSnapshot(familyId: string): SyncedFields {
   return {
     familyId,
-    child: data.child,
+    child: { ...data.child, photo: null },
     kicks: data.kicks,
     contractions: data.contractions,
     appointments: data.appointments.map(({ image: _image, ...rest }) => rest),
@@ -690,8 +691,8 @@ export function syncableSnapshot(familyId: string): SyncedFields {
  * يدمج تحديثًا واردًا من العائلة السحابية في البيانات المحلية.
  *
  * القاعدة الحاكمة: **لا نمسّ الصور ولا التسجيلات الصوتية هنا مطلقًا** —
- * لا وجود لهما في `remote` أصلًا. صورة كل موعد تُستبقى من النسخة
- * المحلية إن لم يحملها التحديث الوارد (وهو لا يحملها أبدًا اليوم).
+ * لا وجود لهما في `remote` أصلًا. صورة كل موعد وصورة ملف الطفل تُستبقيان
+ * من النسخة المحلية دومًا (لا يحملهما التحديث الوارد أبدًا اليوم).
  */
 export function mergeSyncedData(remote: SyncedFields): Promise<boolean> {
   if (status.readOnly) return Promise.resolve(false)
@@ -702,7 +703,7 @@ export function mergeSyncedData(remote: SyncedFields): Promise<boolean> {
   return replaceAll({
     ...data,
     familyId: remote.familyId,
-    child: remote.child,
+    child: { ...remote.child, photo: data.child.photo },
     kicks: remote.kicks,
     contractions: remote.contractions,
     appointments,

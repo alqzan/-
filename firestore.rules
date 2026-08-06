@@ -24,14 +24,28 @@ service cloud.firestore {
         return request.auth != null;
       }
 
+      // الرمز مُولَّد دائمًا بطول ٤٣ حرفًا (src/lib/familyCode.ts) — رمز
+      // بطول مختلف لا يمكن أن يكون رمز عائلة حقيقيًا صادرًا من التطبيق
+      function isValidCode() {
+        return familyCode.size() == 43;
+      }
+
       function noMediaFields() {
         return !('photos' in request.resource.data)
             && !('voices' in request.resource.data);
       }
 
-      allow get: if isAuthed();
+      // صورة ملف الطفل (Data URL) وسيط ثقيل أيضًا — تُسقَط قبل الإرسال
+      // في الكود (syncableSnapshot)، وهذا يحرس ألا تُقبل لو وصلت بأي حال
+      function noChildPhoto() {
+        return !('child' in request.resource.data)
+            || !('photo' in request.resource.data.child)
+            || request.resource.data.child.photo == null;
+      }
+
+      allow get: if isAuthed() && isValidCode();
       allow list: if false;
-      allow create, update: if isAuthed() && noMediaFields();
+      allow create, update: if isAuthed() && isValidCode() && noMediaFields() && noChildPhoto();
       allow delete: if false;
     }
 

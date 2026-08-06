@@ -4,6 +4,7 @@ import { BrowserRouter, HashRouter } from 'react-router-dom'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import { boot } from './data/dataService'
+import { resumeFamilySync } from './data/familySync'
 import './index.css'
 
 // نضمن اتجاه RTL واللغة العربية على مستوى المستند (يفيد أيضًا عند التضمين).
@@ -22,6 +23,8 @@ const basename = useHashRouter ? undefined : import.meta.env.BASE_URL
 function mount() {
   // نبدأ قراءة التخزين مبكرًا؛ الواجهة تعرض شاشة انتظار حتى تجهز.
   void boot()
+  // يستأنف مزامنة عائلية كانت مفعّلة في جلسة سابقة على هذا الجهاز — بلا انتظار.
+  void resumeFamilySync()
 
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>

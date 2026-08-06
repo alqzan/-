@@ -31,9 +31,19 @@ jobs:
 
       - name: البناء
         # الموقع يعيش تحت /<اسم-المستودع>/ على GitHub Pages
+        #
+        # مفاتيح Firebase ليست سرّية (تُشحن مع أي تطبيق ويب)، لذا تُقرأ من
+        # متغيّرات المستودع العامة (Settings → Secrets and variables →
+        # Actions → Variables) لا من الأسرار. غيابها لا يكسر البناء —
+        # بطاقة المزامنة في الإعدادات تُعطَّل بلطف بدل أن تتعطّل الصفحة.
         run: npx vite build
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
 
       - name: صفحة 404 للتوجيه من طرف العميل
         # GitHub Pages لا يعرف مسارات React Router؛ تكرار index.html

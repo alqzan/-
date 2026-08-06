@@ -21,12 +21,14 @@ import type { AppData } from './types'
 const PHOTO_DATA_URL = 'data:image/png;base64,AAAAPHOTO'
 const VOICE_DATA_URL = 'data:audio/webm;base64,BBBBVOICE'
 const APPOINTMENT_IMAGE = 'data:image/png;base64,CCCCSONO'
+const CHILD_PHOTO_DATA_URL = 'data:image/png;base64,DDDDCHILD'
 
 function seeded(): AppData {
   const d = emptyData()
   d.setupComplete = true
   d.familyId = 'local-only'
   d.child.name = 'سلمى'
+  d.child.photo = CHILD_PHOTO_DATA_URL
   d.photos = [
     { id: 'p1', dataUrl: PHOTO_DATA_URL, date: '2026-01-01T00:00:00.000Z', author: 'mom' },
   ]
@@ -77,6 +79,13 @@ describe('syncableSnapshot — ما يُسمح له بمغادرة الجهاز'
     expect(json).not.toContain(PHOTO_DATA_URL)
     expect(json).not.toContain(VOICE_DATA_URL)
     expect(json).not.toContain(APPOINTMENT_IMAGE)
+    expect(json).not.toContain(CHILD_PHOTO_DATA_URL)
+  })
+
+  it('تُسقط صورة ملف الطفل قبل الإرسال وتُبقي بقية بيانات الطفل', () => {
+    const snap = syncableSnapshot('code-123')
+    expect(snap.child.photo).toBeNull()
+    expect(snap.child.name).toBe('سلمى')
   })
 })
 
@@ -102,6 +111,14 @@ describe('mergeSyncedData — لا يمسّ الوسائط المحلية أبد
     await mergeSyncedData(remote)
     const after = JSON.parse(exportSnapshot()) as AppData
     expect(after.appointments[0].image).toBe(APPOINTMENT_IMAGE)
+  })
+
+  it('يستبقي صورة ملف الطفل المحلية رغم أن التحديث الوارد يحملها فارغة', async () => {
+    const remote = syncableSnapshot('code-123') // child.photo فيها null دومًا
+    expect(remote.child.photo).toBeNull() // تأكيد أن الاختبار يحرس الحالة الصحيحة فعلًا
+    await mergeSyncedData(remote)
+    const after = JSON.parse(exportSnapshot()) as AppData
+    expect(after.child.photo).toBe(CHILD_PHOTO_DATA_URL)
   })
 
   it('يطبّق فعليًا التغييرات النصية الواردة (اليوميات مثلًا)', async () => {

@@ -72,6 +72,20 @@ function familyDoc(code: string) {
   return doc(getFirestoreDb(), 'families', code)
 }
 
+/**
+ * يُسقط `createdAt`/`updatedAt` من مستند وارد من Firestore.
+ *
+ * `syncableSnapshot()` لا تحتوي هذين الحقلين إطلاقًا — نضيفهما فقط
+ * عند الكتابة (`serverTimestamp()`). بدون إسقاطهما هنا، كل مقارنة مع
+ * `lastSeenJSON` (المبني دومًا من لقطة بلا طابع وقت) تفشل حتى لو كان
+ * باقي المحتوى مطابقًا تمامًا، فيُعاد الدمج ثم الدفع من جديد إلى ما لا
+ * نهاية — حلقة قراءة↔كتابة لا تتوقف.
+ */
+function stripSyncMeta(remote: Record<string, unknown>): SyncedFields {
+  const { createdAt: _createdAt, updatedAt: _updatedAt, ...rest } = remote
+  return rest as unknown as SyncedFields
+}
+
 function readPersistedCode(): string | null {
   try {
     const raw = localStorage.getItem(SYNC_KEY)
@@ -99,7 +113,7 @@ function attachListener(code: string): void {
     familyDoc(code),
     (snap) => {
       if (!snap.exists()) return
-      const remote = snap.data() as SyncedFields
+      const remote = stripSyncMeta(snap.data() as Record<string, unknown>)
       const json = JSON.stringify(remote)
       if (json === lastSeenJSON) return // صدى كتابتنا نحن — ليس تغييرًا خارجيًا
       lastSeenJSON = json
@@ -179,7 +193,7 @@ export async function joinFamilySync(rawCode: string): Promise<{ ok: boolean; er
       return { ok: false, error: 'لم نجد عائلة بهذا الرمز. تأكّدوا منه مع الطرف الآخر.' }
     }
 
-    const remote = snap.data() as SyncedFields
+    const remote = stripSyncMeta(snap.data() as Record<string, unknown>)
     lastSeenJSON = JSON.stringify(remote)
     await mergeSyncedData(remote)
 

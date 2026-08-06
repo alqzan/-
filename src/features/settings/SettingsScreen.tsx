@@ -18,6 +18,7 @@ import { inlineVoiceBytes } from '../../lib/audio'
 import { audioUsage } from '../../data/mediaStore'
 import { localDateInputValue, localDateToIso } from '../../lib/localDate'
 import type { Gender } from '../../data/types'
+import FamilySyncCard from './FamilySyncCard'
 
 /**
  * يحوّل تاريخًا مخزّنًا (ISO أو "YYYY-MM-DD" من نسخة قديمة) إلى قيمة
@@ -173,6 +174,8 @@ export default function SettingsScreen() {
 
         <p className="text-xs text-ink-400">التعديلات تُحفظ مباشرة.</p>
       </Card>
+
+      <FamilySyncCard />
 
       {/* ===== المساحة ===== */}
       <div className="eyebrow mb-2.5 mt-7">المساحة على هذا الجهاز</div>

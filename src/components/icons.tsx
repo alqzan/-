@@ -400,3 +400,21 @@ export const ArchiveIcon = (p: IconProps) => (
     <path d="M10 13h4" />
   </svg>
 )
+
+/** مزامنة — سهمان دائريان */
+export const SyncIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L19.5 8" />
+    <path d="M19.5 4.5V8h-3.5" />
+    <path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4.5 16" />
+    <path d="M4.5 19.5V16H8" />
+  </svg>
+)
+
+/** نسخ إلى الحافظة */
+export const CopyIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="8.5" y="8.5" width="11.5" height="12" rx="2" />
+    <path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2.5" />
+  </svg>
+)

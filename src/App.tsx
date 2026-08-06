@@ -24,6 +24,7 @@ import ChecklistScreen from './features/track/ChecklistScreen'
 import SettingsScreen from './features/settings/SettingsScreen'
 import Onboarding from './features/onboarding/Onboarding'
 import { useAppData, useDataStatus, type DataStatus } from './data/dataService'
+import FamilySyncBridge from './data/FamilySyncBridge'
 
 export default function App() {
   const location = useLocation()
@@ -53,6 +54,7 @@ export default function App() {
 
   return (
     <CaptureProvider>
+      <FamilySyncBridge />
       <div className="app-shell">
         <StatusBanner status={status} />
         <main className="screen animate-rise" key={location.pathname}>

@@ -28,11 +28,17 @@ pnpm-debug.log*
 *.sln
 *.sw?
 
-# env / firebase secrets (مرحلة ٢)
+# env / إعداد Firebase المحلي — القيم نفسها ليست سرّية لكنها لا تُشارك عبر Git
 .env
 .env.local
 .env.*.local
 firebase-config.local.ts
+
+# ملفات Firebase CLI المحلية (المحاكيات وسجلّاتها)
+.firebase
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
 
 # PWA generated
 dev-dist

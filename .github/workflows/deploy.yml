@@ -30,7 +30,11 @@ jobs:
       - run: npm ci
 
       - name: البناء
-        # الموقع يعيش تحت /<اسم-المستودع>/ على GitHub Pages
+        # الموقع يعيش تحت /<اسم-المستودع>/ على GitHub Pages.
+        #
+        # إعداد Firebase (مشروع tafalna) مضمَّن كافتراضي داخل src/lib/firebase.ts
+        # مباشرة — القيم ليست سرّية، فلا حاجة لمتغيّرات Actions هنا. من احتاج
+        # تجاوزها لبيئة مختلفة يقدر عبر VITE_FIREBASE_* محليًا في .env.local.
         run: npx vite build
         env:
           VITE_BASE: /${{ github.event.repository.name }}/

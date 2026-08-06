@@ -631,6 +631,102 @@ export function deleteVaccine(id: string) {
 }
 
 // ============================================================
+// مزامنة العائلة — نصوص وسجلّات فقط، بلا صور ولا تسجيلات صوتية
+// ============================================================
+//
+// راجع FIREBASE.md وFAMILY_SYNC.md لمنطق الاتصال والرمز نفسه (في
+// `src/data/familySync.ts`). هذا القسم مسؤول فقط عن حدود العقد: أي
+// حقول تُرسَل، وكيف يُدمَج ما يصل دون أن تُمحى صورة أو تسجيل محلي.
+
+/** الحقول التي تُرسَل إلى Firestore — لا صور ولا تسجيلات صوتية أبدًا */
+export interface SyncedFields {
+  familyId: string
+  child: ChildProfile
+  kicks: KickSession[]
+  contractions: Contraction[]
+  appointments: Appointment[]
+  momLogs: MomLog[]
+  journal: JournalEntry[]
+  capsules: TimeCapsule[]
+  milestones: Milestone[]
+  names: NameIdea[]
+  checklist: ChecklistItem[]
+  feedings: Feeding[]
+  diapers: Diaper[]
+  sleep: SleepEntry[]
+  growth: GrowthEntry[]
+  vaccines: VaccineDose[]
+}
+
+/**
+ * لقطة من الحقول القابلة للمزامنة فقط.
+ *
+ * `photos` و`voices` غائبتان عمدًا — لا تُذكَران هنا إطلاقًا فلا تصلان
+ * إلى الشبكة بأي شكل. صورة الموعد (`Appointment.image`) وسيط ثقيل
+ * كذلك فتُسقَط قبل الإرسال، وتبقى نسختها المحلية كما هي.
+ */
+export function syncableSnapshot(familyId: string): SyncedFields {
+  return {
+    familyId,
+    child: data.child,
+    kicks: data.kicks,
+    contractions: data.contractions,
+    appointments: data.appointments.map(({ image: _image, ...rest }) => rest),
+    momLogs: data.momLogs,
+    journal: data.journal,
+    capsules: data.capsules,
+    milestones: data.milestones,
+    names: data.names,
+    checklist: data.checklist,
+    feedings: data.feedings,
+    diapers: data.diapers,
+    sleep: data.sleep,
+    growth: data.growth,
+    vaccines: data.vaccines,
+  }
+}
+
+/**
+ * يدمج تحديثًا واردًا من العائلة السحابية في البيانات المحلية.
+ *
+ * القاعدة الحاكمة: **لا نمسّ الصور ولا التسجيلات الصوتية هنا مطلقًا** —
+ * لا وجود لهما في `remote` أصلًا. صورة كل موعد تُستبقى من النسخة
+ * المحلية إن لم يحملها التحديث الوارد (وهو لا يحملها أبدًا اليوم).
+ */
+export function mergeSyncedData(remote: SyncedFields): Promise<boolean> {
+  if (status.readOnly) return Promise.resolve(false)
+  const appointments = remote.appointments.map((a) => {
+    const local = data.appointments.find((x) => x.id === a.id)
+    return local?.image ? { ...a, image: local.image } : a
+  })
+  return replaceAll({
+    ...data,
+    familyId: remote.familyId,
+    child: remote.child,
+    kicks: remote.kicks,
+    contractions: remote.contractions,
+    appointments,
+    momLogs: remote.momLogs,
+    journal: remote.journal,
+    capsules: remote.capsules,
+    milestones: remote.milestones,
+    names: remote.names,
+    checklist: remote.checklist,
+    feedings: remote.feedings,
+    diapers: remote.diapers,
+    sleep: remote.sleep,
+    growth: remote.growth,
+    vaccines: remote.vaccines,
+  })
+}
+
+/** يفصل الجهاز عن العائلة السحابية دون حذف أي بيانات محلية — الصور والتسجيلات والنصوص تبقى كما هي */
+export function clearSyncedFamilyId(): Promise<boolean> {
+  if (data.familyId === null) return Promise.resolve(true)
+  return replaceAll({ ...data, familyId: null })
+}
+
+// ============================================================
 // إعادة الضبط
 // ============================================================
 

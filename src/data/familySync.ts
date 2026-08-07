@@ -68,6 +68,37 @@ let unsubscribeSnapshot: Unsubscribe | null = null
  */
 let lastSeenJSON: string | null = null
 
+/**
+ * تسلسل **مستقلّ عن ترتيب المفاتيح**.
+ *
+ * `JSON.stringify` يكتب المفاتيح بترتيب إدراجها، وFirestore يعيد حقول
+ * المستند بترتيب خاص به لا يطابق ترتيب `syncableSnapshot`. فكانت مقارنة
+ * الصدى بالنصّ الخام تفشل **دائمًا** رغم تطابق المحتوى حرفًا بحرف:
+ *
+ *   ندفع ← يعود الصدى ← يُحسب تغييرًا خارجيًا ← دمج ← تتغيّر البيانات
+ *   ← يدفع الجسر من جديد ← يعود الصدى … بلا نهاية
+ *
+ * حلقةٌ صامتة تكتب وتقرأ من Firestore بلا توقّف حتى تستنفد حصّة الخطة
+ * المجانية، وعندها تفشل كل كتابة وتبدو المزامنة «معطّلة» بلا سبب ظاهر.
+ * ترتيب المفاتيح ليس معلومة في بياناتنا، فلا يصحّ أن تُبنى عليه مقارنة.
+ */
+export function canonicalJSON(value: unknown): string {
+  return JSON.stringify(sortKeys(value))
+}
+
+function sortKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortKeys)
+  if (value === null || typeof value !== 'object') return value
+  const source = value as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const key of Object.keys(source).sort()) {
+    // undefined يختفي في JSON.stringify أصلًا، وإسقاطه هنا يجعل
+    // «الحقل غائب» و«الحقل undefined» متطابقين في المقارنة
+    if (source[key] !== undefined) out[key] = sortKeys(source[key])
+  }
+  return out
+}
+
 function familyDoc(code: string) {
   return doc(getFirestoreDb(), 'families', code)
 }
@@ -114,7 +145,7 @@ function attachListener(code: string): void {
     (snap) => {
       if (!snap.exists()) return
       const remote = stripSyncMeta(snap.data() as Record<string, unknown>)
-      const json = JSON.stringify(remote)
+      const json = canonicalJSON(remote)
       if (json === lastSeenJSON) return // صدى كتابتنا نحن — ليس تغييرًا خارجيًا
       lastSeenJSON = json
       void mergeSyncedData(remote)
@@ -150,7 +181,7 @@ export async function createFamilySync(): Promise<{
     }
 
     const payload = syncableSnapshot(code)
-    lastSeenJSON = JSON.stringify(payload)
+    lastSeenJSON = canonicalJSON(payload)
     await setDoc(familyDoc(code), {
       ...payload,
       createdAt: serverTimestamp(),
@@ -194,7 +225,7 @@ export async function joinFamilySync(rawCode: string): Promise<{ ok: boolean; er
     }
 
     const remote = stripSyncMeta(snap.data() as Record<string, unknown>)
-    lastSeenJSON = JSON.stringify(remote)
+    lastSeenJSON = canonicalJSON(remote)
     await mergeSyncedData(remote)
 
     persistCode(code)
@@ -244,11 +275,14 @@ export async function resumeFamilySync(): Promise<void> {
 
 /** يدفع لقطة الحقول القابلة للمزامنة إلى Firestore — يتجاهل الدفع إن لم يتغيّر شيء منذ آخر مرة */
 export async function pushToCloud(code: string, snapshot: SyncedFields): Promise<void> {
-  const json = JSON.stringify(snapshot)
+  const json = canonicalJSON(snapshot)
   if (json === lastSeenJSON) return
-  lastSeenJSON = json
   try {
     await setDoc(familyDoc(code), { ...snapshot, updatedAt: serverTimestamp() }, { merge: true })
+    // التسجيل بعد نجاح الكتابة لا قبلها: كان الفشل يُسجّل المحتوى كأنه
+    // «وصل»، فلا يُعاد رفعه أبدًا ويبقى الطرف الآخر على نسخة أقدم بصمت.
+    lastSeenJSON = json
+    setState({ error: null, lastSyncedAt: new Date().toISOString() })
   } catch {
     setState({ error: 'تعذّر رفع آخر التحديثات — ستُعاد المحاولة مع أي تعديل قادم.' })
   }

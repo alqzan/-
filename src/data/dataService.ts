@@ -740,6 +740,34 @@ export interface SyncedFields {
 }
 
 /**
+ * ينزع كل مفتاح قيمته `undefined` قبل مغادرة الجهاز.
+ *
+ * **هذا ما كان يعطّل المزامنة كلها.** Firestore يرفض الحمولة كاملةً إذا
+ * حوت قيمة `undefined` واحدة:
+ *
+ *   Function setDoc() called with invalid data. Unsupported field value: undefined
+ *
+ * و`migrate` تُنتج هذه القيم بطبيعتها: كل حقل اختياري غائب يصير مفتاحًا
+ * موجودًا قيمته `undefined` (`milestone.note`، `appointment.location`،
+ * `child.birthWeightKg`…). حتى تطبيق فارغ تمامًا يحمل ١٢ منها بعد أول
+ * إقلاع — بسبب `note` في المعالم الافتراضية العشرة وحدها. فكانت كل دفعة
+ * تُرفض قبل أن تلمس الشبكة، والواجهة تقول «متصل» بينما لا يصل شيء أبدًا.
+ *
+ * `undefined` في JavaScript يعني «لا قيمة»، وهو ما يعنيه غياب المفتاح
+ * تمامًا — و`JSON.stringify` يسقطه أصلًا. فالنزع هنا لا يفقد معلومة.
+ */
+function withoutUndefined<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(withoutUndefined) as unknown as T
+  if (value === null || typeof value !== 'object') return value
+  const source = value as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const [key, val] of Object.entries(source)) {
+    if (val !== undefined) out[key] = withoutUndefined(val)
+  }
+  return out as T
+}
+
+/**
  * لقطة من الحقول القابلة للمزامنة فقط.
  *
  * `photos` و`voices` غائبتان عمدًا — لا تُذكَران هنا إطلاقًا فلا تصلان
@@ -748,7 +776,7 @@ export interface SyncedFields {
  * وتبقى نسختاهما المحلية كما هي.
  */
 export function syncableSnapshot(familyId: string): SyncedFields {
-  return {
+  return withoutUndefined({
     familyId,
     child: { ...data.child, photo: null },
     kicks: data.kicks,
@@ -767,7 +795,20 @@ export function syncableSnapshot(familyId: string): SyncedFields {
     sleep: data.sleep,
     growth: data.growth,
     vaccines: data.vaccines,
-  }
+  })
+}
+
+/**
+ * مجموعة واردة من الشبكة، أو المحلية إن لم يحملها التحديث.
+ *
+ * الجهاز الآخر قد يعمل بإصدار **أقدم** من التطبيق لا يعرف مجموعةً
+ * أضفناها بعده (الأدوية مثلًا)، فيصل تحديثه بلا ذلك الحقل إطلاقًا.
+ * بلا هذا الحارس كان الغياب يعني شيئين كلاهما فادح: مسحُ المجموعة عند
+ * الطرف الأحدث، و`undefined` في مكان مصفوفة — يكفي أن تمرّ عليه أي شاشة
+ * لينهار التطبيق كله. الغياب **ليس** حذفًا؛ الحذف يصل كمصفوفة فارغة.
+ */
+function incoming<T>(remote: T[] | undefined, local: T[]): T[] {
+  return Array.isArray(remote) ? remote : local
 }
 
 /**
@@ -779,30 +820,30 @@ export function syncableSnapshot(familyId: string): SyncedFields {
  */
 export function mergeSyncedData(remote: SyncedFields): Promise<boolean> {
   if (status.readOnly) return Promise.resolve(false)
-  const appointments = remote.appointments.map((a) => {
+  const appointments = incoming(remote.appointments, data.appointments).map((a) => {
     const local = data.appointments.find((x) => x.id === a.id)
     return local?.image ? { ...a, image: local.image } : a
   })
   return replaceAll({
     ...data,
-    familyId: remote.familyId,
-    child: { ...remote.child, photo: data.child.photo },
-    kicks: remote.kicks,
-    contractions: remote.contractions,
+    familyId: remote.familyId ?? data.familyId,
+    child: remote.child ? { ...remote.child, photo: data.child.photo } : data.child,
+    kicks: incoming(remote.kicks, data.kicks),
+    contractions: incoming(remote.contractions, data.contractions),
     appointments,
-    momLogs: remote.momLogs,
-    medications: remote.medications,
-    medDoses: remote.medDoses,
-    journal: remote.journal,
-    capsules: remote.capsules,
-    milestones: remote.milestones,
-    names: remote.names,
-    checklist: remote.checklist,
-    feedings: remote.feedings,
-    diapers: remote.diapers,
-    sleep: remote.sleep,
-    growth: remote.growth,
-    vaccines: remote.vaccines,
+    momLogs: incoming(remote.momLogs, data.momLogs),
+    medications: incoming(remote.medications, data.medications),
+    medDoses: incoming(remote.medDoses, data.medDoses),
+    journal: incoming(remote.journal, data.journal),
+    capsules: incoming(remote.capsules, data.capsules),
+    milestones: incoming(remote.milestones, data.milestones),
+    names: incoming(remote.names, data.names),
+    checklist: incoming(remote.checklist, data.checklist),
+    feedings: incoming(remote.feedings, data.feedings),
+    diapers: incoming(remote.diapers, data.diapers),
+    sleep: incoming(remote.sleep, data.sleep),
+    growth: incoming(remote.growth, data.growth),
+    vaccines: incoming(remote.vaccines, data.vaccines),
   })
 }
 

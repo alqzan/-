@@ -17,6 +17,9 @@ import { photoBytes as photoSize } from '../../lib/image'
 import { inlineVoiceBytes } from '../../lib/audio'
 import { audioUsage } from '../../data/mediaStore'
 import { localDateInputValue, localDateToIso } from '../../lib/localDate'
+import { gestationLabel, getPregnancyProgress, lmpFromGestation } from '../../lib/pregnancy'
+import { formatDate } from '../../lib/format'
+import { useNow } from '../../lib/useNow'
 import type { Gender } from '../../data/types'
 import FamilySyncCard from './FamilySyncCard'
 
@@ -157,6 +160,8 @@ export default function SettingsScreen() {
           </div>
         )}
 
+        {!data.child.bornAt && <DoctorWeekCard />}
+
         {data.child.bornAt && (
           <Field label="تاريخ الولادة">
             <input
@@ -295,5 +300,133 @@ export default function SettingsScreen() {
 
       {dialog}
     </>
+  )
+}
+
+/**
+ * ضبط عمر الحمل على ما قالته الطبيبة.
+ *
+ * تاريخ آخر دورة ليس دائمًا معلومًا ولا دقيقًا — والدورة غير المنتظمة
+ * تُزيحه أسابيع. المرجع عند كل زيارة هو قياس السونار: «أنتِ في الأسبوع
+ * ٢٤ وثلاثة أيام». فبدل أن يُطالَب الوالدان بحساب تاريخٍ يوافق هذا
+ * الرقم، يُدخلان ما سمعاه كما هو ونحسب نحن آخر دورة وموعد الولادة.
+ */
+function DoctorWeekCard() {
+  const data = useAppData()
+  const [open, setOpen] = useState(false)
+  const [visit, setVisit] = useState(localDateInputValue())
+  const [week, setWeek] = useState('')
+  const [day, setDay] = useState('0')
+  const [saved, setSaved] = useState(false)
+
+  const now = useNow(60000)
+  const current = getPregnancyProgress(data.child.lmpDate, data.child.dueDate, new Date(now))
+
+  const weekNum = Number(week)
+  const valid = week.trim() !== '' && Number.isFinite(weekNum) && weekNum >= 0 && weekNum <= 45
+
+  // معاينة حيّة: ما الذي سيصير عليه التطبيق اليوم لو حُفظ هذا الإدخال؟
+  const preview = valid
+    ? getPregnancyProgress(
+        lmpFromGestation(weekNum, Number(day), localDateToIso(visit)).lmpDate,
+        null,
+        new Date(now),
+      )
+    : null
+
+  function submit() {
+    const { lmpDate, dueDate } = lmpFromGestation(weekNum, Number(day), localDateToIso(visit))
+    void updateChild({ lmpDate, dueDate })
+    setSaved(true)
+    setOpen(false)
+  }
+
+  return (
+    <div className="mt-1">
+      {!open ? (
+        <button
+          onClick={() => setOpen(true)}
+          className="w-full min-h-[44px] rounded-2xl border border-line bg-paper-100 px-4 py-3
+                     text-right transition active:scale-[0.99]"
+        >
+          <span className="block text-[14px] font-medium text-ink-700">
+            اضبطوه على قول الطبيبة
+          </span>
+          <span className="block text-[11px] text-ink-400 mt-0.5 leading-relaxed">
+            {saved && current
+              ? `مضبوط — اليوم ${gestationLabel(current.week, current.dayOfWeek)}`
+              : 'أدخلوا الأسبوع واليوم كما قيل لكم في الزيارة، ونحسب التواريخ منه.'}
+          </span>
+        </button>
+      ) : (
+        <div className="rounded-2xl border border-line bg-paper-100 p-4">
+          <p className="text-[13px] text-ink-600 leading-relaxed mb-3">
+            في زيارة الطبيبة، كم كان عمر الحمل بالضبط؟
+          </p>
+
+          <Field label="تاريخ الزيارة">
+            <input
+              type="date"
+              className="input"
+              value={visit}
+              onChange={(e) => setVisit(e.target.value)}
+            />
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="الأسبوع">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={45}
+                className="input"
+                value={week}
+                onChange={(e) => setWeek(e.target.value)}
+                placeholder="24"
+              />
+            </Field>
+            <Field label="واليوم (٠–٦)">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={6}
+                className="input"
+                value={day}
+                onChange={(e) => setDay(e.target.value)}
+              />
+            </Field>
+          </div>
+
+          {preview && (
+            <p className="text-[12px] text-ink-500 bg-white rounded-2xl border border-line p-3 mb-3 leading-relaxed">
+              معناها اليوم أنتم في <strong className="text-ink-800">
+                {gestationLabel(preview.week, preview.dayOfWeek)}
+              </strong>
+              ، وموعد الولادة المتوقّع{' '}
+              <strong className="text-ink-800">
+                {formatDate(
+                  lmpFromGestation(weekNum, Number(day), localDateToIso(visit)).dueDate,
+                )}
+              </strong>
+              .
+            </p>
+          )}
+
+          <div className="flex gap-2">
+            <Button variant="ghost" className="flex-1" onClick={() => setOpen(false)}>
+              تراجع
+            </Button>
+            <Button className="flex-1" onClick={submit} disabled={!valid}>
+              اضبط
+            </Button>
+          </div>
+          <p className="text-[11px] text-ink-400 mt-2.5 leading-relaxed">
+            هذا يعيد حساب تاريخ آخر دورة وموعد الولادة المتوقّع معًا.
+          </p>
+        </div>
+      )}
+    </div>
   )
 }

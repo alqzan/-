@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  addMedication,
   clearSyncedFamilyId,
   exportSnapshot,
   importSnapshot,
@@ -80,6 +81,33 @@ describe('syncableSnapshot — ما يُسمح له بمغادرة الجهاز'
     expect(json).not.toContain(VOICE_DATA_URL)
     expect(json).not.toContain(APPOINTMENT_IMAGE)
     expect(json).not.toContain(CHILD_PHOTO_DATA_URL)
+  })
+
+  it('لا تحوي اللقطة أي قيمة undefined — Firestore يرفض الحمولة كلها بسببها', async () => {
+    // العطل الذي كان يمنع المزامنة من العمل أصلًا: كل حقل اختياري غائب
+    // يخرج من `migrate` مفتاحًا قيمته undefined، فترفض Firestore الدفعة
+    // كاملةً («Unsupported field value: undefined») والواجهة تقول «متصل».
+    // نمرّ على بيانات مرّت بالترقية فعلًا لأنها المصدر الحقيقي لهذه القيم.
+    const withOptionalGaps = emptyData()
+    withOptionalGaps.setupComplete = true
+    withOptionalGaps.appointments = [
+      // بلا location ولا notes — الحالة الشائعة
+      { id: 'a9', title: 'متابعة', dateTime: '2026-03-01T09:00:00.000Z', type: 'checkup' },
+    ]
+    await importSnapshot(JSON.stringify(withOptionalGaps))
+
+    const undefinedPaths: string[] = []
+    const walk = (value: unknown, path: string) => {
+      if (Array.isArray(value)) return value.forEach((v, i) => walk(v, `${path}[${i}]`))
+      if (value === null || typeof value !== 'object') return
+      for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+        if (val === undefined) undefinedPaths.push(`${path}.${key}`)
+        else walk(val, `${path}.${key}`)
+      }
+    }
+    walk(syncableSnapshot('code-123'), 'snapshot')
+
+    expect(undefinedPaths).toEqual([])
   })
 
   it('تُسقط صورة ملف الطفل قبل الإرسال وتُبقي بقية بيانات الطفل', () => {
@@ -166,6 +194,44 @@ describe('mergeSyncedData — لا يمسّ الوسائط المحلية أبد
     expect(after.medications[0].name).toBe('حديد')
     expect(after.medDoses).toHaveLength(1)
     expect(after.medDoses[0].time).toBe('08:00')
+  })
+
+  it('تحديث من جهاز بإصدار أقدم (بلا حقل الأدوية) لا يمسح الأدوية المحلية', async () => {
+    // الجهاز الآخر قد يكون على نسخة قديمة مخزّنة في الـ Service Worker،
+    // فيصل تحديثه بلا الحقول التي أُضيفت بعده. الغياب ليس حذفًا — ولو
+    // نُسخ كما هو لصار `undefined` في مكان مصفوفة وانهارت أول شاشة تقرؤه.
+    await addMedication({
+      name: 'حديد',
+      form: 'pill',
+      frequency: 'daily',
+      times: ['08:00'],
+      startDate: '2026-08-01',
+      endDate: null,
+      who: 'mom',
+    })
+
+    const { medications: _meds, medDoses: _doses, ...legacy } = syncableSnapshot('code-123')
+    await mergeSyncedData(legacy as SyncedFields)
+
+    const after = JSON.parse(exportSnapshot()) as AppData
+    expect(after.medications).toHaveLength(1)
+    expect(after.medications[0].name).toBe('حديد')
+    expect(after.medDoses).toEqual([])
+  })
+
+  it('مصفوفة فارغة واردة تعني حذفًا فعليًا — لا تُخلط بالغياب', async () => {
+    await addMedication({
+      name: 'حديد',
+      form: 'pill',
+      frequency: 'daily',
+      times: ['08:00'],
+      startDate: '2026-08-01',
+      endDate: null,
+      who: 'mom',
+    })
+    await mergeSyncedData({ ...syncableSnapshot('code-123'), medications: [] })
+    const after = JSON.parse(exportSnapshot()) as AppData
+    expect(after.medications).toEqual([])
   })
 
   it('يحدّث familyId إلى رمز العائلة الوارد', async () => {

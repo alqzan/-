@@ -265,8 +265,10 @@ function PregnancyHero() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="chip-clay">{trimesterLabel(p.trimester)}</span>
-            <span className="text-[12px] text-ink-400">
-              {p.dayOfWeek === 0 ? 'أول أيام الأسبوع' : `اليوم ${p.dayOfWeek + 1}`}
+            {/* «٢٤+٣» — الصيغة نفسها المكتوبة في تقرير السونار، فيُقارَن
+                ما على الشاشة بما في يد الأم بلا حساب ذهني */}
+            <span className="text-[12px] text-ink-400 tnum">
+              {p.week}+{p.dayOfWeek}
             </span>
           </div>
           <div className="flex items-center gap-3 mt-3">
@@ -291,9 +293,7 @@ function PregnancyHero() {
         <span className="text-ink-500">
           باقٍ <strong className="text-ink-900 tnum">{Math.max(0, p.daysLeft)}</strong> يوم
         </span>
-        <span className="text-ink-400">
-          موعد اللقاء {data.child.dueDate ? formatDate(data.child.dueDate) : '—'}
-        </span>
+        <span className="text-ink-400">موعد اللقاء {formatDate(p.due)}</span>
       </div>
     </Card>
   )

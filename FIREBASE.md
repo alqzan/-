@@ -119,6 +119,8 @@ families/{familyId}/appointments/{id}
 families/{familyId}/kicks/{id}
 families/{familyId}/contractions/{id}
 families/{familyId}/momLogs/{id}
+families/{familyId}/medications/{id}
+families/{familyId}/medDoses/{id}
 families/{familyId}/names/{id}
 families/{familyId}/checklist/{id}
 families/{familyId}/feedings/{id}

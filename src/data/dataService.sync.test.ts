@@ -134,6 +134,40 @@ describe('mergeSyncedData — لا يمسّ الوسائط المحلية أبد
     expect(after.journal[0].id).toBe('j2')
   })
 
+  it('ينقل الأدوية وسجلّ الجرعات — جرعة سجّلها أحد الوالدين تصل الآخر', async () => {
+    const remote: SyncedFields = {
+      ...syncableSnapshot('code-123'),
+      medications: [
+        {
+          id: 'md1',
+          name: 'حديد',
+          form: 'pill',
+          frequency: 'daily',
+          times: ['08:00', '20:00'],
+          startDate: '2026-08-01',
+          endDate: null,
+          who: 'mom',
+          archived: false,
+          createdAt: '2026-08-01T09:00:00.000Z',
+        },
+      ],
+      medDoses: [
+        {
+          id: 'dose1',
+          medId: 'md1',
+          day: '2026-08-05',
+          time: '08:00',
+          takenAt: '2026-08-05T05:10:00.000Z',
+        },
+      ],
+    }
+    await mergeSyncedData(remote)
+    const after = JSON.parse(exportSnapshot()) as AppData
+    expect(after.medications[0].name).toBe('حديد')
+    expect(after.medDoses).toHaveLength(1)
+    expect(after.medDoses[0].time).toBe('08:00')
+  })
+
   it('يحدّث familyId إلى رمز العائلة الوارد', async () => {
     const remote = syncableSnapshot('new-code-456')
     await mergeSyncedData(remote)

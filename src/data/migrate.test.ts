@@ -112,6 +112,95 @@ describe('migrate — التطعيمات', () => {
   })
 })
 
+describe('migrate — الأدوية', () => {
+  it('نسخة قديمة بلا حقل الأدوية تبدأ فارغة لا تالفة', () => {
+    const result = migrate({ version: 4, setupComplete: true })
+    expect(result!.medications).toEqual([])
+    expect(result!.medDoses).toEqual([])
+  })
+
+  it('يُبقي الدواء السليم بكامل جدوله', () => {
+    const result = migrate({
+      version: DATA_VERSION,
+      medications: [
+        {
+          id: 'm1',
+          name: 'حديد',
+          form: 'pill',
+          frequency: 'everyNDays',
+          everyDays: 2,
+          times: ['08:00', '20:00'],
+          startDate: '2026-08-01',
+          endDate: null,
+          who: 'mom',
+          archived: false,
+          createdAt: '2026-08-01T09:00:00.000Z',
+        },
+      ],
+    })
+    expect(result!.medications).toHaveLength(1)
+    expect(result!.medications[0]).toMatchObject({
+      name: 'حديد',
+      frequency: 'everyNDays',
+      everyDays: 2,
+      times: ['08:00', '20:00'],
+    })
+  })
+
+  it('يُسقط دواءً بلا اسم أو بلا يوم بداية صالح — لا يمكن جدولته أصلًا', () => {
+    const result = migrate({
+      version: DATA_VERSION,
+      medications: [
+        { id: 'a', startDate: '2026-08-01' },
+        { id: 'b', name: 'بلا بداية' },
+        { id: 'c', name: 'بداية مشوّهة', startDate: '01/08/2026' },
+      ],
+    })
+    expect(result!.medications).toEqual([])
+  })
+
+  it('يُسقط الأوقات المشوّهة وحدها ويُبقي الدواء', () => {
+    const result = migrate({
+      version: DATA_VERSION,
+      medications: [
+        { id: 'm1', name: 'تحميلة', startDate: '2026-08-01', times: ['21:00', '99:99', 'الليل'] },
+      ],
+    })
+    expect(result!.medications[0].times).toEqual(['21:00'])
+  })
+
+  it('يعيد دواءً مجدولًا بلا وقت صالح إلى جرعة صباحية بدل إخفائه للأبد', () => {
+    const result = migrate({
+      version: DATA_VERSION,
+      medications: [{ id: 'm1', name: 'دواء', startDate: '2026-08-01', times: [] }],
+    })
+    expect(result!.medications[0].times).toEqual(['08:00'])
+  })
+
+  it('يُبقي «عند اللزوم» بلا أوقات', () => {
+    const result = migrate({
+      version: DATA_VERSION,
+      medications: [
+        { id: 'm1', name: 'مسكّن', startDate: '2026-08-01', frequency: 'asNeeded', times: ['08:00'] },
+      ],
+    })
+    expect(result!.medications[0].times).toEqual([])
+  })
+
+  it('يقبل سجلّ جرعة بوقت فارغ (عند اللزوم) ويرفض ما لا دواء له', () => {
+    const result = migrate({
+      version: DATA_VERSION,
+      medDoses: [
+        { id: 'd1', medId: 'm1', day: '2026-08-05', time: '', takenAt: '2026-08-05T10:00:00Z' },
+        { id: 'd2', day: '2026-08-05', time: '08:00' },
+        { id: 'd3', medId: 'm1', day: 'أمس' },
+      ],
+    })
+    expect(result!.medDoses).toHaveLength(1)
+    expect(result!.medDoses[0].id).toBe('d1')
+  })
+})
+
 describe('migrate — ملف الطفل', () => {
   it('يملأ الحقول الناقصة من القالب الفارغ', () => {
     const result = migrate({ version: DATA_VERSION, child: { name: 'يوسف' } })

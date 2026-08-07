@@ -12,6 +12,7 @@ import {
   ListIcon,
   MomIcon,
   MoonIcon,
+  PillIcon,
   RulerIcon,
   SyringeIcon,
   TagIcon,
@@ -21,9 +22,11 @@ import { Button, Card, Field, Sheet, cx } from '../../components/ui'
 import { useCapture } from '../../components/Capture'
 import { updateChild, useAppData } from '../../data/dataService'
 import { getPregnancyProgress } from '../../lib/pregnancy'
+import { dayKeyOf, dayPlan, dayProgress } from '../../lib/meds'
 import { formatDuration, relativeFromNow } from '../../lib/format'
 import { isSameLocalDay, localDateInputValue, localDateToIso } from '../../lib/localDate'
 import { useNow } from '../../lib/useNow'
+import type { AppData } from '../../data/types'
 
 // =============================================================
 // «المتابعة» — كل الأدوات في شاشة واحدة، كل واحدة تعرض آخر رقم لها.
@@ -62,6 +65,7 @@ function PregnancyTools() {
   const hospital = progressOf(data.checklist.filter((c) => c.list === 'hospital'))
   const shopping = progressOf(data.checklist.filter((c) => c.list === 'shopping'))
   const votedNames = data.names.filter((n) => n.votes.mom && n.votes.dad).length
+  const meds = medsSummary(data, now)
 
   return (
     <>
@@ -95,6 +99,13 @@ function PregnancyTools() {
           icon={<MomIcon className="w-5 h-5" />}
           label="متابعة الأم"
           value={lastMom?.weightKg ? `${lastMom.weightKg} كجم` : lastMom ? 'مسجّل' : 'ابدأوا'}
+        />
+        <ToolRow
+          to="/track/meds"
+          icon={<PillIcon className="w-5 h-5" />}
+          label="الأدوية والعلاج"
+          value={meds.value}
+          highlight={meds.pending}
           last
         />
       </Group>
@@ -144,6 +155,7 @@ function BabyTools() {
   const dueVaccines = data.vaccines.filter((v) => !v.givenAt).length
   const upcoming = data.appointments.filter((a) => new Date(a.dateTime).getTime() >= now).length
   const shopping = progressOf(data.checklist.filter((c) => c.list === 'shopping'))
+  const meds = medsSummary(data, now)
 
   return (
     <>
@@ -188,6 +200,13 @@ function BabyTools() {
           icon={<SyringeIcon className="w-5 h-5" />}
           label="التطعيمات"
           value={dueVaccines > 0 ? `${dueVaccines} متبقّية` : 'مكتملة'}
+        />
+        <ToolRow
+          to="/track/meds"
+          icon={<PillIcon className="w-5 h-5" />}
+          label="الأدوية والعلاج"
+          value={meds.value}
+          highlight={meds.pending}
         />
         <ToolRow
           to="/track/appointments"
@@ -349,4 +368,22 @@ function ToolRow({
 
 function progressOf(items: Array<{ done: boolean }>) {
   return { done: items.filter((i) => i.done).length, total: items.length }
+}
+
+/**
+ * ملخّص جرعات اليوم لصفّ «الأدوية».
+ *
+ * الصفّ يُبرَز (`pending`) ما دامت هناك جرعة لم تُسجَّل — هذا هو الرقم
+ * الوحيد الذي يستحقّ أن يلفت النظر في شاشة مليئة بالأرقام.
+ */
+function medsSummary(data: AppData, now: number): { value: string; pending: boolean } {
+  const slots = dayPlan(data.medications, data.medDoses, dayKeyOf(new Date(now)))
+  if (slots.length === 0) {
+    return { value: data.medications.length > 0 ? 'ما فيه اليوم' : 'ابدأوا', pending: false }
+  }
+  const { remaining, total } = dayProgress(slots)
+  return {
+    value: remaining === 0 ? 'اكتملت اليوم' : `باقي ${remaining} من ${total}`,
+    pending: remaining > 0,
+  }
 }

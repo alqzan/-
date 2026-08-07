@@ -9,6 +9,8 @@ import type {
   GrowthEntry,
   JournalEntry,
   KickSession,
+  MedDoseLog,
+  Medication,
   Milestone,
   MomLog,
   NameIdea,
@@ -46,6 +48,25 @@ const date = (v: unknown): string | undefined => {
   const s = str(v)
   if (!s) return undefined
   return Number.isNaN(new Date(s).getTime()) ? undefined : s
+}
+
+/** يوم تقويمي محلي "yyyy-mm-dd" — الصيغة التي تُجدوَل عليها الأدوية */
+const dayKey = (v: unknown): string | undefined => {
+  const s = str(v)
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return undefined
+  return Number.isNaN(new Date(`${s}T00:00:00`).getTime()) ? undefined : s
+}
+
+/** وقت يومي "HH:MM" بنظام ٢٤ ساعة */
+const clockTime = (v: unknown): string | undefined => {
+  const s = str(v)
+  if (!s) return undefined
+  const m = /^(\d{1,2}):(\d{2})$/.exec(s)
+  if (!m) return undefined
+  const h = Number(m[1])
+  const min = Number(m[2])
+  if (h > 23 || min > 59) return undefined
+  return `${String(h).padStart(2, '0')}:${m[2]}`
 }
 
 const oneOf = <T extends string>(v: unknown, allowed: readonly T[]): T | undefined =>
@@ -156,6 +177,69 @@ const momLog = (r: Record<string, unknown>): MomLog | null => {
     mood: oneOf(r.mood, ['great', 'good', 'ok', 'tired', 'unwell'] as const),
     symptoms: strList(r.symptoms),
     note: str(r.note),
+  }
+}
+
+/**
+ * دواء موصوف.
+ *
+ * الحارس الحقيقي هنا هو الجدول: دواء بلا اسم أو بلا يوم بداية صالح لا
+ * يمكن جدولته أصلًا، فيُسقط. أما وقت جرعة مشوّه فيُسقط وحده وتبقى بقية
+ * الأوقات — فقدان جرعة من ثلاث أهون من فقدان الدواء كله.
+ */
+const medication = (r: Record<string, unknown>): Medication | null => {
+  const name = str(r.name)
+  const startDate = dayKey(r.startDate)
+  if (!name || !startDate) return null
+  const frequency =
+    oneOf(r.frequency, ['daily', 'everyNDays', 'weekdays', 'asNeeded'] as const) ?? 'daily'
+  const times = Array.isArray(r.times)
+    ? [...new Set(r.times.map(clockTime).filter((t): t is string => !!t))].sort()
+    : []
+  const weekdays = Array.isArray(r.weekdays)
+    ? [...new Set(r.weekdays.map(num).filter((d): d is number => d !== undefined && d >= 0 && d <= 6))].sort()
+    : undefined
+  return {
+    id: id(r.id),
+    name,
+    form:
+      oneOf(r.form, [
+        'pill',
+        'capsule',
+        'suppository',
+        'injection',
+        'syrup',
+        'drops',
+        'topical',
+        'other',
+      ] as const) ?? 'other',
+    dose: str(r.dose),
+    frequency,
+    // دواء مجدول بلا وقت واحد صالح لا يظهر في أي يوم — نعيده إلى جرعة صباحية
+    times: frequency === 'asNeeded' ? [] : times.length > 0 ? times : ['08:00'],
+    everyDays: Math.max(1, Math.round(num(r.everyDays) ?? 2)),
+    weekdays,
+    startDate,
+    endDate: dayKey(r.endDate) ?? null,
+    who: oneOf(r.who, ['mom', 'baby'] as const) ?? 'mom',
+    notes: str(r.notes),
+    archived: bool(r.archived) ?? false,
+    createdAt: date(r.createdAt) ?? new Date().toISOString(),
+  }
+}
+
+const medDose = (r: Record<string, unknown>): MedDoseLog | null => {
+  const medId = str(r.medId)
+  const day = dayKey(r.day)
+  if (!medId || !day) return null
+  return {
+    id: id(r.id),
+    medId,
+    day,
+    // الوقت الفارغ صالح ومقصود: جرعة «عند اللزوم» لا موعد لها
+    time: clockTime(r.time) ?? '',
+    takenAt: date(r.takenAt) ?? `${day}T12:00:00.000Z`,
+    skipped: bool(r.skipped),
   }
 }
 
@@ -351,6 +435,9 @@ export function migrate(parsed: unknown): AppData | null {
     contractions: clean(raw.contractions, base.contractions, contraction),
     appointments: clean(raw.appointments, base.appointments, appointment),
     momLogs: clean(raw.momLogs, base.momLogs, momLog),
+    // أُضيفت في الإصدار ٥ — النسخ الأقدم تبدأ بلا أدوية
+    medications: clean(raw.medications, base.medications, medication),
+    medDoses: clean(raw.medDoses, base.medDoses, medDose),
     photos: clean(raw.photos, base.photos, photo),
     journal: clean(raw.journal, base.journal, journal),
     // أُضيفت في الإصدار ٤ — النسخ الأقدم تبدأ بقائمة فارغة

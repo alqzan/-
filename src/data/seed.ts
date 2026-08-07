@@ -1,7 +1,7 @@
 import type { AppData } from './types'
 
 /** رقم إصدار البيانات المخزّنة — يُستخدم للترقية عند تحديث التطبيق */
-export const DATA_VERSION = 4
+export const DATA_VERSION = 5
 
 export function emptyData(): AppData {
   return {
@@ -21,6 +21,8 @@ export function emptyData(): AppData {
     contractions: [],
     appointments: [],
     momLogs: [],
+    medications: [],
+    medDoses: [],
     photos: [],
     journal: [],
     voices: [],
@@ -109,6 +111,40 @@ export function seedData(): AppData {
         note: 'يوم هادئ ولله الحمد.',
       },
     ],
+
+    // وصفة الطبيبة — نمطان مختلفان عمدًا: يومي بثلاث جرعات، ويوم بعد يوم
+    medications: [
+      {
+        id: 'md1',
+        name: 'حديد + فوليك',
+        form: 'pill',
+        dose: 'حبة واحدة',
+        frequency: 'daily',
+        times: ['08:00', '14:00', '20:00'],
+        startDate: dateOnly(-10),
+        endDate: null,
+        who: 'mom',
+        notes: 'بعد الأكل بساعة.',
+        archived: false,
+        createdAt: isoAt(-10),
+      },
+      {
+        id: 'md2',
+        name: 'تحميلة مثبّتة',
+        form: 'suppository',
+        dose: 'تحميلة واحدة',
+        frequency: 'everyNDays',
+        everyDays: 2,
+        times: ['21:00'],
+        startDate: dateOnly(-9),
+        endDate: dateOnly(20),
+        who: 'mom',
+        archived: false,
+        createdAt: isoAt(-9),
+      },
+    ],
+
+    medDoses: [],
 
     photos: [],
 

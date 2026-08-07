@@ -18,7 +18,12 @@ export default function FamilySyncBridge() {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    if (sync.status !== 'connected' || !sync.code) return
+    // `hydrated` شرطٌ لا تفاوض فيه: قبل أن تصلنا نسخة العائلة السحابية
+    // نحن لا نعرف ما كُتب على الجهاز الآخر بينما كان هذا مغلقًا، ودفعُ
+    // نسختنا حينها يعني دهسه. هذا هو السباق الذي حذف بيانات المستخدم:
+    // الاستئناف يقول «متصل» فورًا، والجسر يدفع بعد ٨٠٠ ملّي ثانية،
+    // فإن تأخّرت أول لقطة عن ذلك ضاع ما لم نره بعد.
+    if (sync.status !== 'connected' || !sync.hydrated || !sync.code) return
     const code = sync.code
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => {
@@ -29,7 +34,7 @@ export default function FamilySyncBridge() {
     }
     // البيانات كاملة (`data`) هي محفّز إعادة الدفع عمدًا — أي تعديل نصّي
     // في أي مجموعة يجب أن يصل للطرف الآخر، لا حقول بعينها.
-  }, [data, sync.status, sync.code])
+  }, [data, sync.status, sync.hydrated, sync.code])
 
   return null
 }

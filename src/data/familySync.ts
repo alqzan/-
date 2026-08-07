@@ -7,6 +7,7 @@ import {
   setDoc,
   type Unsubscribe,
 } from 'firebase/firestore'
+import { canonicalJSON } from '../lib/canonicalJSON'
 import { ensureAnonymousAuth, getFirestoreDb, isFirebaseConfigured } from '../lib/firebase'
 import { generateFamilyCode, isValidFamilyCode } from '../lib/familyCode'
 import { clearSyncedFamilyId, mergeSyncedData, syncableSnapshot, type SyncedFields } from './dataService'
@@ -32,9 +33,24 @@ export interface FamilySyncState {
   code: string | null
   error: string | null
   lastSyncedAt: string | null
+  /**
+   * وصلتنا نسخة العائلة السحابية في هذه الجلسة.
+   *
+   * **لا يُدفع شيء قبل أن تصير true.** كان الجهاز يدفع نسختَه بمجرد أن
+   * يقول «متصل»، أي قبل أن يقرأ ما كتبه الطرف الآخر في غيابه — فيدهسه.
+   */
+  hydrated: boolean
 }
 
-let state: FamilySyncState = { status: 'idle', code: null, error: null, lastSyncedAt: null }
+const IDLE_STATE: FamilySyncState = {
+  status: 'idle',
+  code: null,
+  error: null,
+  lastSyncedAt: null,
+  hydrated: false,
+}
+
+let state: FamilySyncState = IDLE_STATE
 const listeners = new Set<() => void>()
 const notify = () => listeners.forEach((l) => l())
 
@@ -68,43 +84,14 @@ let unsubscribeSnapshot: Unsubscribe | null = null
  */
 let lastSeenJSON: string | null = null
 
-/**
- * تسلسل **مستقلّ عن ترتيب المفاتيح**.
- *
- * `JSON.stringify` يكتب المفاتيح بترتيب إدراجها، وFirestore يعيد حقول
- * المستند بترتيب خاص به لا يطابق ترتيب `syncableSnapshot`. فكانت مقارنة
- * الصدى بالنصّ الخام تفشل **دائمًا** رغم تطابق المحتوى حرفًا بحرف:
- *
- *   ندفع ← يعود الصدى ← يُحسب تغييرًا خارجيًا ← دمج ← تتغيّر البيانات
- *   ← يدفع الجسر من جديد ← يعود الصدى … بلا نهاية
- *
- * حلقةٌ صامتة تكتب وتقرأ من Firestore بلا توقّف حتى تستنفد حصّة الخطة
- * المجانية، وعندها تفشل كل كتابة وتبدو المزامنة «معطّلة» بلا سبب ظاهر.
- * ترتيب المفاتيح ليس معلومة في بياناتنا، فلا يصحّ أن تُبنى عليه مقارنة.
- */
-export function canonicalJSON(value: unknown): string {
-  return JSON.stringify(sortKeys(value))
-}
-
-function sortKeys(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortKeys)
-  if (value === null || typeof value !== 'object') return value
-  const source = value as Record<string, unknown>
-  const out: Record<string, unknown> = {}
-  for (const key of Object.keys(source).sort()) {
-    // undefined يختفي في JSON.stringify أصلًا، وإسقاطه هنا يجعل
-    // «الحقل غائب» و«الحقل undefined» متطابقين في المقارنة
-    if (source[key] !== undefined) out[key] = sortKeys(source[key])
-  }
-  return out
-}
-
 function familyDoc(code: string) {
   return doc(getFirestoreDb(), 'families', code)
 }
 
 /**
  * يُسقط `createdAt`/`updatedAt` من مستند وارد من Firestore.
+ *
+ * (لا علاقة لهذا بـ`syncMeta` — ذاك دفتر تغييراتنا ويجب أن يصل كاملًا.)
  *
  * `syncableSnapshot()` لا تحتوي هذين الحقلين إطلاقًا — نضيفهما فقط
  * عند الكتابة (`serverTimestamp()`). بدون إسقاطهما هنا، كل مقارنة مع
@@ -143,13 +130,31 @@ function attachListener(code: string): void {
   unsubscribeSnapshot = onSnapshot(
     familyDoc(code),
     (snap) => {
-      if (!snap.exists()) return
+      if (!snap.exists()) {
+        // نسخة من ذاكرة SDK لا من الخادم: «غير موجود» هنا يعني «لم نعرف
+        // بعد»، فلا نبني عليه شيئًا ولا نأذن بالدفع
+        if (snap.metadata?.fromCache) return
+        // المستند غائب فعلًا (حُذف من الخادم): نسختنا هي كل ما بقي —
+        // نأذن بالدفع لتُنشأ العائلة من جديد بدل أن تبقى المزامنة معلّقة
+        setState({ status: 'connected', error: null, hydrated: true })
+        return
+      }
       const remote = stripSyncMeta(snap.data() as Record<string, unknown>)
       const json = canonicalJSON(remote)
-      if (json === lastSeenJSON) return // صدى كتابتنا نحن — ليس تغييرًا خارجيًا
+      // الإذن بالدفع يُمنح قبل فحص الصدى: حتى لو كان الوارد هو ما دفعناه
+      // نحن، فقد صرنا نعرف ما في السحابة — وهذا كل ما ينتظره الجسر
+      if (json === lastSeenJSON) {
+        setState({ status: 'connected', error: null, hydrated: true })
+        return // صدى كتابتنا نحن — ليس تغييرًا خارجيًا
+      }
       lastSeenJSON = json
       void mergeSyncedData(remote)
-      setState({ status: 'connected', error: null, lastSyncedAt: new Date().toISOString() })
+      setState({
+        status: 'connected',
+        error: null,
+        hydrated: true,
+        lastSyncedAt: new Date().toISOString(),
+      })
     },
     () => {
       setState({ status: 'error', error: 'تعذّر الاتصال بالمزامنة — تحقّقوا من الإنترنت.' })
@@ -190,7 +195,13 @@ export async function createFamilySync(): Promise<{
 
     persistCode(code)
     attachListener(code)
-    setState({ status: 'connected', code, error: null, lastSyncedAt: new Date().toISOString() })
+    setState({
+      status: 'connected',
+      code,
+      error: null,
+      hydrated: true,
+      lastSyncedAt: new Date().toISOString(),
+    })
     return { ok: true, code }
   } catch {
     setState({ status: 'error', code: null, error: GENERIC_ERROR })
@@ -220,7 +231,7 @@ export async function joinFamilySync(rawCode: string): Promise<{ ok: boolean; er
     const snap = await getDoc(familyDoc(code))
     if (!snap.exists()) {
       // لا إنشاء هنا — رمز خاطئ يعني رسالة واضحة والتوقّف عند ذلك
-      setState({ status: 'idle', code: null, error: null })
+      setState({ ...IDLE_STATE })
       return { ok: false, error: 'لم نجد عائلة بهذا الرمز. تأكّدوا منه مع الطرف الآخر.' }
     }
 
@@ -230,7 +241,13 @@ export async function joinFamilySync(rawCode: string): Promise<{ ok: boolean; er
 
     persistCode(code)
     attachListener(code)
-    setState({ status: 'connected', code, error: null, lastSyncedAt: new Date().toISOString() })
+    setState({
+      status: 'connected',
+      code,
+      error: null,
+      hydrated: true,
+      lastSyncedAt: new Date().toISOString(),
+    })
     return { ok: true }
   } catch {
     setState({ status: 'error', code: null, error: GENERIC_ERROR })
@@ -249,7 +266,7 @@ export function stopFamilySync(): void {
   unsubscribeSnapshot = null
   lastSeenJSON = null
   persistCode(null)
-  setState({ status: 'idle', code: null, error: null, lastSyncedAt: null })
+  setState({ ...IDLE_STATE })
   // فصل رمز العائلة من البيانات المحلية للعرض فقط — لا يمسّ أي مجموعة أخرى
   void clearSyncedFamilyId()
 }
@@ -263,22 +280,53 @@ export async function resumeFamilySync(): Promise<void> {
   const code = readPersistedCode()
   if (!code || !isFirebaseConfigured()) return
 
-  setState({ status: 'connecting', code })
+  setState({ status: 'connecting', code, hydrated: false })
   try {
     await ensureAnonymousAuth()
     attachListener(code)
+    // «متصل» هنا تعني «الاستماع قائم» لا «قرأنا السحابة». الإذن بالدفع
+    // (`hydrated`) لا يُمنح إلا من المستمع نفسه بعد وصول أول لقطة —
+    // وهذا بالضبط ما كان ينقص: جهاز يستأنف المزامنة فيدفع نسخته
+    // القديمة خلال ثانية، قبل أن يصله ما كُتب في غيابه، فيمحوه.
     setState({ status: 'connected', code, error: null })
   } catch {
     setState({ status: 'error', code, error: 'تعذّر استئناف المزامنة. البيانات المحلية سليمة.' })
   }
 }
 
+/**
+ * طابور الدفع.
+ *
+ * الكتابات تجري واحدة تلو الأخرى لا متوازية: كتابتان متزامنتان قد
+ * تصلان الخادم بترتيب معكوس، فتستقرّ في السحابة النسخةُ الأقدم وتبدو
+ * كأن تعديلًا «رجع». وحين يكون الجهاز خارج الشبكة لا تُحسم كتابة
+ * Firestore أصلًا، فينتظر الطابور — وهذا مطلوب: عند العودة تُكتب أحدث
+ * لقطة، لا سيلٌ من اللقطات المتقادمة.
+ */
+let pushChain: Promise<void> = Promise.resolve()
+
 /** يدفع لقطة الحقول القابلة للمزامنة إلى Firestore — يتجاهل الدفع إن لم يتغيّر شيء منذ آخر مرة */
-export async function pushToCloud(code: string, snapshot: SyncedFields): Promise<void> {
+export function pushToCloud(code: string, snapshot: SyncedFields): Promise<void> {
+  pushChain = pushChain.then(() => writeSnapshot(code, snapshot))
+  return pushChain
+}
+
+async function writeSnapshot(code: string, snapshot: SyncedFields): Promise<void> {
   const json = canonicalJSON(snapshot)
   if (json === lastSeenJSON) return
   try {
-    await setDoc(familyDoc(code), { ...snapshot, updatedAt: serverTimestamp() }, { merge: true })
+    const payload = { ...snapshot, updatedAt: serverTimestamp() }
+    // `mergeFields` لا `merge: true`، والفرق ليس تفصيلًا:
+    //
+    // `merge: true` يدمج الخرائط المتداخلة مفتاحًا مفتاحًا، فمفتاحٌ
+    // نحذفه من `syncMeta` لا يغادر المستند السحابي أبدًا. وحينها يعود
+    // إلينا صدى أكبر ممّا أرسلنا، فيُقرأ «تغييرًا خارجيًا» فيُدمج
+    // ويُدفع… وهي الحلقة نفسها التي تستنزف الحصّة وتُعطّل المزامنة.
+    //
+    // بقناع الحقول تُستبدل كل حقول لقطتنا استبدالًا كاملًا (ومنها دفتر
+    // التغييرات)، ويبقى ما ليس في القناع — `createdAt`، وأي حقل يضيفه
+    // إصدار أحدث لا نعرفه بعد — كما هو دون أن نمسّه.
+    await setDoc(familyDoc(code), payload, { mergeFields: Object.keys(payload) })
     // التسجيل بعد نجاح الكتابة لا قبلها: كان الفشل يُسجّل المحتوى كأنه
     // «وصل»، فلا يُعاد رفعه أبدًا ويبقى الطرف الآخر على نسخة أقدم بصمت.
     lastSeenJSON = json

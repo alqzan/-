@@ -1,7 +1,7 @@
-import type { AppData } from './types'
+import type { AppData, SyncMeta } from './types'
 
 /** رقم إصدار البيانات المخزّنة — يُستخدم للترقية عند تحديث التطبيق */
-export const DATA_VERSION = 5
+export const DATA_VERSION = 6
 
 export function emptyData(): AppData {
   return {
@@ -35,7 +35,13 @@ export function emptyData(): AppData {
     sleep: [],
     growth: [],
     vaccines: builtInVaccines(),
+    syncMeta: emptySyncMeta(),
   }
+}
+
+/** دفتر تغييرات فارغ — يمتلئ من `commit` مع أول تعديل */
+export function emptySyncMeta(): SyncMeta {
+  return { rev: {}, deleted: {} }
 }
 
 // بيانات تجريبية أولية (عربية) — للعرض والتجربة فقط.
@@ -197,6 +203,7 @@ export function seedData(): AppData {
     sleep: [],
     growth: [],
     vaccines: builtInVaccines(),
+    syncMeta: emptySyncMeta(),
   }
 }
 

@@ -16,6 +16,9 @@ const fake = vi.hoisted(() => ({
   listeners: new Map<string, Set<(data: unknown) => void>>(),
   /** عدد مرات الكتابة — يكشف حلقة الدفع↔الصدى إن عادت */
   writes: 0,
+  /** تأجيل اللقطة الأولى — يحاكي شبكة بطيئة لحظة استئناف المزامنة */
+  defer: false,
+  pending: [] as Array<() => void>,
   /**
    * يعيد ترتيب مفاتيح المستند كما يفعل Firestore الحقيقي.
    *
@@ -45,10 +48,15 @@ vi.mock('firebase/firestore', () => ({
   setDoc: async (
     ref: { __path: string },
     data: Record<string, unknown>,
-    opts?: { merge?: boolean },
+    opts?: { merge?: boolean; mergeFields?: string[] },
   ) => {
     const prev = fake.store.get(ref.__path) ?? {}
-    const next = fake.shuffle(opts?.merge ? { ...prev, ...data } : data)
+    // قناع الحقول يستبدل كل حقل مذكور فيه استبدالًا كاملًا (بما فيه
+    // الخرائط المتداخلة) ويترك ما عداه — وقناعنا يغطّي كل حقول اللقطة،
+    // فالنتيجة دمج سطحي بالضبط. أما `merge: true` وحده فيدمج الخرائط
+    // المتداخلة مفتاحًا مفتاحًا، وهو ما لا نستخدمه عمدًا.
+    const masked = opts?.merge || opts?.mergeFields
+    const next = fake.shuffle(masked ? { ...prev, ...data } : data)
     fake.writes += 1
     fake.store.set(ref.__path, next)
     fake.listeners
@@ -59,8 +67,12 @@ vi.mock('firebase/firestore', () => ({
     const set = fake.listeners.get(ref.__path) ?? new Set<(data: unknown) => void>()
     set.add(onNext)
     fake.listeners.set(ref.__path, set)
-    const data = fake.store.get(ref.__path)
-    onNext({ exists: () => data !== undefined, data: () => data })
+    const first = () => {
+      const data = fake.store.get(ref.__path)
+      onNext({ exists: () => data !== undefined, data: () => data })
+    }
+    if (fake.defer) fake.pending.push(first)
+    else first()
     return () => set.delete(onNext)
   },
   serverTimestamp: () => 'SERVER_TIMESTAMP',
@@ -68,9 +80,17 @@ vi.mock('firebase/firestore', () => ({
 
 const { exportSnapshot, importSnapshot } = await import('./dataService')
 const { emptyData } = await import('./seed')
-const { createFamilySync, joinFamilySync, stopFamilySync, getFamilySyncState, pushToCloud, canonicalJSON } =
-  await import('./familySync')
-const { syncableSnapshot, addMedication, flush } = await import('./dataService')
+const {
+  createFamilySync,
+  joinFamilySync,
+  stopFamilySync,
+  getFamilySyncState,
+  pushToCloud,
+  resumeFamilySync,
+} = await import('./familySync')
+const { canonicalJSON } = await import('../lib/canonicalJSON')
+const { syncableSnapshot, addMedication, addJournal, deleteJournal, flush } =
+  await import('./dataService')
 type AppData = import('./types').AppData
 
 const PHOTO_DATA_URL = 'data:image/png;base64,AAAAPHOTO'
@@ -81,6 +101,8 @@ beforeEach(async () => {
   fake.store.clear()
   fake.listeners.clear()
   fake.writes = 0
+  fake.defer = false
+  fake.pending = []
   localStorage.clear()
   stopFamilySync()
 
@@ -207,6 +229,37 @@ describe('حلقة الدفع↔الصدى — أخطر عيب في المزام
     expect(fake.writes).toBe(before + 1)
   })
 
+  it('دفتر التغييرات يُستبدل في السحابة ولا تتراكم فيه مفاتيح ميتة', async () => {
+    // `merge: true` كان سيُبقي كل مفتاح كتبناه يومًا في `syncMeta` إلى
+    // الأبد، فيعود إلينا صدى أكبر ممّا أرسلنا ويُقرأ تغييرًا خارجيًا:
+    // دمج ← دفع ← صدى ← دمج… الحلقة نفسها من جديد.
+    const created = await createFamilySync()
+    const code = created.code!
+
+    await addJournal({ text: 'ستُحذف', date: '2026-05-01T00:00:00.000Z', author: 'mom' })
+    await flush()
+    const id = (JSON.parse(exportSnapshot()) as AppData).journal[0].id
+    await pushToCloud(code, syncableSnapshot(code))
+
+    const withEntry = fake.store.get(code) as { syncMeta: { rev: Record<string, string> } }
+    expect(withEntry.syncMeta.rev).toHaveProperty(id)
+
+    await deleteJournal(id)
+    await flush()
+    await pushToCloud(code, syncableSnapshot(code))
+
+    const after = fake.store.get(code) as {
+      syncMeta: { rev: Record<string, string>; deleted: Record<string, string> }
+    }
+    expect(after.syncMeta.rev).not.toHaveProperty(id) // المفتاح غادر فعلًا
+    expect(after.syncMeta.deleted).toHaveProperty(id) // والشاهدة حلّت محلّه
+
+    // ولا شيء يُدفع بعدها: ما عاد إلينا هو ما أرسلناه بالضبط
+    const settled = fake.writes
+    await pushToCloud(code, syncableSnapshot(code))
+    expect(fake.writes).toBe(settled)
+  })
+
   it('canonicalJSON لا يتأثّر بترتيب المفاتيح ويتأثّر بالمحتوى', () => {
     expect(canonicalJSON({ a: 1, b: [{ y: 2, x: 3 }] })).toBe(
       canonicalJSON({ b: [{ x: 3, y: 2 }], a: 1 }),
@@ -214,6 +267,53 @@ describe('حلقة الدفع↔الصدى — أخطر عيب في المزام
     expect(canonicalJSON({ a: 1 })).not.toBe(canonicalJSON({ a: 2 }))
     // الحقل الغائب والحقل undefined شيء واحد — كلاهما لا يصل الشبكة أصلًا
     expect(canonicalJSON({ a: 1, b: undefined })).toBe(canonicalJSON({ a: 1 }))
+  })
+})
+
+describe('الربط لا يمحو بيانات الجهاز الذي ينضمّ', () => {
+  it('يجمع ما على الجهازين بدل أن تحلّ نسخة العائلة محلّ نسخة الجهاز', async () => {
+    // جهاز الأم: يكتب رسالة ثم ينشئ العائلة
+    await addJournal({ text: 'من جهاز الأم', date: '2026-01-05T00:00:00.000Z', author: 'mom' })
+    await flush()
+    const created = await createFamilySync()
+    stopFamilySync()
+
+    // جهاز الأب: نسخته الخاصة، وفيها رسالة لم تعرفها السحابة قط
+    const dadDevice = emptyData()
+    dadDevice.setupComplete = true
+    dadDevice.journal = [
+      { id: 'j-dad', text: 'من جهاز الأب', date: '2026-01-06T00:00:00.000Z', author: 'dad' },
+    ]
+    await importSnapshot(JSON.stringify(dadDevice))
+
+    const joined = await joinFamilySync(created.code!)
+    expect(joined.ok).toBe(true)
+
+    const after = JSON.parse(exportSnapshot()) as AppData
+    const texts = after.journal.map((j) => j.text)
+    expect(texts).toContain('من جهاز الأب') // ما كان على الجهاز لم يُمسّ
+    expect(texts).toContain('من جهاز الأم') // وما في العائلة وصل إليه
+  })
+})
+
+describe('استئناف المزامنة — لا إذن بالدفع قبل قراءة السحابة', () => {
+  // السباق الذي حذف البيانات: الاستئناف يقول «متصل» فورًا، والجسر يدفع
+  // بعد ٨٠٠ ملّي ثانية. فإن تأخّرت أول لقطة أكثر من ذلك، دُفعت نسخة
+  // الجهاز القديمة فوق ما كتبه الطرف الآخر في غيابه.
+  it('يبقى الدفع ممنوعًا حتى تصل أول لقطة فعلًا', async () => {
+    const created = await createFamilySync()
+    const code = created.code!
+    stopFamilySync()
+    localStorage.setItem('tafalna:sync:v1', JSON.stringify({ familyCode: code }))
+
+    fake.defer = true // الشبكة بطيئة: لن تصل اللقطة الأولى بعد
+    await resumeFamilySync()
+
+    expect(getFamilySyncState().status).toBe('connected')
+    expect(getFamilySyncState().hydrated).toBe(false) // الجسر لا يدفع شيئًا
+
+    fake.pending.forEach((fire) => fire()) // وصلت اللقطة أخيرًا
+    expect(getFamilySyncState().hydrated).toBe(true)
   })
 })
 

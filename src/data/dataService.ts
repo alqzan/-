@@ -21,12 +21,14 @@ import type {
   Parent,
   Photo,
   SleepEntry,
+  SyncMeta,
   TimeCapsule,
   VaccineDose,
   VoiceNote,
 } from './types'
-import { emptyData, seedData } from './seed'
+import { emptyData, emptySyncMeta, seedData } from './seed'
 import { migrate } from './migrate'
+import { syncableJSON } from '../lib/canonicalJSON'
 import {
   blobToDataUrl,
   dataUrlToBlob,
@@ -185,13 +187,20 @@ export async function flush(): Promise<void> {
   await runWrite()
 }
 
-/** يطبّق تعديلًا على الحالة فورًا ثم يحفظه */
+/**
+ * يطبّق تعديلًا على الحالة فورًا ثم يحفظه.
+ *
+ * وهنا — في المكان الوحيد الذي تمرّ منه كل تعديلات التطبيق — يُختَم
+ * التغيير في دفتر المزامنة: ما تغيّر ومتى، وما حُذف ومتى. الشاشات لا
+ * تعرف بهذا شيئًا، ولا يمكن أن تنساه.
+ */
 function commit(patch: Partial<AppData>): Promise<boolean> {
   if (status.readOnly) {
     // بيانات المستخدم الأصلية ما زالت على الجهاز وغير مقروءة — لا نكتب فوقها
     return Promise.resolve(false)
   }
-  data = { ...data, ...patch }
+  const next = { ...data, ...patch }
+  data = { ...next, syncMeta: stampChanges(data, next) }
   notifyData()
   return new Promise<boolean>((resolve) => {
     waiting.push(resolve)
@@ -737,6 +746,143 @@ export interface SyncedFields {
   sleep: SleepEntry[]
   growth: GrowthEntry[]
   vaccines: VaccineDose[]
+  /** دفتر التغييرات — بدونه لا يمكن التمييز بين «لم يصلني» و«حُذف» */
+  syncMeta: SyncMeta
+}
+
+/**
+ * المجموعات المُزامَنة، وحقل الوقت الذي تُرتَّب به بعد الدمج.
+ *
+ * الترتيب هنا ليس تجميلًا: شاشات كثيرة تقرأ `data.kicks[0]` أو تعرض
+ * المصفوفة كما هي، فلو خرج الدمج بترتيب عشوائي لظهر «آخر ركلة» ركلةً
+ * من الأسبوع الماضي. والأهم أنه يجب أن يكون **واحدًا على الجهازين**:
+ * لو رتّب كلٌّ منهما النتيجة بشكل مختلف لاختلف النصّ المدفوع، فظنّ كل
+ * جهاز أن الآخر غيّر شيئًا، وتبادلا الدفع بلا نهاية.
+ *
+ * `null` = مجموعة ترتيبها معنوي لا زمني (قوائم التجهيزات والمعالم
+ * والتطعيمات) فتُحفظ بترتيب الوارد ثم يُلحَق بها ما عندنا وحدنا.
+ */
+const SYNCED_COLLECTIONS = {
+  kicks: 'startedAt',
+  contractions: 'startedAt',
+  appointments: 'dateTime',
+  momLogs: 'date',
+  medications: 'createdAt',
+  medDoses: 'takenAt',
+  journal: 'date',
+  capsules: 'createdAt',
+  milestones: null,
+  names: null,
+  checklist: null,
+  feedings: 'startedAt',
+  diapers: 'time',
+  sleep: 'startedAt',
+  growth: 'date',
+  vaccines: null,
+} as const
+
+type SyncedCollection = keyof typeof SYNCED_COLLECTIONS
+
+/** أي صفّ في أي مجموعة — الدمج لا يحتاج أن يعرف أكثر من المعرّف */
+interface Row {
+  id: string
+}
+
+/** معرّف ← لحظة (ISO) */
+type Stamps = Record<string, string>
+
+const collectionKeys = Object.keys(SYNCED_COLLECTIONS) as SyncedCollection[]
+
+const rowsOf = (source: AppData | SyncedFields, key: SyncedCollection): Row[] | undefined => {
+  const value = (source as unknown as Record<string, unknown>)[key]
+  return Array.isArray(value) ? (value as Row[]) : undefined
+}
+
+/**
+ * معرّف صالح لأن يكون مفتاح حقل في Firestore.
+ *
+ * المفاتيح الفارغة والبادئة بـ `__` محجوزة، وكتابة واحدة منها تُرفض
+ * كاملةً. معرّفاتنا لا تكون كذلك، لكن ملف نسخة احتياطية محرَّرًا يدويًا
+ * قد يحمل ما يشاء — وعنصر بلا ختم يبقى محفوظًا (الاتحاد يُبقيه)، وهذا
+ * أهون بكثير من دفعة مرفوضة تُعطّل المزامنة كلها.
+ */
+const isStampable = (id: string): boolean => id.length > 0 && !id.startsWith('__')
+
+const byId = (rows: Row[]): Map<string, Row> => new Map(rows.map((r) => [r.id, r]))
+
+/** الأحدث من ختمين — الغياب أقدم من أي لحظة */
+const newerStamp = (a: string | undefined, b: string | undefined): string | undefined =>
+  a === undefined ? b : b === undefined ? a : a > b ? a : b
+
+/** يدمج دفترَي أختام: لكل معرّف أحدث لحظة سُجّلت له على أي من الجهازين */
+function mergeStamps(local: Stamps, remote: Stamps): Stamps {
+  const out: Stamps = { ...local }
+  for (const [id, at] of Object.entries(remote)) {
+    const merged = newerStamp(out[id], at)
+    if (merged) out[id] = merged
+  }
+  return out
+}
+
+/**
+ * سقف عدد شواهد القبور المحفوظة.
+ *
+ * الشاهدة تبقى ما بقيت الحاجة إلى إبلاغ جهاز لم يستيقظ بعد بالحذف،
+ * لكنها لا تكبر بلا حدّ. القصّ **بالعدد لا بالعمر**: القصّ بالعمر يقرأ
+ * ساعة الجهاز، وساعتان متباعدتان على جهازين تعنيان أن أحدهما يحذف
+ * شاهدةً والآخر يعيدها فورًا من دفتره — تبادل دفع لا ينتهي حتى تتقارب
+ * الساعتان. القصّ بالعدد دالّة خالصة من الاتحاد نفسه: يخرج الجهازان
+ * بالنتيجة ذاتها دائمًا.
+ */
+const MAX_TOMBSTONES = 400
+
+function capTombstones(deleted: Stamps): Stamps {
+  const entries = Object.entries(deleted)
+  if (entries.length <= MAX_TOMBSTONES) return deleted
+  entries.sort((a, b) => (a[1] === b[1] ? (a[0] < b[0] ? -1 : 1) : a[1] < b[1] ? 1 : -1))
+  return Object.fromEntries(entries.slice(0, MAX_TOMBSTONES))
+}
+
+/**
+ * يسجّل في دفتر التغييرات أثر تعديل محلي: ما تغيّر ومتى، وما حُذف ومتى.
+ *
+ * يعمل من **مكان واحد** (`commit`) بمقارنة ما قبل بما بعد، فلا تحتاج أي
+ * من دوال التعديل الثلاثين أن تتذكّر شيئًا — ونسيان واحدة منها كان
+ * سيعني عنصرًا يعود من القبر عند أول مزامنة.
+ */
+function stampChanges(prev: AppData, next: AppData): SyncMeta {
+  const at = nowISO()
+  const rev: Stamps = { ...prev.syncMeta.rev }
+  const deleted: Stamps = { ...prev.syncMeta.deleted }
+
+  for (const key of collectionKeys) {
+    const before = rowsOf(prev, key) ?? []
+    const after = rowsOf(next, key) ?? []
+    if (before === after) continue // المرجع نفسه = لم تُمسّ هذه المجموعة
+    const gone = byId(before)
+    for (const row of after) {
+      const old = gone.get(row.id)
+      gone.delete(row.id)
+      // المرجع نفسه أولًا: دوال التعديل تُنشئ كائنًا جديدًا للصفّ المتغيّر
+      // وحده، فالمقارنة النصّية لا تلزم إلا للحالات النادرة
+      if (old === row) continue
+      if (old && syncableJSON(old) === syncableJSON(row)) continue
+      if (!isStampable(row.id)) continue
+      rev[row.id] = at
+      // عاد بعد حذفه بالمعرّف نفسه (تراجع عن حذف مثلًا) — الشاهدة انتهت مهمّتها
+      delete deleted[row.id]
+    }
+    for (const id of gone.keys()) {
+      if (!isStampable(id)) continue
+      deleted[id] = at
+      delete rev[id]
+    }
+  }
+
+  const childRev =
+    syncableJSON(prev.child) === syncableJSON(next.child) ? prev.syncMeta.childRev : at
+
+  return { rev, deleted: capTombstones(deleted), ...(childRev ? { childRev } : {}) }
 }
 
 /**
@@ -795,55 +941,160 @@ export function syncableSnapshot(familyId: string): SyncedFields {
     sleep: data.sleep,
     growth: data.growth,
     vaccines: data.vaccines,
+    syncMeta: data.syncMeta,
   })
 }
 
 /**
- * مجموعة واردة من الشبكة، أو المحلية إن لم يحملها التحديث.
+ * دفتر وارد قد يكون غائبًا (جهاز على إصدار أقدم) — الغياب دفتر فارغ.
  *
- * الجهاز الآخر قد يعمل بإصدار **أقدم** من التطبيق لا يعرف مجموعةً
- * أضفناها بعده (الأدوية مثلًا)، فيصل تحديثه بلا ذلك الحقل إطلاقًا.
- * بلا هذا الحارس كان الغياب يعني شيئين كلاهما فادح: مسحُ المجموعة عند
- * الطرف الأحدث، و`undefined` في مكان مصفوفة — يكفي أن تمرّ عليه أي شاشة
- * لينهار التطبيق كله. الغياب **ليس** حذفًا؛ الحذف يصل كمصفوفة فارغة.
+ * هذا حدّ غير موثوق: ما يصل من الشبكة يُنظَّف كما يُنظَّف ملف نسخة
+ * احتياطية. ونُسقط المفاتيح المحجوزة تحديدًا لأن `__proto__` بينها،
+ * وإسنادها بمفتاح متغيّر يعبث بسلسلة النماذج لا بالبيانات.
  */
-function incoming<T>(remote: T[] | undefined, local: T[]): T[] {
-  return Array.isArray(remote) ? remote : local
+function incomingMeta(meta: SyncMeta | undefined): SyncMeta {
+  if (!meta || typeof meta !== 'object') return emptySyncMeta()
+  return {
+    rev: safeStamps(meta.rev),
+    deleted: safeStamps(meta.deleted),
+    childRev: typeof meta.childRev === 'string' ? meta.childRev : undefined,
+  }
+}
+
+function safeStamps(value: unknown): Stamps {
+  if (!value || typeof value !== 'object') return {}
+  const out: Stamps = {}
+  for (const [id, at] of Object.entries(value as Record<string, unknown>)) {
+    if (isStampable(id) && typeof at === 'string') out[id] = at
+  }
+  return out
+}
+
+/**
+ * يختار بين نسختين لعنصر واحد.
+ *
+ * الأحدث ختمًا يفوز. وعند تساوي الختمين (أو غيابهما معًا) يُفضّ التعادل
+ * بمقارنة النصّ نفسه — لا بتفضيل «المحلي»: تفضيل المحلي يعني أن كل جهاز
+ * يختار نسخته، فلا يتفقان أبدًا ويظلّان يتدافعان الكتابة إلى الأبد.
+ */
+function pickNewer<T>(
+  local: T | undefined,
+  remote: T | undefined,
+  localRev: string | undefined,
+  remoteRev: string | undefined,
+): T {
+  if (!remote) return local as T
+  if (!local) return remote
+  if (localRev !== remoteRev) return (remoteRev ?? '') > (localRev ?? '') ? remote : local
+  return syncableJSON(remote) > syncableJSON(local) ? remote : local
+}
+
+/**
+ * دمج مجموعة واحدة: **اتحاد بالمعرّف**، لا استبدال للمصفوفة.
+ *
+ * هذا هو إصلاح العطل الذي حذف بيانات العائلة. كان الوارد يحلّ محلّ
+ * المحلي كاملًا، فأي عنصر لم يكن في نسخة الجهاز الآخر يُعدّ محذوفًا —
+ * ويكفي أن يفتح أحدهما التطبيق بعد يومين من الانقطاع ليمحو كل ما كُتب
+ * في غيابه. الآن: الغياب لا يحذف شيئًا؛ الحذف لا يجري إلا بشاهدة
+ * صريحة أحدث من آخر تعديل على العنصر.
+ */
+function mergeCollection<T extends Row>(
+  local: T[],
+  remote: T[] | undefined,
+  localRev: Stamps,
+  remoteRev: Stamps,
+  tombstones: Stamps,
+  orderBy: string | null,
+): T[] {
+  // الجهاز الآخر لا يعرف هذه المجموعة أصلًا (إصدار أقدم) — لا رأي له فيها
+  if (!remote) return local
+
+  const localById = byId(local) as Map<string, T>
+  const remoteById = byId(remote) as Map<string, T>
+  const ids = [...remoteById.keys(), ...local.map((r) => r.id).filter((id) => !remoteById.has(id))]
+
+  const out: T[] = []
+  for (const id of ids) {
+    const chosen = pickNewer(localById.get(id), remoteById.get(id), localRev[id], remoteRev[id])
+    const tomb = tombstones[id]
+    const rev = newerStamp(localRev[id], remoteRev[id])
+    // التعادل يفوز فيه الحذف: قرار صريح أولى من نسخة قد تكون صدى قديمًا
+    if (tomb && !(rev && rev > tomb)) continue
+    out.push(chosen)
+  }
+
+  if (!orderBy) return out
+  return out.sort((a, b) => {
+    const ta = timeValue(a, orderBy)
+    const tb = timeValue(b, orderBy)
+    if (ta !== tb) return tb - ta // الأحدث أولًا — ترتيب الإضافة نفسه في كل الشاشات
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+  })
+}
+
+/** لحظة الصفّ بالمللي ثانية — التاريخ التالف يقع في القاع بترتيب ثابت */
+function timeValue(row: Row, field: string): number {
+  const raw = (row as unknown as Record<string, unknown>)[field]
+  const t = typeof raw === 'string' ? new Date(raw).getTime() : NaN
+  return Number.isNaN(t) ? 0 : t
 }
 
 /**
  * يدمج تحديثًا واردًا من العائلة السحابية في البيانات المحلية.
  *
- * القاعدة الحاكمة: **لا نمسّ الصور ولا التسجيلات الصوتية هنا مطلقًا** —
- * لا وجود لهما في `remote` أصلًا. صورة كل موعد وصورة ملف الطفل تُستبقيان
- * من النسخة المحلية دومًا (لا يحملهما التحديث الوارد أبدًا اليوم).
+ * قاعدتان تحكمان كل سطر هنا:
+ *   ١. **لا نمسّ الصور ولا التسجيلات الصوتية** — لا وجود لهما في
+ *      `remote` أصلًا، وصورة كل موعد وصورة ملف الطفل تُستبقيان محليًّا.
+ *   ٢. **لا نفقد كتابةً لم يرها الطرف الآخر بعد.** ما كُتب هنا أثناء
+ *      انقطاع الشبكة يبقى، ويُدفع إليه في الجولة التالية.
  */
 export function mergeSyncedData(remote: SyncedFields): Promise<boolean> {
   if (status.readOnly) return Promise.resolve(false)
-  const appointments = incoming(remote.appointments, data.appointments).map((a) => {
+
+  const localMeta = data.syncMeta
+  const remoteMeta = incomingMeta(remote.syncMeta)
+  const tombstones = mergeStamps(localMeta.deleted, remoteMeta.deleted)
+
+  const merged: Record<string, Row[]> = {}
+  for (const key of collectionKeys) {
+    merged[key] = mergeCollection(
+      rowsOf(data, key) ?? [],
+      rowsOf(remote, key),
+      localMeta.rev,
+      remoteMeta.rev,
+      tombstones,
+      SYNCED_COLLECTIONS[key],
+    )
+  }
+
+  // صورة الموعد محلية بحتة: تُعاد إلى صفّها أيًّا كانت النسخة الفائزة
+  const appointments = (merged.appointments as Appointment[]).map((a) => {
     const local = data.appointments.find((x) => x.id === a.id)
     return local?.image ? { ...a, image: local.image } : a
   })
+
+  // ملف الطفل ليس مجموعة: ختم واحد للملف كله، والأحدث يفوز — وصورته
+  // المحلية تبقى مهما فاز
+  const child: ChildProfile = {
+    ...pickNewer(data.child, remote.child, localMeta.childRev, remoteMeta.childRev),
+    photo: data.child.photo,
+  }
+
+  // الأختام تبقى لما بقي فقط — لا تنمو بعدد ما حُذف يومًا
+  const survivors = new Set(Object.values(merged).flatMap((rows) => rows.map((r) => r.id)))
+  const rev: Stamps = {}
+  for (const [id, at] of Object.entries(mergeStamps(localMeta.rev, remoteMeta.rev))) {
+    if (survivors.has(id)) rev[id] = at
+  }
+  const childRev = newerStamp(localMeta.childRev, remoteMeta.childRev)
+
   return replaceAll({
     ...data,
+    ...(merged as unknown as Pick<AppData, SyncedCollection>),
     familyId: remote.familyId ?? data.familyId,
-    child: remote.child ? { ...remote.child, photo: data.child.photo } : data.child,
-    kicks: incoming(remote.kicks, data.kicks),
-    contractions: incoming(remote.contractions, data.contractions),
+    child,
     appointments,
-    momLogs: incoming(remote.momLogs, data.momLogs),
-    medications: incoming(remote.medications, data.medications),
-    medDoses: incoming(remote.medDoses, data.medDoses),
-    journal: incoming(remote.journal, data.journal),
-    capsules: incoming(remote.capsules, data.capsules),
-    milestones: incoming(remote.milestones, data.milestones),
-    names: incoming(remote.names, data.names),
-    checklist: incoming(remote.checklist, data.checklist),
-    feedings: incoming(remote.feedings, data.feedings),
-    diapers: incoming(remote.diapers, data.diapers),
-    sleep: incoming(remote.sleep, data.sleep),
-    growth: incoming(remote.growth, data.growth),
-    vaccines: incoming(remote.vaccines, data.vaccines),
+    syncMeta: { rev, deleted: capTombstones(tombstones), ...(childRev ? { childRev } : {}) },
   })
 }
 

@@ -228,3 +228,32 @@ describe('migrate — الحفاظ على المحتوى', () => {
     expect(round).toEqual(original)
   })
 })
+
+describe('دفتر التغييرات (syncMeta)', () => {
+  it('يبدأ فارغًا حين لا يحمله الملف — بيانات ما قبل الإصدار ٦', () => {
+    const result = migrate({ version: DATA_VERSION })
+    expect(result!.syncMeta).toEqual({ rev: {}, deleted: {} })
+  })
+
+  it('يقرأ الأختام الصالحة ويُسقط ما لا يصلح مفتاحًا أو تاريخًا', () => {
+    const result = migrate({
+      version: DATA_VERSION,
+      syncMeta: {
+        rev: { j1: '2026-01-01T00:00:00.000Z', j2: 'ليس تاريخًا', '': '2026-01-01T00:00:00.000Z' },
+        // مفتاح يبدأ بـ __ محجوز في Firestore وكتابته تُفشل الدفعة كلها
+        deleted: { j3: '2026-01-02T00:00:00.000Z', __proto__x: '2026-01-02T00:00:00.000Z' },
+        childRev: '2026-01-03T00:00:00.000Z',
+      },
+    })
+
+    expect(result!.syncMeta.rev).toEqual({ j1: '2026-01-01T00:00:00.000Z' })
+    expect(result!.syncMeta.deleted).toEqual({ j3: '2026-01-02T00:00:00.000Z' })
+    expect(result!.syncMeta.childRev).toBe('2026-01-03T00:00:00.000Z')
+  })
+
+  it('دفتر تالف الشكل لا يُسقط بقية البيانات', () => {
+    const result = migrate({ version: DATA_VERSION, syncMeta: 'خربان' })
+    expect(result).not.toBeNull()
+    expect(result!.syncMeta).toEqual({ rev: {}, deleted: {} })
+  })
+})

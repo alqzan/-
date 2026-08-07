@@ -22,6 +22,7 @@ import { formatDate } from '../../lib/format'
 import { useNow } from '../../lib/useNow'
 import type { Gender } from '../../data/types'
 import FamilySyncCard from './FamilySyncCard'
+import { stopFamilySync } from '../../data/familySync'
 
 /**
  * يحوّل تاريخًا مخزّنًا (ISO أو "YYYY-MM-DD" من نسخة قديمة) إلى قيمة
@@ -285,9 +286,15 @@ export default function SettingsScreen() {
             confirm({
               title: 'مسح كل البيانات؟',
               message:
-                'سيُحذف كل شيء نهائيًا: الصور، الرسائل، الكبسولات، المعالم، والمواعيد. لا يمكن التراجع. نزّلوا نسخة احتياطية أولًا إن أردتم الاحتفاظ بها.',
+                'سيُحذف كل شيء نهائيًا من هذا الجهاز: الصور، الرسائل، الكبسولات، المعالم، والمواعيد — وستتوقّف المزامنة العائلية عليه. لا يمكن التراجع. نزّلوا نسخة احتياطية أولًا إن أردتم الاحتفاظ بها.',
               confirmLabel: 'نعم، امسح كل شيء',
-              onConfirm: () => resetAllData(),
+              onConfirm: () => {
+                // الفصل قبل المسح: لولاه لعادت البيانات كلها من العائلة
+                // السحابية بعد لحظات — «البدء من جديد» يبدأ بالخروج منها.
+                // ولا يمسّ هذا نسخة الطرف الآخر: هو صاحب القرار في جهازه.
+                stopFamilySync()
+                return resetAllData()
+              },
             })
           }
         >

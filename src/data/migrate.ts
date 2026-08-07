@@ -16,11 +16,12 @@ import type {
   NameIdea,
   Photo,
   SleepEntry,
+  SyncMeta,
   TimeCapsule,
   VaccineDose,
   VoiceNote,
 } from './types'
-import { DATA_VERSION, builtInVaccines, emptyData } from './seed'
+import { DATA_VERSION, builtInVaccines, emptyData, emptySyncMeta } from './seed'
 
 // ============================================================
 // ترقية البيانات والتحقّق منها.
@@ -406,6 +407,35 @@ const vaccine = (r: Record<string, unknown>): VaccineDose | null => {
   }
 }
 
+/**
+ * دفتر التغييرات الوارد.
+ *
+ * قيمه لحظات ISO ومفاتيحه معرّفات عناصر. نُسقط كل مفتاح لا يصلح اسمَ
+ * حقل في Firestore (فارغ أو يبدأ بـ `__`) وكل قيمة ليست تاريخًا صالحًا —
+ * دفتر تالف أهون فقدانه من أن يُفشل كتابةً كاملة أو يُرتّب حذفًا بلحظة
+ * لا معنى لها.
+ */
+function stamps(v: unknown): Record<string, string> {
+  if (!isObj(v)) return {}
+  const out: Record<string, string> = {}
+  for (const [key, val] of Object.entries(v)) {
+    if (!key || key.startsWith('__')) continue
+    const at = date(val)
+    if (at) out[key] = at
+  }
+  return out
+}
+
+function syncMeta(v: unknown): SyncMeta {
+  if (!isObj(v)) return emptySyncMeta()
+  const childRev = date(v.childRev)
+  return {
+    rev: stamps(v.rev),
+    deleted: stamps(v.deleted),
+    ...(childRev ? { childRev } : {}),
+  }
+}
+
 // ---------- الترقية ----------
 
 /**
@@ -453,5 +483,8 @@ export function migrate(parsed: unknown): AppData | null {
     // أُضيفت في الإصدار ٣ — النسخ الأقدم لا تحتوي الحقل أصلًا فتأخذ الجدول
     // الافتراضي، أما من حذفها عمدًا (مصفوفة فارغة) فتبقى فارغة.
     vaccines: clean(raw.vaccines, builtInVaccines(), vaccine),
+    // أُضيف في الإصدار ٦ — بيانات أقدم تبدأ بدفتر فارغ، فتُعامَل عناصرها
+    // كأنها بلا لحظة تعديل: الاتحاد يُبقيها كلها، ولا حذف يُنتزع منها
+    syncMeta: syncMeta(raw.syncMeta),
   }
 }

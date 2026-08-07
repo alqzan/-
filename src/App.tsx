@@ -14,6 +14,7 @@ import ContractionsScreen from './features/track/ContractionsScreen'
 import AppointmentsScreen from './features/track/AppointmentsScreen'
 import DevelopmentScreen from './features/track/DevelopmentScreen'
 import MomScreen from './features/track/MomScreen'
+import MedsScreen from './features/track/MedsScreen'
 import FeedingScreen from './features/track/FeedingScreen'
 import DiapersScreen from './features/track/DiapersScreen'
 import SleepScreen from './features/track/SleepScreen'
@@ -72,6 +73,7 @@ export default function App() {
             <Route path="/track/contractions" element={<ContractionsScreen />} />
             <Route path="/track/appointments" element={<AppointmentsScreen />} />
             <Route path="/track/mom" element={<MomScreen />} />
+            <Route path="/track/meds" element={<MedsScreen />} />
             <Route path="/track/feeding" element={<FeedingScreen />} />
             <Route path="/track/diapers" element={<DiapersScreen />} />
             <Route path="/track/sleep" element={<SleepScreen />} />

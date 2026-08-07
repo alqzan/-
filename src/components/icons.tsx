@@ -209,6 +209,14 @@ export const ChartIcon = (p: IconProps) => (
   </svg>
 )
 
+/** دواء — كبسولة مائلة بنصفين */
+export const PillIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="2.6" y="8.2" width="18.8" height="7.6" rx="3.8" transform="rotate(-45 12 12)" />
+    <path d="M9.35 6.7 17.3 14.65" />
+  </svg>
+)
+
 /** تطعيم */
 export const SyringeIcon = (p: IconProps) => (
   <svg {...base(p)}>

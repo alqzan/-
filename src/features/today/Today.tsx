@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom'
-import { Card, ProgressRing, StatTile } from '../../components/ui'
+import { Card, ProgressBar, ProgressRing, StatTile, cx } from '../../components/ui'
 import {
   ArchiveIcon,
+  CheckIcon,
   ChevronLeftIcon,
   BottleIcon,
   CalendarIcon,
@@ -9,11 +10,13 @@ import {
   DropIcon,
   FeatherIcon,
   MoonIcon,
+  PillIcon,
   StarIcon,
+  SyringeIcon,
 } from '../../components/icons'
 import { FetalFigure, Monogram } from '../../components/illustrations'
 import { useCapture } from '../../components/Capture'
-import { useAppData } from '../../data/dataService'
+import { toggleDose, useAppData } from '../../data/dataService'
 import { getPregnancyProgress, trimesterLabel } from '../../lib/pregnancy'
 import { getFetalWeek } from '../../lib/fetalData'
 import { formatDate, formatTime, pluralAr, relativeFromNow } from '../../lib/format'
@@ -22,6 +25,13 @@ import { daysSinceBackup } from '../../lib/backup'
 import { photoSrc } from '../../lib/image'
 import { promptOfTheDay } from '../../lib/prompts'
 import { useNow } from '../../lib/useNow'
+import {
+  dayKeyOf,
+  dayPlan,
+  dayProgress,
+  formatSlotTime,
+  isOverdue,
+} from '../../lib/meds'
 import { buildStory } from '../story/timeline'
 import type { JournalEntry, Photo } from '../../data/types'
 
@@ -63,6 +73,10 @@ export default function Today() {
       </header>
 
       {born ? <NewbornHero /> : <PregnancyHero />}
+
+      {/* جرعات اليوم — أعلى ما في الشاشة بعد المرحلة، لأنها الشيء الوحيد
+          هنا الذي يفوت وقته: الذكرى تُوثَّق متى ما كان، والجرعة لا. */}
+      <MedsToday now={now} />
 
       {/* سؤال اليوم — الدافع الأساسي للتوثيق */}
       <button
@@ -332,6 +346,99 @@ function AgeCell({ value, label }: { value: number; label: string }) {
       <div className="font-display font-bold text-[26px] text-ink-900 leading-none tnum">{value}</div>
       <div className="text-[11px] text-ink-400 mt-1.5">{label}</div>
     </div>
+  )
+}
+
+/**
+ * جرعات اليوم في شاشة «اليوم».
+ *
+ * تعرض الجرعات المعلّقة فقط — لا الجدول كاملًا — وتسمح بتسجيلها من
+ * مكانها. الرحلة الطبيعية «فتحت التطبيق ← أخذت الحبة ← أشّرت عليها»
+ * لا تستحقّ ثلاث نقرات وشاشتين، والجدول الكامل يبقى خلف السهم.
+ */
+function MedsToday({ now }: { now: number }) {
+  const data = useAppData()
+  const navigate = useNavigate()
+  const nowDate = new Date(now)
+  const day = dayKeyOf(nowDate)
+
+  const slots = dayPlan(data.medications, data.medDoses, day)
+  if (slots.length === 0) return null
+
+  const progress = dayProgress(slots)
+  const pending = slots.filter((s) => !s.log)
+  // ثلاث جرعات سقفًا: البطاقة تذكير لا جدول، والباقي خلف «كل الجرعات»
+  const shown = pending.slice(0, 3)
+  const done = progress.remaining === 0
+
+  return (
+    <section className="mt-4">
+      <div className="flex items-end justify-between mb-2.5">
+        <div className="eyebrow">جرعات اليوم</div>
+        <button onClick={() => navigate('/track/meds')} className="text-[13px] text-clay-500 font-medium">
+          كل الجرعات
+        </button>
+      </div>
+
+      <div className="card">
+        <div className="flex items-center justify-between gap-3 mb-2.5">
+          <span className="font-display font-bold text-ink-900">
+            {done ? 'ما بقي شي اليوم' : `باقي ${progress.remaining} من ${progress.total}`}
+          </span>
+          <span className={cx('chip !text-xs', done && '!bg-moss-50 !text-moss-600')}>
+            {progress.taken + progress.skipped}/{progress.total}
+          </span>
+        </div>
+        <ProgressBar value={progress.ratio} />
+
+        {shown.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {shown.map((slot) => {
+              const late = isOverdue(slot, nowDate)
+              return (
+                <div
+                  key={slot.key}
+                  className={cx(
+                    'flex items-center gap-3 rounded-2xl border px-3 py-2.5',
+                    late ? 'border-clay-200 bg-clay-50' : 'border-line bg-paper-50',
+                  )}
+                >
+                  <span className="w-8 h-8 rounded-full bg-white text-ink-500 grid place-items-center shrink-0 border border-line">
+                    {slot.med.form === 'injection' ? (
+                      <SyringeIcon className="w-4 h-4" />
+                    ) : (
+                      <PillIcon className="w-4 h-4" />
+                    )}
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[14px] font-medium text-ink-900 truncate">
+                      {slot.med.name}
+                    </span>
+                    <span
+                      className={cx(
+                        'block text-[11px] mt-0.5 tnum',
+                        late ? 'text-clay-600' : 'text-ink-400',
+                      )}
+                    >
+                      {formatSlotTime(slot.time)}
+                      {late && ' • متأخّرة'}
+                    </span>
+                  </span>
+                  <button
+                    onClick={() => void toggleDose(slot.med.id, slot.day, slot.time)}
+                    aria-label={`تسجيل ${slot.med.name} كمأخوذة`}
+                    className="w-10 h-10 rounded-full bg-paper-200 text-ink-500 grid place-items-center
+                               shrink-0 transition active:scale-90 hover:bg-moss-50 hover:text-moss-600"
+                  >
+                    <CheckIcon className="w-5 h-5" />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </section>
   )
 }
 

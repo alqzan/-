@@ -64,6 +64,78 @@ export interface MomLog {
   note?: string
 }
 
+// ===== الأدوية والعلاج =====
+
+/** شكل الدواء — يحدّد الأيقونة وصيغة التذكير («خذي حبة» لا «خذي إبرة») */
+export type MedicationForm =
+  | 'pill'
+  | 'capsule'
+  | 'suppository'
+  | 'injection'
+  | 'syrup'
+  | 'drops'
+  | 'topical'
+  | 'other'
+
+/**
+ * نمط تكرار الدواء.
+ *
+ * `everyNDays` هي التي تغطّي «يوم ورا يوم» (`everyDays = 2`)، وتُحسب
+ * دائمًا من `startDate` — لا من تاريخ اليوم — كي لا ينزلق الجدول كلما
+ * فُتح التطبيق.
+ */
+export type MedFrequency = 'daily' | 'everyNDays' | 'weekdays' | 'asNeeded'
+
+/** لمن هذا الدواء — الأم أو المولود */
+export type MedicationWho = 'mom' | 'baby'
+
+export interface Medication {
+  id: string
+  name: string
+  form: MedicationForm
+  /** الجرعة كنصّ حر: «حبة واحدة»، «٥ مل»، «٤٠ ملغم» */
+  dose?: string
+  frequency: MedFrequency
+  /**
+   * أوقات الجرعات خلال اليوم بصيغة "HH:MM" (٢٤ ساعة) مرتّبة تصاعديًا.
+   * ثلاثة أوقات = ثلاث مرات باليوم. فارغة مع «عند اللزوم».
+   */
+  times: string[]
+  /** مع `everyNDays`: كل كم يوم — ٢ تعني يومًا بعد يوم */
+  everyDays?: number
+  /** مع `weekdays`: أيام الأسبوع، ٠ = الأحد */
+  weekdays?: number[]
+  /** أول يوم في الجدول — "yyyy-mm-dd" بالتوقيت المحلي، ومرجع حساب التكرار */
+  startDate: string
+  /** آخر يوم في الجدول — "yyyy-mm-dd"، أو null لعلاج مفتوح المدة */
+  endDate: string | null
+  who: MedicationWho
+  notes?: string
+  /** أُوقف يدويًا: يبقى في السجل ولا يطالب بجرعات جديدة */
+  archived: boolean
+  createdAt: string
+}
+
+/**
+ * جرعة مسجّلة.
+ *
+ * المفتاح المنطقي هو (`medId` + `day` + `time`) — لا تاريخ التسجيل الفعلي.
+ * بذلك تبقى جرعة الثامنة صباحًا هي نفسها سواء سُجّلت في وقتها أو متأخرة،
+ * ولا تتكرّر حين يضغط الوالدان على الجهازين معًا.
+ */
+export interface MedDoseLog {
+  id: string
+  medId: string
+  /** اليوم المستحق — "yyyy-mm-dd" بالتوقيت المحلي */
+  day: string
+  /** وقت الجرعة المجدول "HH:MM" — فارغ في جرعات «عند اللزوم» */
+  time: string
+  /** لحظة التسجيل الفعلية — ISO */
+  takenAt: string
+  /** سُجّلت كمتخطّاة بدل مأخوذة — الصدق في المتابعة أنفع من سجلّ مثالي */
+  skipped?: boolean
+}
+
 // ===== الذكريات =====
 
 export interface Photo {
@@ -230,6 +302,8 @@ export interface AppData {
   contractions: Contraction[]
   appointments: Appointment[]
   momLogs: MomLog[]
+  medications: Medication[]
+  medDoses: MedDoseLog[]
   photos: Photo[]
   journal: JournalEntry[]
   voices: VoiceNote[]

@@ -13,6 +13,8 @@ import type {
   GrowthEntry,
   JournalEntry,
   KickSession,
+  MedDoseLog,
+  Medication,
   Milestone,
   MomLog,
   NameIdea,
@@ -439,6 +441,83 @@ export function deleteMomLog(id: string) {
   return commit({ momLogs: data.momLogs.filter((m) => m.id !== id) })
 }
 
+// --- الأدوية والعلاج ---
+
+export function addMedication(m: Omit<Medication, 'id' | 'createdAt' | 'archived'>) {
+  const med: Medication = { ...m, id: uid(), archived: false, createdAt: nowISO() }
+  return commit({ medications: [med, ...data.medications] })
+}
+
+export function updateMedication(
+  id: string,
+  patch: Partial<Omit<Medication, 'id' | 'createdAt'>>,
+) {
+  return commit({
+    medications: data.medications.map((m) => (m.id === id ? { ...m, ...patch } : m)),
+  })
+}
+
+/** إيقاف العلاج أو استئنافه — بلا حذف، فسجلّ الجرعات السابق جزء من الملف الطبي */
+export function setMedicationArchived(id: string, archived: boolean) {
+  return updateMedication(id, { archived })
+}
+
+/** حذف دواء يحذف سجلّ جرعاته معه — وإلا بقيت سجلّات يتيمة لا تُعرض ولا تُمحى */
+export function deleteMedication(id: string) {
+  return commit({
+    medications: data.medications.filter((m) => m.id !== id),
+    medDoses: data.medDoses.filter((d) => d.medId !== id),
+  })
+}
+
+const doseAt = (medId: string, day: string, time: string) =>
+  data.medDoses.find((d) => d.medId === medId && d.day === day && d.time === time)
+
+/**
+ * يقلب حالة جرعة مجدولة: غير مسجّلة ← مأخوذة ← غير مسجّلة.
+ *
+ * المفتاح هو (الدواء + اليوم + الوقت) لا معرّف السجل، فضغطتان متتاليتان
+ * لا تُنشئان سجلّين، والضغطة من جهاز الأب تُلغي ما سجّلته الأم لا تكرّره.
+ */
+export function toggleDose(medId: string, day: string, time: string) {
+  const existing = doseAt(medId, day, time)
+  if (existing) {
+    return commit({ medDoses: data.medDoses.filter((d) => d.id !== existing.id) })
+  }
+  const log: MedDoseLog = { id: uid(), medId, day, time, takenAt: nowISO() }
+  return commit({ medDoses: [log, ...data.medDoses] })
+}
+
+/** يسجّل جرعة كمتخطّاة — أو يلغي التخطّي إن كانت مسجّلة كذلك أصلًا */
+export function toggleDoseSkipped(medId: string, day: string, time: string) {
+  const existing = doseAt(medId, day, time)
+  if (existing?.skipped) {
+    return commit({ medDoses: data.medDoses.filter((d) => d.id !== existing.id) })
+  }
+  if (existing) {
+    return commit({
+      medDoses: data.medDoses.map((d) => (d.id === existing.id ? { ...d, skipped: true } : d)),
+    })
+  }
+  const log: MedDoseLog = { id: uid(), medId, day, time, takenAt: nowISO(), skipped: true }
+  return commit({ medDoses: [log, ...data.medDoses] })
+}
+
+/**
+ * يسجّل جرعة «عند اللزوم» بلحظتها.
+ *
+ * وقتها المجدول فارغ عمدًا: هذه الجرعة لا موعد لها، ولو أعطيناها وقتًا
+ * لصارت الجرعة الثانية في اليوم نفسه تدهس الأولى.
+ */
+export function logAsNeededDose(medId: string, day: string) {
+  const log: MedDoseLog = { id: uid(), medId, day, time: '', takenAt: nowISO() }
+  return commit({ medDoses: [log, ...data.medDoses] })
+}
+
+export function deleteDose(id: string) {
+  return commit({ medDoses: data.medDoses.filter((d) => d.id !== id) })
+}
+
 // --- الصور ---
 /** يُرجع false إذا امتلأت مساحة الجهاز ولم تُحفظ الصورة */
 export function addPhoto(p: Omit<Photo, 'id'>): Promise<boolean> {
@@ -646,6 +725,8 @@ export interface SyncedFields {
   contractions: Contraction[]
   appointments: Appointment[]
   momLogs: MomLog[]
+  medications: Medication[]
+  medDoses: MedDoseLog[]
   journal: JournalEntry[]
   capsules: TimeCapsule[]
   milestones: Milestone[]
@@ -674,6 +755,8 @@ export function syncableSnapshot(familyId: string): SyncedFields {
     contractions: data.contractions,
     appointments: data.appointments.map(({ image: _image, ...rest }) => rest),
     momLogs: data.momLogs,
+    medications: data.medications,
+    medDoses: data.medDoses,
     journal: data.journal,
     capsules: data.capsules,
     milestones: data.milestones,
@@ -708,6 +791,8 @@ export function mergeSyncedData(remote: SyncedFields): Promise<boolean> {
     contractions: remote.contractions,
     appointments,
     momLogs: remote.momLogs,
+    medications: remote.medications,
+    medDoses: remote.medDoses,
     journal: remote.journal,
     capsules: remote.capsules,
     milestones: remote.milestones,

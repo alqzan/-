@@ -14,6 +14,20 @@ const fake = vi.hoisted(() => ({
   configured: true,
   store: new Map<string, Record<string, unknown>>(),
   listeners: new Map<string, Set<(data: unknown) => void>>(),
+  /** عدد مرات الكتابة — يكشف حلقة الدفع↔الصدى إن عادت */
+  writes: 0,
+  /**
+   * يعيد ترتيب مفاتيح المستند كما يفعل Firestore الحقيقي.
+   *
+   * Firestore لا يحفظ ترتيب إدراج الحقول ولا يعيدها به، والمحاكاة التي
+   * تُرجع الكائن كما استلمته كانت تخفي أخطر عيب في هذا الملف: مقارنةَ
+   * الصدى بنصّ JSON يتبع ترتيب المفاتيح.
+   */
+  shuffle: (doc: Record<string, unknown>): Record<string, unknown> => {
+    const out: Record<string, unknown> = {}
+    for (const key of Object.keys(doc).reverse()) out[key] = doc[key]
+    return out
+  },
 }))
 
 vi.mock('../lib/firebase', () => ({
@@ -34,9 +48,12 @@ vi.mock('firebase/firestore', () => ({
     opts?: { merge?: boolean },
   ) => {
     const prev = fake.store.get(ref.__path) ?? {}
-    const next = opts?.merge ? { ...prev, ...data } : data
+    const next = fake.shuffle(opts?.merge ? { ...prev, ...data } : data)
+    fake.writes += 1
     fake.store.set(ref.__path, next)
-    fake.listeners.get(ref.__path)?.forEach((cb) => cb(next))
+    fake.listeners
+      .get(ref.__path)
+      ?.forEach((cb) => cb({ exists: () => true, data: () => next }))
   },
   onSnapshot: (ref: { __path: string }, onNext: (snap: unknown) => void) => {
     const set = fake.listeners.get(ref.__path) ?? new Set<(data: unknown) => void>()
@@ -51,8 +68,9 @@ vi.mock('firebase/firestore', () => ({
 
 const { exportSnapshot, importSnapshot } = await import('./dataService')
 const { emptyData } = await import('./seed')
-const { createFamilySync, joinFamilySync, stopFamilySync, getFamilySyncState } =
+const { createFamilySync, joinFamilySync, stopFamilySync, getFamilySyncState, pushToCloud, canonicalJSON } =
   await import('./familySync')
+const { syncableSnapshot, addMedication, flush } = await import('./dataService')
 type AppData = import('./types').AppData
 
 const PHOTO_DATA_URL = 'data:image/png;base64,AAAAPHOTO'
@@ -62,6 +80,7 @@ beforeEach(async () => {
   fake.configured = true
   fake.store.clear()
   fake.listeners.clear()
+  fake.writes = 0
   localStorage.clear()
   stopFamilySync()
 
@@ -146,6 +165,55 @@ describe('stopFamilySync', () => {
     const created = await createFamilySync()
     stopFamilySync()
     expect(fake.store.has(created.code!)).toBe(true)
+  })
+})
+
+describe('حلقة الدفع↔الصدى — أخطر عيب في المزامنة', () => {
+  // الصدى العائد من Firestore يحمل المفاتيح بترتيب مختلف عمّا أرسلناه.
+  // حين كانت المقارنة على نصّ JSON خام، كان كل صدى يُقرأ «تغييرًا خارجيًا»
+  // فيُدمج ويُدفع من جديد… بلا توقّف حتى تنفد حصّة الخطة المجانية وتتعطّل
+  // المزامنة كليًّا. هذه الاختبارات تحرس ألا تعود الحلقة.
+
+  it('لا يعيد دفع محتوى لم يتغيّر ولو عاد صداه بترتيب مفاتيح مختلف', async () => {
+    const created = await createFamilySync()
+    const writesAfterCreate = fake.writes
+
+    await pushToCloud(created.code!, syncableSnapshot(created.code!))
+    await pushToCloud(created.code!, syncableSnapshot(created.code!))
+
+    expect(fake.writes).toBe(writesAfterCreate)
+  })
+
+  it('تعديل حقيقي يُدفع مرة واحدة ثم يستقرّ', async () => {
+    const created = await createFamilySync()
+    const before = fake.writes
+
+    await addMedication({
+      name: 'حديد',
+      form: 'pill',
+      frequency: 'daily',
+      times: ['08:00'],
+      startDate: '2026-08-01',
+      endDate: null,
+      who: 'mom',
+    })
+    await flush()
+
+    await pushToCloud(created.code!, syncableSnapshot(created.code!))
+    expect(fake.writes).toBe(before + 1)
+
+    // الدفعة التالية بلا تغيير: الصدى استُوعب ولم يُحسب تغييرًا خارجيًا
+    await pushToCloud(created.code!, syncableSnapshot(created.code!))
+    expect(fake.writes).toBe(before + 1)
+  })
+
+  it('canonicalJSON لا يتأثّر بترتيب المفاتيح ويتأثّر بالمحتوى', () => {
+    expect(canonicalJSON({ a: 1, b: [{ y: 2, x: 3 }] })).toBe(
+      canonicalJSON({ b: [{ x: 3, y: 2 }], a: 1 }),
+    )
+    expect(canonicalJSON({ a: 1 })).not.toBe(canonicalJSON({ a: 2 }))
+    // الحقل الغائب والحقل undefined شيء واحد — كلاهما لا يصل الشبكة أصلًا
+    expect(canonicalJSON({ a: 1, b: undefined })).toBe(canonicalJSON({ a: 1 }))
   })
 })
 

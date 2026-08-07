@@ -1,6 +1,6 @@
 import { getApps, initializeApp, type FirebaseApp } from 'firebase/app'
 import { getAuth, signInAnonymously, type Auth } from 'firebase/auth'
-import { getFirestore, type Firestore } from 'firebase/firestore'
+import { getFirestore, initializeFirestore, type Firestore } from 'firebase/firestore'
 
 // =============================================================
 // إعداد Firebase — لمزامنة العائلة النصية فقط (راجع FIREBASE.md).
@@ -59,8 +59,26 @@ export function getFirebaseAuth(): Auth {
   return auth
 }
 
+/**
+ * `ignoreUndefinedProperties` ليست تحسينًا — بدونها تتعطّل المزامنة كلها.
+ *
+ * Firestore يرفض الحمولة **كاملةً** إذا حوت قيمة `undefined` واحدة، و
+ * `migrate` تُنتج مفتاحًا قيمته `undefined` لكل حقل اختياري غائب. الحماية
+ * الأساسية في `syncableSnapshot` التي تنزعها قبل الإرسال؛ وهذا السطر شبكة
+ * أمان تحتها: حقل اختياري جديد يُضاف يومًا ما لن يُسقط المزامنة بصمت.
+ *
+ * `initializeFirestore` تُرمى إن كان المثيل قد أُنشئ سابقًا بـ`getFirestore`،
+ * ولا يحدث ذلك في هذا التطبيق (لا مدخل غير هذه الدالة) — والرجوع الآمن
+ * يبقى احتياطًا لا أكثر.
+ */
 export function getFirestoreDb(): Firestore {
-  if (!db) db = getFirestore(ensureApp())
+  if (!db) {
+    try {
+      db = initializeFirestore(ensureApp(), { ignoreUndefinedProperties: true })
+    } catch {
+      db = getFirestore(ensureApp())
+    }
+  }
   return db
 }
 

@@ -4,6 +4,7 @@ import { CheckIcon, CopyIcon, SyncIcon } from '../../components/icons'
 import {
   createFamilySync,
   joinFamilySync,
+  retryFamilySync,
   stopFamilySync,
   useFamilySyncState,
 } from '../../data/familySync'
@@ -84,13 +85,17 @@ export default function FamilySyncCard() {
           </div>
         )}
 
-        {sync.status === 'connected' && sync.code ? (
+        {sync.code ? (
           <ConnectedView
             code={sync.code}
+            status={sync.status}
+            hydrated={sync.hydrated}
+            error={sync.error}
             lastSyncedAt={sync.lastSyncedAt}
             now={now}
             copied={copied}
             onCopy={() => void onCopy(sync.code!)}
+            onRetry={retryFamilySync}
             onStop={() => {
               stopFamilySync()
               setNote(null)
@@ -155,30 +160,50 @@ export default function FamilySyncCard() {
 
 function ConnectedView({
   code,
+  status,
+  hydrated,
+  error,
   lastSyncedAt,
   now,
   copied,
   onCopy,
+  onRetry,
   onStop,
 }: {
   code: string
+  status: ReturnType<typeof useFamilySyncState>['status']
+  hydrated: boolean
+  error: string | null
   lastSyncedAt: string | null
   now: number
   copied: boolean
   onCopy: () => void
+  onRetry: () => void
   onStop: () => void
 }) {
+  const healthy = status === 'connected' && hydrated
+  const connecting = status === 'connecting' || (status === 'connected' && !hydrated)
+
   return (
     <>
       <div className="flex items-center gap-2 text-ink-800 mb-3">
-        <span className="w-2 h-2 rounded-full bg-moss-500 shrink-0" aria-hidden="true" />
-        <span className="font-medium">متصل بمزامنة عائلية</span>
+        <span
+          className={cx(
+            'w-2 h-2 rounded-full shrink-0',
+            healthy ? 'bg-moss-500' : connecting ? 'bg-amber-500 animate-pulse' : 'bg-clay-500',
+          )}
+          aria-hidden="true"
+        />
+        <span className="font-medium">
+          {healthy ? 'متصل بمزامنة عائلية' : connecting ? 'جارٍ استعادة المزامنة…' : 'المزامنة متوقفة مؤقتًا'}
+        </span>
       </div>
 
-      <p className="text-xs text-ink-400 mb-3">
-        {lastSyncedAt
-          ? `آخر تحديث ${relativeFromNow(lastSyncedAt, new Date(now))}`
-          : 'بانتظار أول مزامنة…'}
+      <p className={cx('text-xs mb-3 leading-relaxed', error ? 'text-clay-700' : 'text-ink-400')} role="status">
+        {error ??
+          (lastSyncedAt
+            ? `آخر تحديث ${relativeFromNow(lastSyncedAt, new Date(now))}`
+            : 'بانتظار أول مزامنة…')}
       </p>
 
       <div className="label mb-1.5">رمز الربط — شاركوه مع الطرف الآخر</div>
@@ -198,6 +223,12 @@ function ConnectedView({
           {copied ? <CheckIcon className="w-5 h-5" /> : <CopyIcon className="w-5 h-5" />}
         </button>
       </div>
+
+      {!healthy && (
+        <Button variant="ghost" className="w-full py-3 mb-2" onClick={onRetry}>
+          إعادة المحاولة الآن
+        </Button>
+      )}
 
       <Button variant="ghost" className="w-full py-3" onClick={onStop}>
         إيقاف المزامنة على هذا الجهاز

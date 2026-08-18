@@ -3,6 +3,7 @@ import {
   doc,
   getDoc,
   onSnapshot,
+  runTransaction,
   serverTimestamp,
   setDoc,
   type Unsubscribe,
@@ -10,7 +11,13 @@ import {
 import { canonicalJSON } from '../lib/canonicalJSON'
 import { ensureAnonymousAuth, getFirestoreDb, isFirebaseConfigured } from '../lib/firebase'
 import { generateFamilyCode, isValidFamilyCode } from '../lib/familyCode'
-import { clearSyncedFamilyId, mergeSyncedData, syncableSnapshot, type SyncedFields } from './dataService'
+import {
+  clearSyncedFamilyId,
+  mergeSyncedData,
+  mergeSyncedSnapshots,
+  syncableSnapshot,
+  type SyncedFields,
+} from './dataService'
 
 // =============================================================
 // مزامنة العائلة بين الأجهزة — محليًّا أولًا (Local-first).
@@ -77,6 +84,19 @@ export function getFamilySyncState(): FamilySyncState {
 
 let unsubscribeSnapshot: Unsubscribe | null = null
 
+// رقم جيل المستمع: callbacks المتأخرة من مستمع قديم لا يجوز لها أن تعيد
+// حالة جهازٍ انتقل إلى رمز عائلة آخر.
+let listenerGeneration = 0
+
+// إعادة الاتصال ليست زرًا يدويًا فقط. Firestore قد ينهي onSnapshot نهائيًا
+// بعد خطأ شبكة/جلسة، ومن دون إعادة اشتراك يتوقف الجهاز عن رؤية أي تحديثات.
+const RECONNECT_BASE_MS = 2_000
+const RECONNECT_MAX_MS = 30_000
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let reconnectAttempt = 0
+let reconnectInFlight: Promise<void> | null = null
+let networkEventsBound = false
+
 /**
  * آخر محتوى رأيناه — سواء وصل من Firestore أو أرسلناه نحن.
  * يمنع حلقة دفع↔استقبال: تحديث ندفعه يعود إلينا عبر `onSnapshot` فنتجاهله
@@ -125,20 +145,107 @@ function persistCode(code: string | null): void {
   }
 }
 
+function cancelReconnect(): void {
+  if (reconnectTimer !== null) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
+}
+
+function scheduleReconnect(code: string): void {
+  if (state.code !== code || state.status === 'idle' || reconnectTimer !== null) return
+
+  const delay = Math.min(
+    RECONNECT_BASE_MS * 2 ** Math.min(reconnectAttempt, 4),
+    RECONNECT_MAX_MS,
+  )
+  reconnectAttempt += 1
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null
+    void reconnectListener(code)
+  }, delay)
+}
+
+async function reconnectListener(code: string): Promise<void> {
+  if (state.code !== code || state.status === 'idle') return
+  if (reconnectInFlight) return reconnectInFlight
+
+  reconnectInFlight = (async () => {
+    setState({ status: 'connecting', code, error: null, hydrated: false })
+    try {
+      await ensureAnonymousAuth()
+      if (state.code !== code || state.status === 'idle') return
+      attachListener(code)
+      // إذا وصلت اللقطة فورًا (كما في الاختبار/الذاكرة المحلية) يكون
+      // المستمع قد وضع hydrated=true؛ لا نطمسها بكتابة الحالة العامة.
+      if (state.code === code && state.status !== 'error') {
+        setState({ status: 'connected', code, error: null })
+      }
+    } catch {
+      if (state.code !== code || state.status === 'idle') return
+      setState({
+        status: 'error',
+        code,
+        hydrated: false,
+        error: 'تعذّر الاتصال بالمزامنة — ستُعاد المحاولة تلقائيًا.',
+      })
+      scheduleReconnect(code)
+    }
+  })()
+
+  try {
+    await reconnectInFlight
+  } finally {
+    reconnectInFlight = null
+  }
+}
+
+function bindNetworkEvents(): void {
+  if (networkEventsBound || typeof window === 'undefined') return
+  networkEventsBound = true
+
+  window.addEventListener('offline', () => {
+    if (!state.code || state.status === 'idle') return
+    cancelReconnect()
+    setState({
+      status: 'error',
+      hydrated: false,
+      error: 'انقطع الإنترنت — بياناتكم المحلية محفوظة، وستُستأنف المزامنة تلقائيًا.',
+    })
+  })
+
+  window.addEventListener('online', () => {
+    const code = state.code
+    if (!code || state.status === 'idle') return
+    cancelReconnect()
+    reconnectAttempt = 0
+    void reconnectListener(code)
+  })
+}
+
 function attachListener(code: string): void {
+  bindNetworkEvents()
+  cancelReconnect()
   unsubscribeSnapshot?.()
+  const generation = ++listenerGeneration
   unsubscribeSnapshot = onSnapshot(
     familyDoc(code),
     (snap) => {
+      if (generation !== listenerGeneration || state.code !== code) return
       if (!snap.exists()) {
         // نسخة من ذاكرة SDK لا من الخادم: «غير موجود» هنا يعني «لم نعرف
         // بعد»، فلا نبني عليه شيئًا ولا نأذن بالدفع
         if (snap.metadata?.fromCache) return
         // المستند غائب فعلًا (حُذف من الخادم): نسختنا هي كل ما بقي —
         // نأذن بالدفع لتُنشأ العائلة من جديد بدل أن تبقى المزامنة معلّقة
+        lastSeenJSON = null
+        reconnectAttempt = 0
+        cancelReconnect()
         setState({ status: 'connected', error: null, hydrated: true })
         return
       }
+      reconnectAttempt = 0
+      cancelReconnect()
       const remote = stripSyncMeta(snap.data() as Record<string, unknown>)
       const json = canonicalJSON(remote)
       // الإذن بالدفع يُمنح قبل فحص الصدى: حتى لو كان الوارد هو ما دفعناه
@@ -157,7 +264,14 @@ function attachListener(code: string): void {
       })
     },
     () => {
-      setState({ status: 'error', error: 'تعذّر الاتصال بالمزامنة — تحقّقوا من الإنترنت.' })
+      if (generation !== listenerGeneration || state.code !== code) return
+      setState({
+        status: 'error',
+        code,
+        hydrated: false,
+        error: 'تعذّر الاتصال بالمزامنة — ستُعاد المحاولة تلقائيًا.',
+      })
+      scheduleReconnect(code)
     },
   )
 }
@@ -173,6 +287,9 @@ export async function createFamilySync(): Promise<{
   if (!isFirebaseConfigured()) {
     return { ok: false, error: 'المزامنة غير مُفعّلة في هذا الإصدار من التطبيق بعد.' }
   }
+  bindNetworkEvents()
+  cancelReconnect()
+  reconnectAttempt = 0
   setState({ status: 'connecting', error: null })
   try {
     await ensureAnonymousAuth()
@@ -186,12 +303,12 @@ export async function createFamilySync(): Promise<{
     }
 
     const payload = syncableSnapshot(code)
-    lastSeenJSON = canonicalJSON(payload)
     await setDoc(familyDoc(code), {
       ...payload,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })
+    lastSeenJSON = canonicalJSON(payload)
 
     persistCode(code)
     attachListener(code)
@@ -225,6 +342,9 @@ export async function joinFamilySync(rawCode: string): Promise<{ ok: boolean; er
     return { ok: false, error: 'رمز الربط غير صحيح — تأكّدوا من نسخه كاملًا (٤٣ حرفًا).' }
   }
 
+  bindNetworkEvents()
+  cancelReconnect()
+  reconnectAttempt = 0
   setState({ status: 'connecting', error: null })
   try {
     await ensureAnonymousAuth()
@@ -262,6 +382,9 @@ export async function joinFamilySync(rawCode: string): Promise<{ ok: boolean; er
  * كما هي، والعائلة السحابية تبقى موجودة ليعود إليها الجهاز أو غيره لاحقًا.
  */
 export function stopFamilySync(): void {
+  listenerGeneration += 1
+  cancelReconnect()
+  reconnectAttempt = 0
   unsubscribeSnapshot?.()
   unsubscribeSnapshot = null
   lastSeenJSON = null
@@ -280,6 +403,7 @@ export async function resumeFamilySync(): Promise<void> {
   const code = readPersistedCode()
   if (!code || !isFirebaseConfigured()) return
 
+  bindNetworkEvents()
   setState({ status: 'connecting', code, hydrated: false })
   try {
     await ensureAnonymousAuth()
@@ -312,10 +436,29 @@ export function pushToCloud(code: string, snapshot: SyncedFields): Promise<void>
 }
 
 async function writeSnapshot(code: string, snapshot: SyncedFields): Promise<void> {
+  // قد يكون المستخدم أوقف المزامنة أو انتقل إلى عائلة أخرى بينما كانت
+  // دفعة قديمة تنتظر في الطابور. لا نعيد الكتابة إلى العائلة القديمة.
+  if (state.code !== code || state.status === 'idle') return
+
   const json = canonicalJSON(snapshot)
   if (json === lastSeenJSON) return
   try {
-    const payload = { ...snapshot, updatedAt: serverTimestamp() }
+    const ref = familyDoc(code)
+    let committed = snapshot
+
+    // لا نكتب لقطة الجهاز فوق لقطة وصلت في اللحظة نفسها من الطرف الآخر.
+    // المعاملة تقرأ المستند الحالي، تضمّه إلى اللقطة، ثم يعيد Firestore
+    // المحاولة تلقائيًا إذا سبقتنا كتابة جهاز آخر بين القراءة والكتابة.
+    // هكذا لا يعتمد حفظ التعديل على أن يكون المستمع قد استيقظ في التوقيت
+    // الصحيح.
+    await runTransaction(getFirestoreDb(), async (transaction) => {
+      const current = await transaction.get(ref)
+      if (current.exists()) {
+        const remote = stripSyncMeta(current.data() as Record<string, unknown>)
+        committed = mergeSyncedSnapshots(snapshot, remote)
+      }
+
+      const payload = { ...committed, updatedAt: serverTimestamp() }
     // `mergeFields` لا `merge: true`، والفرق ليس تفصيلًا:
     //
     // `merge: true` يدمج الخرائط المتداخلة مفتاحًا مفتاحًا، فمفتاحٌ
@@ -326,12 +469,33 @@ async function writeSnapshot(code: string, snapshot: SyncedFields): Promise<void
     // بقناع الحقول تُستبدل كل حقول لقطتنا استبدالًا كاملًا (ومنها دفتر
     // التغييرات)، ويبقى ما ليس في القناع — `createdAt`، وأي حقل يضيفه
     // إصدار أحدث لا نعرفه بعد — كما هو دون أن نمسّه.
-    await setDoc(familyDoc(code), payload, { mergeFields: Object.keys(payload) })
+      transaction.set(ref, payload, { mergeFields: Object.keys(payload) })
+    })
+
+    // إذا ضمّت المعاملة كتابة الطرف الآخر، ثبّت الاتحاد على هذا الجهاز
+    // أيضًا قبل أن نعلن أن ما رأيناه هو آخر نسخة.
+    const committedJSON = canonicalJSON(committed)
+    if (committedJSON !== json) await mergeSyncedData(committed)
     // التسجيل بعد نجاح الكتابة لا قبلها: كان الفشل يُسجّل المحتوى كأنه
     // «وصل»، فلا يُعاد رفعه أبدًا ويبقى الطرف الآخر على نسخة أقدم بصمت.
-    lastSeenJSON = json
+    lastSeenJSON = committedJSON
     setState({ error: null, lastSyncedAt: new Date().toISOString() })
   } catch {
-    setState({ error: 'تعذّر رفع آخر التحديثات — ستُعاد المحاولة مع أي تعديل قادم.' })
+    if (state.code !== code) return
+    setState({
+      status: 'error',
+      hydrated: false,
+      error: 'تعذّر رفع آخر التحديثات — ستُعاد المحاولة تلقائيًا.',
+    })
+    scheduleReconnect(code)
   }
+}
+
+/** إعادة فورية من بطاقة الإعدادات، مع بقاء الإعادة التلقائية مفعّلة. */
+export function retryFamilySync(): void {
+  const code = state.code
+  if (!code || state.status === 'idle') return
+  cancelReconnect()
+  reconnectAttempt = 0
+  void reconnectListener(code)
 }

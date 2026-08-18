@@ -14,6 +14,7 @@ const fake = vi.hoisted(() => ({
   configured: true,
   store: new Map<string, Record<string, unknown>>(),
   listeners: new Map<string, Set<(data: unknown) => void>>(),
+  errorListeners: new Map<string, Set<(error: unknown) => void>>(),
   /** عدد مرات الكتابة — يكشف حلقة الدفع↔الصدى إن عادت */
   writes: 0,
   /** تأجيل اللقطة الأولى — يحاكي شبكة بطيئة لحظة استئناف المزامنة */
@@ -63,17 +64,60 @@ vi.mock('firebase/firestore', () => ({
       .get(ref.__path)
       ?.forEach((cb) => cb({ exists: () => true, data: () => next }))
   },
-  onSnapshot: (ref: { __path: string }, onNext: (snap: unknown) => void) => {
+  runTransaction: async (
+    _db: unknown,
+    update: (transaction: {
+      get: (ref: { __path: string }) => Promise<unknown>
+      set: (
+        ref: { __path: string },
+        data: Record<string, unknown>,
+        opts?: { merge?: boolean; mergeFields?: string[] },
+      ) => void
+    }) => Promise<unknown>,
+  ) => {
+    const transaction = {
+      get: async (ref: { __path: string }) => {
+        const data = fake.store.get(ref.__path)
+        return { exists: () => data !== undefined, data: () => data }
+      },
+      set: (
+        ref: { __path: string },
+        data: Record<string, unknown>,
+        opts?: { merge?: boolean; mergeFields?: string[] },
+      ) => {
+        const prev = fake.store.get(ref.__path) ?? {}
+        const masked = opts?.merge || opts?.mergeFields
+        const next = fake.shuffle(masked ? { ...prev, ...data } : data)
+        fake.writes += 1
+        fake.store.set(ref.__path, next)
+        fake.listeners
+          .get(ref.__path)
+          ?.forEach((cb) => cb({ exists: () => true, data: () => next }))
+      },
+    }
+    return update(transaction)
+  },
+  onSnapshot: (
+    ref: { __path: string },
+    onNext: (snap: unknown) => void,
+    onError?: (error: unknown) => void,
+  ) => {
     const set = fake.listeners.get(ref.__path) ?? new Set<(data: unknown) => void>()
     set.add(onNext)
     fake.listeners.set(ref.__path, set)
+    const errors = fake.errorListeners.get(ref.__path) ?? new Set<(error: unknown) => void>()
+    if (onError) errors.add(onError)
+    fake.errorListeners.set(ref.__path, errors)
     const first = () => {
       const data = fake.store.get(ref.__path)
       onNext({ exists: () => data !== undefined, data: () => data })
     }
     if (fake.defer) fake.pending.push(first)
     else first()
-    return () => set.delete(onNext)
+    return () => {
+      set.delete(onNext)
+      if (onError) errors.delete(onError)
+    }
   },
   serverTimestamp: () => 'SERVER_TIMESTAMP',
 }))
@@ -100,6 +144,7 @@ beforeEach(async () => {
   fake.configured = true
   fake.store.clear()
   fake.listeners.clear()
+  fake.errorListeners.clear()
   fake.writes = 0
   fake.defer = false
   fake.pending = []
@@ -267,6 +312,64 @@ describe('حلقة الدفع↔الصدى — أخطر عيب في المزام
     expect(canonicalJSON({ a: 1 })).not.toBe(canonicalJSON({ a: 2 }))
     // الحقل الغائب والحقل undefined شيء واحد — كلاهما لا يصل الشبكة أصلًا
     expect(canonicalJSON({ a: 1, b: undefined })).toBe(canonicalJSON({ a: 1 }))
+  })
+})
+
+describe('الكتابة التنافسية وإعادة الاتصال', () => {
+  it('يضم آخر نسخة السحابة قبل الكتابة فلا يضيع تعديل الطرف الآخر', async () => {
+    const created = await createFamilySync()
+    const code = created.code!
+
+    await addJournal({ text: 'من جهازنا', date: '2026-08-10T00:00:00.000Z', author: 'mom' })
+    await flush()
+
+    // يحاكي تعديلًا وصل إلى السحابة بين قراءة اللقطة المحلية وبدء الدفع.
+    const remote = fake.store.get(code)!
+    remote.journal = [
+      { id: 'remote-journal', text: 'من جهازهم', date: '2026-08-11T00:00:00.000Z', author: 'dad' },
+    ]
+    fake.store.set(code, remote)
+
+    await pushToCloud(code, syncableSnapshot(code))
+
+    const stored = fake.store.get(code)!
+    expect((stored.journal as Array<{ id: string }>).map((row) => row.id)).toEqual(
+      expect.arrayContaining(['remote-journal']),
+    )
+    expect((stored.journal as Array<{ text: string }>).map((row) => row.text)).toEqual(
+      expect.arrayContaining(['من جهازنا', 'من جهازهم']),
+    )
+  })
+
+  it('يعيد الاشتراك تلقائيًا بعد أن ينهي Firestore المستمع', async () => {
+    const created = await createFamilySync()
+    const code = created.code!
+    const errors = fake.errorListeners.get(code)
+    expect(errors).toBeDefined()
+
+    vi.useFakeTimers()
+    try {
+      errors!.forEach((onError) => onError(new Error('network')))
+      expect(getFamilySyncState().status).toBe('error')
+
+      await vi.advanceTimersByTimeAsync(2_000)
+
+      expect(getFamilySyncState().status).toBe('connected')
+      expect(getFamilySyncState().hydrated).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('لا تدفع دفعة قديمة بعد إيقاف المزامنة', async () => {
+    const created = await createFamilySync()
+    const writesBeforeStop = fake.writes
+    const snapshot = syncableSnapshot(created.code!)
+
+    stopFamilySync()
+    await pushToCloud(created.code!, snapshot)
+
+    expect(fake.writes).toBe(writesBeforeStop)
   })
 })
 

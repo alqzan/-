@@ -1040,6 +1040,54 @@ function timeValue(row: Row, field: string): number {
 }
 
 /**
+ * يدمج لقطتين قابلتين للمزامنة دون أي أثر جانبي.
+ *
+ * يحتاجه مستمع Firestore عند وصول تحديث، وتحتاجه معاملة الكتابة أيضًا:
+ * قد يكون جهازان قد كتبا في اللحظة نفسها، فلا يصح أن تكتب المعاملة نسخة
+ * أحدهما فوق الأخرى قبل أن ترى السحابة وتضمّها. إبقاء الدمج خالصًا يجعل
+ * إعادة Firestore للمعاملة آمنة مهما أعاد المحاولة.
+ */
+export function mergeSyncedSnapshots(
+  local: SyncedFields,
+  remote: SyncedFields,
+): SyncedFields {
+  const localMeta = incomingMeta(local.syncMeta)
+  const remoteMeta = incomingMeta(remote.syncMeta)
+  const tombstones = mergeStamps(localMeta.deleted, remoteMeta.deleted)
+
+  const merged: Record<string, Row[]> = {}
+  for (const key of collectionKeys) {
+    merged[key] = mergeCollection(
+      rowsOf(local, key) ?? [],
+      rowsOf(remote, key),
+      localMeta.rev,
+      remoteMeta.rev,
+      tombstones,
+      SYNCED_COLLECTIONS[key],
+    )
+  }
+
+  // في اللقطة القابلة للمزامنة لا توجد صور أصلًا؛ الصور المحلية تُعاد
+  // فقط في `mergeSyncedData` بعد انتهاء هذا الدمج الخالص.
+  const child = pickNewer(local.child, remote.child, localMeta.childRev, remoteMeta.childRev)
+
+  const survivors = new Set(Object.values(merged).flatMap((rows) => rows.map((r) => r.id)))
+  const rev: Stamps = {}
+  for (const [id, at] of Object.entries(mergeStamps(localMeta.rev, remoteMeta.rev))) {
+    if (survivors.has(id)) rev[id] = at
+  }
+  const childRev = newerStamp(localMeta.childRev, remoteMeta.childRev)
+
+  return withoutUndefined({
+    ...local,
+    ...(merged as unknown as Pick<SyncedFields, SyncedCollection>),
+    familyId: remote.familyId ?? local.familyId,
+    child,
+    syncMeta: { rev, deleted: capTombstones(tombstones), ...(childRev ? { childRev } : {}) },
+  })
+}
+
+/**
  * يدمج تحديثًا واردًا من العائلة السحابية في البيانات المحلية.
  *
  * قاعدتان تحكمان كل سطر هنا:
@@ -1051,24 +1099,11 @@ function timeValue(row: Row, field: string): number {
 export function mergeSyncedData(remote: SyncedFields): Promise<boolean> {
   if (status.readOnly) return Promise.resolve(false)
 
-  const localMeta = data.syncMeta
-  const remoteMeta = incomingMeta(remote.syncMeta)
-  const tombstones = mergeStamps(localMeta.deleted, remoteMeta.deleted)
-
-  const merged: Record<string, Row[]> = {}
-  for (const key of collectionKeys) {
-    merged[key] = mergeCollection(
-      rowsOf(data, key) ?? [],
-      rowsOf(remote, key),
-      localMeta.rev,
-      remoteMeta.rev,
-      tombstones,
-      SYNCED_COLLECTIONS[key],
-    )
-  }
+  const localFamilyId = data.familyId ?? remote.familyId ?? ''
+  const merged = mergeSyncedSnapshots(syncableSnapshot(localFamilyId), remote)
 
   // صورة الموعد محلية بحتة: تُعاد إلى صفّها أيًّا كانت النسخة الفائزة
-  const appointments = (merged.appointments as Appointment[]).map((a) => {
+  const appointments = merged.appointments.map((a) => {
     const local = data.appointments.find((x) => x.id === a.id)
     return local?.image ? { ...a, image: local.image } : a
   })
@@ -1076,25 +1111,15 @@ export function mergeSyncedData(remote: SyncedFields): Promise<boolean> {
   // ملف الطفل ليس مجموعة: ختم واحد للملف كله، والأحدث يفوز — وصورته
   // المحلية تبقى مهما فاز
   const child: ChildProfile = {
-    ...pickNewer(data.child, remote.child, localMeta.childRev, remoteMeta.childRev),
+    ...merged.child,
     photo: data.child.photo,
   }
 
-  // الأختام تبقى لما بقي فقط — لا تنمو بعدد ما حُذف يومًا
-  const survivors = new Set(Object.values(merged).flatMap((rows) => rows.map((r) => r.id)))
-  const rev: Stamps = {}
-  for (const [id, at] of Object.entries(mergeStamps(localMeta.rev, remoteMeta.rev))) {
-    if (survivors.has(id)) rev[id] = at
-  }
-  const childRev = newerStamp(localMeta.childRev, remoteMeta.childRev)
-
   return replaceAll({
     ...data,
-    ...(merged as unknown as Pick<AppData, SyncedCollection>),
-    familyId: remote.familyId ?? data.familyId,
+    ...merged,
     child,
     appointments,
-    syncMeta: { rev, deleted: capTombstones(tombstones), ...(childRev ? { childRev } : {}) },
   })
 }
 

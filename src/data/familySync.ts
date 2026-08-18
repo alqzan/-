@@ -311,6 +311,7 @@ export async function createFamilySync(): Promise<{
     lastSeenJSON = canonicalJSON(payload)
 
     persistCode(code)
+    setState({ status: 'connected', code, error: null, hydrated: false })
     attachListener(code)
     setState({
       status: 'connected',
@@ -360,6 +361,7 @@ export async function joinFamilySync(rawCode: string): Promise<{ ok: boolean; er
     await mergeSyncedData(remote)
 
     persistCode(code)
+    setState({ status: 'connected', code, error: null, hydrated: false })
     attachListener(code)
     setState({
       status: 'connected',
@@ -412,9 +414,10 @@ export async function resumeFamilySync(): Promise<void> {
     // (`hydrated`) لا يُمنح إلا من المستمع نفسه بعد وصول أول لقطة —
     // وهذا بالضبط ما كان ينقص: جهاز يستأنف المزامنة فيدفع نسخته
     // القديمة خلال ثانية، قبل أن يصله ما كُتب في غيابه، فيمحوه.
-    setState({ status: 'connected', code, error: null })
+    if (state.status !== 'error') setState({ status: 'connected', code, error: null })
   } catch {
     setState({ status: 'error', code, error: 'تعذّر استئناف المزامنة. البيانات المحلية سليمة.' })
+    scheduleReconnect(code)
   }
 }
 

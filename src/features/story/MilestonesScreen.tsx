@@ -10,7 +10,8 @@ import {
   useAppData,
 } from '../../data/dataService'
 import { formatDate } from '../../lib/format'
-import { localDateInputValue, localDateToIso } from '../../lib/localDate'
+import { suggestionsForAge } from '../../lib/milestoneSuggestions'
+import { ageInMonths, localDateInputValue, localDateToIso } from '../../lib/localDate'
 import type { Milestone } from '../../data/types'
 
 // =============================================================
@@ -28,6 +29,13 @@ export default function MilestonesScreen() {
   const current = selected
     ? (data.milestones.find((m) => m.id === selected.id) ?? null)
     : null
+
+  const suggestions = data.child.bornAt
+    ? suggestionsForAge(
+        ageInMonths(data.child.bornAt),
+        data.milestones.map((m) => m.title),
+      )
+    : []
 
   const sorted = [...data.milestones].sort((a, b) => {
     if (!!a.achievedAt === !!b.achievedAt) return 0
@@ -56,6 +64,23 @@ export default function MilestonesScreen() {
         </p>
         <ProgressBar value={data.milestones.length ? achieved / data.milestones.length : 0} />
       </Card>
+
+      {suggestions.length > 0 && (
+        <Card className="mb-5">
+          <div className="eyebrow mb-2.5">مناسبة لعمره الآن</div>
+          <div className="flex flex-wrap gap-2">
+            {suggestions.map((sg) => (
+              <button
+                key={sg.title}
+                onClick={() => void addMilestone(sg.title)}
+                className="btn-ghost !min-h-[40px]"
+              >
+                <PlusIcon className="w-4 h-4" /> {sg.title}
+              </button>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <div className="space-y-2">
         {sorted.map((m) => {

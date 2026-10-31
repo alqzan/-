@@ -184,6 +184,12 @@ export function Sheet({
   children: ReactNode
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
+  // مرجع للإغلاق: المستدعون يمرّرون دالة جديدة كل تصيير، ولو دخلت في اعتماديات
+  // التأثير لأعاد التركيز إلى النافذة وسرقه من حقل يكتب فيه المستخدم
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
 
   useEffect(() => {
     if (!open) return
@@ -203,7 +209,7 @@ export function Sheet({
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose()
+        onCloseRef.current()
         return
       }
       // حبس التركيز داخل النافذة: بدونه يخرج Tab إلى محتوى الصفحة
@@ -229,7 +235,7 @@ export function Sheet({
       window.removeEventListener('keydown', onKey)
       previous?.focus?.()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
   // نُخرج النافذة إلى <body> بـ Portal: شاشة التطبيق تُنشئ stacking context

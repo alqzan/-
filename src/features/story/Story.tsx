@@ -73,7 +73,12 @@ export default function Story() {
   const [filter, setFilter] = useState<StoryFilter>('all')
   const [query, setQuery] = useState('')
   const [searching, setSearching] = useState(false)
-  const [selected, setSelected] = useState<StoryItem | null>(null)
+  // نحفظ مفتاح العنصر لا نسخته: تُشتق النسخة الحيّة كل مرة فيظهر التعديل فورًا
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const selected = useMemo(
+    () => (selectedKey ? (buildStory(data).find((i) => i.key === selectedKey) ?? null) : null),
+    [data, selectedKey],
+  )
   const [favoritesOnly, setFavoritesOnly] = useState(false)
 
   const stats = storyStats(data)
@@ -228,7 +233,7 @@ export default function Story() {
 
               <div className="timeline ps-6">
                 {chapter.items.map((item) => (
-                  <StoryEntry key={item.key} item={item} onOpen={() => setSelected(item)} />
+                  <StoryEntry key={item.key} item={item} onOpen={() => setSelectedKey(item.key)} />
                 ))}
               </div>
             </section>
@@ -236,7 +241,7 @@ export default function Story() {
         </div>
       )}
 
-      <DetailSheet item={selected} onClose={() => setSelected(null)} />
+      <DetailSheet item={selected} onClose={() => setSelectedKey(null)} />
     </>
   )
 }
@@ -488,13 +493,24 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
   // الكبسولة المقفلة لا تُشارَك: نصّها سرّ حتى موعده
   const shareable = !item.locked
 
+  // نص الذكرى وعنوان المحطة لا يصحّ أن يكونا فارغين: الصفّ الفارغ يسقطه
+  // التحقّق عند التحميل التالي فتضيع الذكرى بعد أن بدت محفوظة
+  const blankRequired =
+    (item.kind === 'letter' && !text.trim()) || (item.kind === 'milestone' && !title.trim())
+
   const save = async () => {
-    if (item.kind === 'photo') await updatePhoto(item.id, { caption: text.trim() || undefined })
+    if (blankRequired) return
+    let ok = true
+    if (item.kind === 'photo') ok = await updatePhoto(item.id, { caption: text.trim() || undefined })
     else if (item.kind === 'letter')
-      await updateJournal(item.id, { title: title.trim() || undefined, text: text.trim() })
+      ok = await updateJournal(item.id, { title: title.trim() || undefined, text: text.trim() })
     else if (item.kind === 'milestone')
-      await updateMilestone(item.id, { title: title.trim(), note: text.trim() || undefined })
-    else if (item.kind === 'voice') await updateVoice(item.id, { title: title.trim() || undefined })
+      ok = await updateMilestone(item.id, { title: title.trim(), note: text.trim() || undefined })
+    else if (item.kind === 'voice') ok = await updateVoice(item.id, { title: title.trim() || undefined })
+    if (!ok) {
+      toast('لم يُحفظ التعديل — المساحة ممتلئة أو التخزين غير متاح')
+      return
+    }
     setEditing(false)
     toast('حُفظ التعديل')
   }
@@ -592,7 +608,7 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
               </Field>
             )}
             <div className="flex gap-2.5">
-              <Button onClick={save} className="flex-1">
+              <Button onClick={save} disabled={blankRequired} className="flex-1">
                 <CheckIcon className="w-4 h-4" /> حفظ
               </Button>
               <Button variant="ghost" onClick={() => setEditing(false)}>

@@ -113,10 +113,31 @@ function AddGrowthSheet({ open, onClose }: { open: boolean; onClose: () => void 
   const [length, setLength] = useState('')
   const [head, setHead] = useState('')
 
+  const [error, setError] = useState<string | null>(null)
   const valid = weight || length || head
+
+  /** حدود معقولة للأطفال حتى الثانوية — تمنع خطأ الفاصلة والأرقام السالبة */
+  const RANGES = { weight: [0.5, 120, 'الوزن'], length: [20, 220, 'الطول'], head: [20, 65, 'محيط الرأس'] } as const
+  function outOfRange(): string | null {
+    for (const [key, raw] of [['weight', weight], ['length', length], ['head', head]] as const) {
+      if (!raw) continue
+      const n = Number(raw)
+      const [min, max, label] = RANGES[key]
+      if (!Number.isFinite(n) || n < min || n > max) {
+        return `${label} يجب أن يكون بين ${min} و${max}.`
+      }
+    }
+    return null
+  }
 
   function submit() {
     if (!valid) return
+    const problem = outOfRange()
+    if (problem) {
+      setError(problem)
+      return
+    }
+    setError(null)
     void addGrowth({
       date,
       weightKg: weight ? Number(weight) : undefined,
@@ -145,6 +166,11 @@ function AddGrowthSheet({ open, onClose }: { open: boolean; onClose: () => void 
       <Field label="محيط الرأس (سم)">
         <input type="number" inputMode="decimal" className="input" value={head} onChange={(e) => setHead(e.target.value)} placeholder="37" />
       </Field>
+      {error && (
+        <p role="alert" className="text-clay-600 text-sm mb-3">
+          {error}
+        </p>
+      )}
       <Button className="w-full mt-2" onClick={submit} disabled={!valid}>
         حفظ القياس
       </Button>

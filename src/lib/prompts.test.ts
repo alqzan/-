@@ -38,4 +38,15 @@ describe('promptsForToday', () => {
     const after = promptsForToday(true, DAY)
     for (const idea of after) expect(before).not.toContain(idea)
   })
+
+  it('بعد السنة الأولى تتبدّل الأفكار إلى أفكار الطفل الأكبر، ثابتة وبلا تكرار', () => {
+    const baby = promptsForToday(true, DAY, 6)
+    const toddler = promptsForToday(true, DAY, 18)
+    for (const idea of toddler) expect(baby).not.toContain(idea)
+    for (let d = 0; d < 366; d++) {
+      const ideas = promptsForToday(true, new Date(2026, 0, 1 + d), 30)
+      expect(new Set(ideas).size).toBe(3)
+    }
+    expect(promptOfTheDay(true, DAY, 18)).toBe(toddler[0])
+  })
 })

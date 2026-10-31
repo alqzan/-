@@ -58,7 +58,11 @@ export default function Today() {
   const hasContent = recent.length > 0
   const sinceBackup = daysSinceBackup()
   const needsBackup = hasContent && (sinceBackup === null || sinceBackup > 30)
-  const prompt = promptOfTheDay(born)
+  const prompt = promptOfTheDay(
+    born,
+    new Date(),
+    data.child.bornAt ? ageInMonths(data.child.bornAt) : undefined,
+  )
 
   const today = new Date(now)
 
@@ -341,10 +345,21 @@ export function NewbornHero() {
 
       <div className="rule-dot my-4" />
 
+      {/* الخلايا تتبع العمر: أيام وأسابيع للمولود، ثم سنوات وأشهر بعد السنة الثانية */}
       <div className="grid grid-cols-3 text-center">
-        <AgeCell value={days} label="يوم" />
-        <AgeCell value={weeks} label="أسبوع" />
-        <AgeCell value={months} label="شهر" />
+        {months >= 24 ? (
+          <>
+            <AgeCell value={Math.floor(months / 12)} label="سنة" />
+            <AgeCell value={months % 12} label="شهر" />
+            <AgeCell value={days} label="يوم" />
+          </>
+        ) : (
+          <>
+            <AgeCell value={days} label="يوم" />
+            <AgeCell value={weeks} label="أسبوع" />
+            <AgeCell value={months} label="شهر" />
+          </>
+        )}
       </div>
     </Card>
   )

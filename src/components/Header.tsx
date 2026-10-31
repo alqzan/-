@@ -33,7 +33,8 @@ export function ScreenHeader({
         <h1 className="title-md truncate">{title}</h1>
         {subtitle && <p className="text-[13px] text-ink-400 mt-1 leading-relaxed">{subtitle}</p>}
       </div>
-      {action}
+      {/* زر الإعدادات العائم يقع أقصى اليسار: نزيح الإجراء عنه كي لا يغطّيه */}
+      {action && <div className="shrink-0 me-11">{action}</div>}
     </header>
   )
 }

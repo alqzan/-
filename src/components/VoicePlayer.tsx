@@ -32,7 +32,7 @@ export default function VoicePlayer({
   const [loading, setLoading] = useState(false)
   const [failed, setFailed] = useState(false)
 
-  const total = durationSec ?? voice?.durationSec ?? 1
+  const total = Math.max(1, durationSec ?? voice?.durationSec ?? 1)
 
   useEffect(() => {
     const audio = audioRef.current

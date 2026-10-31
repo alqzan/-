@@ -45,9 +45,10 @@ import {
   startSleep,
   uid,
   useAppData,
+  useAppSelector,
 } from '../data/dataService'
 import { fileToDataUrl } from '../lib/image'
-import { localDateInputValue, localDateToIso } from '../lib/localDate'
+import { ageInMonths, localDateInputValue, localDateToIso } from '../lib/localDate'
 import { promptsForToday } from '../lib/prompts'
 import type { AppointmentType, Mood, Parent } from '../data/types'
 
@@ -372,7 +373,11 @@ function IdeaSection({
   born: boolean
   onPick: (k: CaptureKind, prefill?: { title?: string; text?: string }) => void
 }) {
-  const ideas = useMemo(() => promptsForToday(born), [born])
+  const bornAt = useAppSelector((d) => d.child.bornAt)
+  const ideas = useMemo(
+    () => promptsForToday(born, new Date(), bornAt ? ageInMonths(bornAt) : undefined),
+    [born, bornAt],
+  )
   const [index, setIndex] = useState(0)
   const idea = ideas[index % ideas.length]
 

@@ -333,6 +333,27 @@ describe('حلقة الدفع↔الصدى — أخطر عيب في المزام
 })
 
 describe('الكتابة التنافسية وإعادة الاتصال', () => {
+  it('إقرار السجل مرتبط بختمه: يثبت بعد نجاح الدفع ولا يغطي تعديلًا لاحقًا', async () => {
+    const created = await createFamilySync()
+    const code = created.code!
+    await addJournal({ text: 'أول', date: '2026-08-10T00:00:00.000Z', author: 'mom' })
+    await flush()
+    const id1 = syncableSnapshot(code).journal[0]!.id
+    // قبل الدفع: السحابة لا تعرف السجل الجديد
+    expect(getFamilySyncState().cloudRev[id1]).toBeUndefined()
+
+    await pushToCloud(code, syncableSnapshot(code))
+    const acked = getFamilySyncState().cloudRev[id1]
+    expect(acked).toBe(syncableSnapshot(code).syncMeta?.rev[id1])
+
+    // تعديل جديد قبل دفعه لا يُقرّ به إقرار السجل الأول
+    await addJournal({ text: 'ثانٍ', date: '2026-08-11T00:00:00.000Z', author: 'mom' })
+    await flush()
+    const id2 = syncableSnapshot(code).journal.find((j) => j.text === 'ثانٍ')!.id
+    expect(getFamilySyncState().cloudRev[id2]).toBeUndefined()
+    expect(getFamilySyncState().cloudRev[id1]).toBe(acked)
+  })
+
   it('يحفظ إضافتي الجهازين في السحابة ويبلّغ بفشل التثبيت المحلي ثم يستعيدهما عند إعادة الاتصال', async () => {
     const created = await createFamilySync()
     const code = created.code!

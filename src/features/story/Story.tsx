@@ -21,6 +21,7 @@ import {
 import { Button, EmptyState, Field, Sheet, cx } from '../../components/ui'
 import { useCapture } from '../../components/Capture'
 import VoicePlayer from '../../components/VoicePlayer'
+import RecordSyncLine from '../../components/RecordSyncLine'
 import { buildShareCard, shareCard } from '../../lib/shareCard'
 import Confirm from '../../components/Confirm'
 import {
@@ -491,6 +492,9 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
         title={item.title || KIND_LABEL[item.kind]}
         subtitle={`${formatDate(item.date)}${item.author ? ` • بقلم ${parentLabel(item.author)}` : ''}`}
       >
+        {item.kind !== 'birth' && (
+          <RecordSyncLine id={item.id} mediaOnly={item.kind === 'photo' || item.kind === 'voice'} />
+        )}
         {item.photo && (
           <img
             src={photoSrc(item.photo)}

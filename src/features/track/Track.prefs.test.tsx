@@ -56,4 +56,28 @@ describe('إخفاء أدوات المتابعة', () => {
     })
     expect(screen.queryByText('أدوات إضافية وسجلاتها')).toBeNull()
   })
+
+  it('بطاقة «وصل صغيركم؟» تبرز في آخر شهر فقط، وقبله رابط هادئ للولادة المبكرة', () => {
+    const view = () =>
+      render(
+        <MemoryRouter>
+          <CaptureProvider>
+            <Track />
+          </CaptureProvider>
+        </MemoryRouter>,
+      )
+    // الأسبوع ٢٢: لا بطاقة كبيرة
+    const early = view()
+    expect(screen.queryByText('وصل صغيركم؟')).toBeNull()
+    expect(screen.getByText('وصل صغيركم مبكرًا؟ سجّلوا الولادة')).toBeTruthy()
+    early.unmount()
+
+    // الأسبوع ٣٨: البطاقة بعدّ تنازلي
+    const d = state.data!
+    d.child.lmpDate = new Date(Date.now() - 38 * 7 * 86400000).toISOString()
+    state.data = { ...d }
+    view()
+    expect(screen.getByText('وصل صغيركم؟')).toBeTruthy()
+    expect(screen.getByText(/على الموعد المتوقع|الموعد المتوقع/)).toBeTruthy()
+  })
 })

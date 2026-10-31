@@ -29,7 +29,7 @@ import { updateChild, useAppData } from '../../data/dataService'
 import { MedsToday, NewbornHero, PregnancyHero } from '../today/Today'
 import { getPregnancyProgress } from '../../lib/pregnancy'
 import { dayKeyOf, dayPlan, dayProgress } from '../../lib/meds'
-import { formatDuration, relativeFromNow } from '../../lib/format'
+import { formatDuration, pluralAr, relativeFromNow } from '../../lib/format'
 import { ageInMonths, isSameLocalDay, localDateInputValue, localDateToIso } from '../../lib/localDate'
 import { useNow } from '../../lib/useNow'
 import type { AppData } from '../../data/types'
@@ -287,24 +287,45 @@ function BirthCard() {
   const [length, setLength] = useState('')
   const [busy, setBusy] = useState(false)
 
+  // البطاقة الكبيرة تظهر في آخر شهر فقط (الأسبوع ٣٦ فما فوق أو قبل الموعد بشهر أو بعده)
+  const progress = getPregnancyProgress(data.child.lmpDate, data.child.dueDate)
+  const prominent = !!progress && (progress.week >= 36 || progress.daysLeft <= 30)
+  const dueNote =
+    !progress || progress.daysLeft > 0
+      ? `باقٍ ${pluralAr(progress?.daysLeft ?? 0, 'يوم واحد', 'يومان', 'أيام', 'يومًا')} على الموعد المتوقع`
+      : progress.daysLeft === 0
+        ? 'موعدكم المتوقع اليوم'
+        : 'تجاوزتم الموعد المتوقع'
+
   return (
     <>
-      <Card className="mt-7 !bg-moss-50 !border-moss-100">
-        <div className="flex items-start gap-3.5">
-          <span className="w-10 h-10 rounded-full bg-white/70 text-moss-500 grid place-items-center shrink-0">
-            <BabyIcon className="w-5 h-5" />
-          </span>
-          <div className="flex-1">
-            <div className="font-display font-bold text-ink-900">وصل صغيركم؟</div>
-            <p className="text-[13px] text-ink-500 mt-1 leading-relaxed">
-              سجّلوا الولادة ويتحوّل التطبيق كله لمرحلة الرعاية: رضاعة، نوم، نمو، وتطعيمات.
-            </p>
-            <Button variant="clay" className="mt-3.5" onClick={() => setOpen(true)}>
-              تسجيل الولادة
-            </Button>
+      {prominent ? (
+        <Card className="mt-7 !bg-moss-50 !border-moss-100">
+          <div className="flex items-start gap-3.5">
+            <span className="w-10 h-10 rounded-full bg-white/70 text-moss-500 grid place-items-center shrink-0">
+              <BabyIcon className="w-5 h-5" />
+            </span>
+            <div className="flex-1">
+              <div className="font-display font-bold text-ink-900">وصل صغيركم؟</div>
+              <p className="text-[13px] text-ink-500 mt-1 leading-relaxed">
+                {dueNote}. سجّلوا الولادة ويتحوّل التطبيق كله لمرحلة الرعاية: رضاعة، نوم، نمو، وتطعيمات.
+              </p>
+              <Button variant="clay" className="mt-3.5" onClick={() => setOpen(true)}>
+                تسجيل الولادة
+              </Button>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      ) : (
+        // قبل آخر شهر: لا بطاقة كبيرة تستعجل الولادة، لكن الولادة المبكرة
+        // يجب أن تبقى ممكنة بلا بحث
+        <button
+          onClick={() => setOpen(true)}
+          className="block mx-auto mt-6 text-[13px] text-ink-400 underline underline-offset-4"
+        >
+          وصل صغيركم مبكرًا؟ سجّلوا الولادة
+        </button>
+      )}
 
       <Sheet
         open={open}

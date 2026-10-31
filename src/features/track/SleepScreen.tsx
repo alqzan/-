@@ -5,6 +5,7 @@ import { MoonIcon, TrashIcon } from '../../components/icons'
 import { deleteSleep, endSleep, startSleep, useAppData } from '../../data/dataService'
 import { formatDuration, formatShortDate, formatTime } from '../../lib/format'
 import { isSameLocalDay } from '../../lib/localDate'
+import { napsOn, sleepMinutesOn } from '../../lib/sleep'
 import { useNow } from '../../lib/useNow'
 
 /** يحوّل الدقائق إلى «٣ س ٢٠ د» */
@@ -29,14 +30,8 @@ export default function SleepScreen() {
     : 0
 
   const finished = data.sleep.filter((s) => s.endedAt)
-  const todayMinutes = finished
-    .filter((s) => isSameLocalDay(s.startedAt))
-    .reduce(
-      (sum, s) =>
-        sum + (new Date(s.endedAt!).getTime() - new Date(s.startedAt).getTime()) / 60000,
-      0,
-    )
-  const todayNaps = finished.filter((s) => isSameLocalDay(s.startedAt)).length
+  const todayMinutes = sleepMinutesOn(data.sleep)
+  const todayNaps = napsOn(data.sleep)
 
   return (
     <>

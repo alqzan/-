@@ -1,7 +1,7 @@
 import { ScreenHeader } from '../../components/Header'
 import { Card, EmptyState, StatTile } from '../../components/ui'
 import { useConfirm } from '../../components/Confirm'
-import { DropIcon, SparkleIcon, TrashIcon } from '../../components/icons'
+import { CheckIcon, DropIcon, SparkleIcon, TrashIcon } from '../../components/icons'
 import { addDiaper, deleteDiaper, useAppData } from '../../data/dataService'
 import type { DiaperKind } from '../../data/types'
 import { formatShortDate, formatTime, relativeFromNow } from '../../lib/format'
@@ -11,12 +11,14 @@ const KINDS: Array<{ value: DiaperKind; label: string; cls: string }> = [
   { value: 'wet', label: 'مبلّل', cls: 'bg-moss-50 text-moss-500' },
   { value: 'dirty', label: 'متّسخ', cls: 'bg-clay-50 text-clay-600' },
   { value: 'both', label: 'الاثنان', cls: 'bg-brass-50 text-brass-600' },
+  { value: 'potty', label: 'المرحاض', cls: 'bg-moss-50 text-moss-500' },
 ]
 
 /** رسم بسيط يميّز نوع التغيير: قطرة، أو قطرتان، أو الاثنان */
 function KindMark({ kind, className }: { kind: DiaperKind; className?: string }) {
   if (kind === 'wet') return <DropIcon className={className} />
   if (kind === 'dirty') return <SparkleIcon className={className} />
+  if (kind === 'potty') return <CheckIcon className={className} />
   return (
     <span className="inline-flex items-center gap-0.5">
       <DropIcon className={className} />
@@ -34,28 +36,30 @@ export default function DiapersScreen() {
   const today = data.diapers.filter((d) => isSameLocalDay(d.time))
   const wet = today.filter((d) => d.kind === 'wet' || d.kind === 'both').length
   const dirty = today.filter((d) => d.kind === 'dirty' || d.kind === 'both').length
+  const potty = today.filter((d) => d.kind === 'potty').length
   const last = [...data.diapers].sort(
     (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime(),
   )[0]
 
   return (
     <>
-      <ScreenHeader title="الحفاضات" subtitle="سجّل بضغطة واحدة" back />
+      <ScreenHeader title="الحفاضات والمرحاض" subtitle="سجّل بضغطة واحدة" back />
 
       <div className="flex gap-3 mb-4">
         <StatTile label="مبلّل اليوم" value={wet} icon={<DropIcon className="w-4 h-4" />} />
         <StatTile label="متّسخ اليوم" value={dirty} />
+        {potty > 0 && <StatTile label="المرحاض اليوم" value={potty} />}
         <StatTile label="آخر تغيير" value={last ? relativeFromNow(last.time) : '—'} />
       </div>
 
       <Card>
         <div className="text-ink-600 text-sm mb-3">سجّل تغييرًا الآن</div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-2">
           {KINDS.map((k) => (
             <button
               key={k.value}
               onClick={() => addDiaper(k.value)}
-              className="card !p-4 text-center active:scale-95 transition border border-paper-200"
+              className="card !p-3 text-center active:scale-95 transition border border-paper-200"
             >
               <span className={`w-11 h-11 rounded-full grid place-items-center mx-auto mb-2 ${k.cls}`}>
                 <KindMark kind={k.value} className="w-5 h-5" />

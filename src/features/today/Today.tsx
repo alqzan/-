@@ -21,6 +21,7 @@ import { getPregnancyProgress, trimesterLabel } from '../../lib/pregnancy'
 import { getFetalWeek } from '../../lib/fetalData'
 import { formatDate, formatTime, pluralAr, relativeFromNow } from '../../lib/format'
 import { ageInDays, ageInMonths, isSameLocalDay } from '../../lib/localDate'
+import { sleepMinutesOn } from '../../lib/sleep'
 import BackupNudge from '../../components/BackupNudge'
 import { photoSrc } from '../../lib/image'
 import { promptOfTheDay } from '../../lib/prompts'
@@ -449,18 +450,14 @@ export function MedsToday({ now }: { now: number }) {
 function TodaySummary() {
   const data = useAppData()
   const navigate = useNavigate()
-  const feeds = data.feedings.filter((f) => isSameLocalDay(f.startedAt)).length
+  // «رضعات» حليب فقط؛ الوجبات والأشربة لها سجلّها في شاشة التغذية
+  const milk = data.feedings.filter((f) => f.kind === 'breast' || f.kind === 'bottle')
+  const feeds = milk.filter((f) => isSameLocalDay(f.startedAt)).length
   const diapers = data.diapers.filter((d) => isSameLocalDay(d.time)).length
-  const lastFeed = [...data.feedings].sort(
+  const lastFeed = [...milk].sort(
     (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
   )[0]
-  const sleepMin = data.sleep
-    .filter((s) => s.endedAt && isSameLocalDay(s.startedAt))
-    .reduce(
-      (sum, s) =>
-        sum + (new Date(s.endedAt!).getTime() - new Date(s.startedAt).getTime()) / 60000,
-      0,
-    )
+  const sleepMin = sleepMinutesOn(data.sleep)
 
   return (
     <section className="mt-7">

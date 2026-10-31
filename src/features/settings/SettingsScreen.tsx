@@ -6,6 +6,7 @@ import { useConfirm } from '../../components/Confirm'
 import { DownloadIcon, UploadIcon } from '../../components/icons'
 import {
   STORAGE_LIMIT_BYTES,
+  MissingMediaError,
   importSnapshot,
   loadDemoData,
   resetAllData,
@@ -39,6 +40,8 @@ export default function SettingsScreen() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [note, setNote] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [backingUp, setBackingUp] = useState(false)
+  // بقي ملف صوتي غير مقروء: نعرض خيار نسخة بدونه بدل أن يبقى المستخدم بلا أي نسخة
+  const [missingAudio, setMissingAudio] = useState(false)
 
   const usage = useStorageUsage()
   const photoBytes = data.photos.reduce((sum, p) => sum + photoSize(p), 0)
@@ -84,6 +87,30 @@ export default function SettingsScreen() {
           )}
         >
           {note.text}
+          {missingAudio && (
+            <Button
+              variant="ghost"
+              className="w-full mt-3"
+              disabled={backingUp}
+              onClick={async () => {
+                setBackingUp(true)
+                try {
+                  const name = await downloadBackup(true, true)
+                  setMissingAudio(false)
+                  setNote({
+                    tone: 'ok',
+                    text: `نُزّلت النسخة بدون التسجيلات التي تعذّرت قراءتها: ${name}. لا تُعدّ نسخة كاملة.`,
+                  })
+                } catch {
+                  setNote({ tone: 'error', text: 'تعذّر تجهيز النسخة الاحتياطية.' })
+                } finally {
+                  setBackingUp(false)
+                }
+              }}
+            >
+              نزّلوا نسخة بدون التسجيلات التالفة
+            </Button>
+          )}
         </div>
       )}
 
@@ -223,8 +250,10 @@ export default function SettingsScreen() {
               setBackingUp(true)
               try {
                 const name = await downloadBackup()
+                setMissingAudio(false)
                 setNote({ tone: 'ok', text: `تم تنزيل النسخة: ${name}` })
               } catch (error) {
+                setMissingAudio(error instanceof MissingMediaError)
                 setNote({ tone: 'error', text: error instanceof Error ? error.message : 'تعذّر تجهيز النسخة الاحتياطية.' })
               } finally {
                 setBackingUp(false)

@@ -67,6 +67,15 @@ it('refuses a complete backup if any audio file cannot be read', async () => {
   await expect(service.exportSnapshotWithMedia()).rejects.toThrow('تعذّرت قراءة')
 })
 
+it('الخيار الصريح يصدّر النسخة مع بقاء المرجع، ولا يغيّر الافتراضي الصارم', async () => {
+  media.files.clear()
+  const json = await service.exportSnapshotWithMedia({ allowMissing: true })
+  const parsed = JSON.parse(json) as AppData
+  expect(parsed.voices.length).toBeGreaterThan(0)
+  expect(parsed.voices[0]!.localKey).toBeTruthy()
+  await expect(service.exportSnapshotWithMedia()).rejects.toBeInstanceOf(service.MissingMediaError)
+})
+
 it('age editing keeps every existing record and audio reference through reload data', async () => {
   const before = JSON.parse(service.exportSnapshot()) as AppData
   const pending = service.updateChild({ lmpDate: '2026-04-01', dueDate: '2027-01-06' })

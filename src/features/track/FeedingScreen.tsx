@@ -4,7 +4,7 @@ import { Button, Card, EmptyState, Field, Sheet, StatTile, cx } from '../../comp
 import { useConfirm } from '../../components/Confirm'
 import { BottleIcon, PlusIcon, TrashIcon } from '../../components/icons'
 import { addFeeding, deleteFeeding, useAppData } from '../../data/dataService'
-import type { BreastSide, FeedingKind } from '../../data/types'
+import type { BreastSide, Feeding, FeedingKind } from '../../data/types'
 import { formatDuration, formatTime, relativeFromNow } from '../../lib/format'
 import { isSameLocalDay } from '../../lib/localDate'
 import { useNow } from '../../lib/useNow'
@@ -26,6 +26,7 @@ export default function FeedingScreen() {
   const data = useAppData()
   const [active, setActive] = useState<Active | null>(loadActive)
   const [bottleOpen, setBottleOpen] = useState(false)
+  const [mealOpen, setMealOpen] = useState(false)
   const { confirm, dialog } = useConfirm()
 
   // مؤقّت حيّ + استمرارية الجلسة لو أُغلقت الشاشة
@@ -42,11 +43,14 @@ export default function FeedingScreen() {
 
   const elapsed = active ? Math.floor((now - active.startedAt) / 1000) : 0
 
-  const today = data.feedings.filter((f) => isSameLocalDay(f.startedAt))
+  const isMilk = (k: FeedingKind) => k === 'breast' || k === 'bottle'
+  const todayAll = data.feedings.filter((f) => isSameLocalDay(f.startedAt))
+  const today = todayAll.filter((f) => isMilk(f.kind))
+  const meals = todayAll.length - today.length
   const todayMl = today
     .filter((f) => f.kind === 'bottle')
     .reduce((sum, f) => sum + (f.amountMl ?? 0), 0)
-  const last = [...data.feedings].sort(
+  const last = [...data.feedings].filter((f) => isMilk(f.kind)).sort(
     (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
   )[0]
 
@@ -64,7 +68,7 @@ export default function FeedingScreen() {
 
   return (
     <>
-      <ScreenHeader title="الرضاعة" subtitle="تتبّعوا رضعات اليوم" back />
+      <ScreenHeader title="الرضاعة والتغذية" subtitle="الحليب والأطعمة والأشربة" back />
 
       <div className="flex gap-3 mb-4">
         <StatTile label="رضعات اليوم" value={today.length} icon={<BottleIcon className="w-4 h-4" />} />
@@ -74,6 +78,12 @@ export default function FeedingScreen() {
           sub={last ? formatTime(last.startedAt) : undefined}
         />
       </div>
+      {meals > 0 && (
+        <Card className="!p-3.5 mb-4 text-center">
+          <span className="text-ink-500 text-sm">وجبات وأشربة اليوم: </span>
+          <span className="font-bold text-ink-900">{meals}</span>
+        </Card>
+      )}
       {todayMl > 0 && (
         <Card className="!p-3.5 mb-4 text-center">
           <span className="text-ink-500 text-sm">إجمالي الرضّاعة اليوم: </span>
@@ -113,6 +123,9 @@ export default function FeedingScreen() {
           <Button variant="ghost" className="w-full py-3" onClick={() => setBottleOpen(true)}>
             <PlusIcon className="w-5 h-5" /> تسجيل رضعة رضّاعة
           </Button>
+          <Button variant="ghost" className="w-full py-3 mt-2" onClick={() => setMealOpen(true)}>
+            <PlusIcon className="w-5 h-5" /> تسجيل وجبة أو شراب
+          </Button>
         </Card>
       )}
 
@@ -133,9 +146,7 @@ export default function FeedingScreen() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-ink-900">
-                  {f.kind === 'breast'
-                    ? `طبيعية • ${f.side === 'left' ? 'اليسرى' : 'اليمنى'}`
-                    : `رضّاعة • ${f.amountMl ?? 0} مل`}
+                  {feedingLabel(f)}
                 </div>
                 <div className="text-xs text-ink-400">
                   {formatTime(f.startedAt)}
@@ -161,8 +172,93 @@ export default function FeedingScreen() {
       )}
 
       <BottleSheet open={bottleOpen} onClose={() => setBottleOpen(false)} />
+      <MealSheet open={mealOpen} onClose={() => setMealOpen(false)} />
       {dialog}
     </>
+  )
+}
+
+const MEAL_KINDS: Array<{ value: FeedingKind; label: string }> = [
+  { value: 'solid', label: 'وجبة' },
+  { value: 'cup', label: 'كوب' },
+  { value: 'snack', label: 'خفيفة' },
+]
+
+/** وصف سطر السجل حسب النوع — يحفظ شكل الرضاعة القديم كما كان */
+function feedingLabel(f: Feeding): string {
+  switch (f.kind) {
+    case 'breast':
+      return `طبيعية • ${f.side === 'left' ? 'اليسرى' : 'اليمنى'}`
+    case 'bottle':
+      return `رضّاعة • ${f.amountMl ?? 0} مل`
+    case 'solid':
+      return f.note ? `وجبة • ${f.note}` : 'وجبة'
+    case 'cup':
+      return `كوب${f.note ? ` • ${f.note}` : ''}${f.amountMl ? ` • ${f.amountMl} مل` : ''}`
+    default:
+      return f.note ? `وجبة خفيفة • ${f.note}` : 'وجبة خفيفة'
+  }
+}
+
+/** وجبة أو شراب لمن تجاوز الرضاعة: النوع، ووصف حر اختياري، وكمية للكوب */
+function MealSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [kind, setKind] = useState<FeedingKind>('solid')
+  const [note, setNote] = useState('')
+  const [amount, setAmount] = useState('')
+
+  function submit() {
+    void addFeeding({
+      startedAt: new Date().toISOString(),
+      kind,
+      note: note.trim() || undefined,
+      amountMl: kind === 'cup' && amount ? Number(amount) : undefined,
+    })
+    setNote('')
+    setAmount('')
+    onClose()
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title="وجبة أو شراب">
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        {MEAL_KINDS.map((m) => (
+          <button
+            key={m.value}
+            aria-pressed={kind === m.value}
+            onClick={() => setKind(m.value)}
+            className={cx(
+              'rounded-2xl py-3 text-sm font-medium transition',
+              kind === m.value ? 'bg-ink-900 text-paper-50' : 'bg-paper-200 text-ink-600',
+            )}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+      <Field label="وش أكل أو شرب؟ (اختياري)">
+        <input
+          className="input"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="مثال: عصيدة، موز، حليب"
+        />
+      </Field>
+      {kind === 'cup' && (
+        <Field label="الكمية (مل)">
+          <input
+            type="number"
+            inputMode="numeric"
+            className="input"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="200"
+          />
+        </Field>
+      )}
+      <Button variant="peach" className="w-full" onClick={submit}>
+        حفظ
+      </Button>
+    </Sheet>
   )
 }
 

@@ -137,8 +137,33 @@ export function boot(): Promise<void> {
     notifyData()
 
     adapter.subscribe((external) => {
-      // تغيير من تبويب آخر — نتبنّاه بدل أن ندهسه بنسختنا
-      data = external
+      const pending = pendingTabBase
+      if (!pending || !external.setupComplete) {
+        // هذه لقطة محلية كاملة، وقد تكون استعادة صريحة لنسخة احتياطية.
+        data = external
+        pendingTabBase = null
+      } else {
+        // نضيف التغييرات المحلية المعلّقة فقط إلى أحدث نسخة على القرص.
+        // اتحاد كل السجلات هنا كان سيعيد سجلات أزيلت باستعادة نسخة في تبويب آخر.
+        const collections: Partial<AppData> = {}
+        for (const key of [...collectionKeys, 'photos', 'voices'] as const) {
+          Object.assign(collections, {
+            [key]: mergeTabRows<Row>(pending[key], data[key], external[key]),
+          })
+        }
+        const childChanged = JSON.stringify(data.child) !== JSON.stringify(pending.child)
+        data = {
+          ...external,
+          ...collections,
+          child: childChanged ? data.child : external.child,
+          syncMeta: {
+            rev: mergeStamps(external.syncMeta.rev, data.syncMeta.rev),
+            deleted: mergeStamps(external.syncMeta.deleted, data.syncMeta.deleted),
+            childRev: childChanged ? data.syncMeta.childRev : external.syncMeta.childRev,
+          },
+        }
+        pendingTabBase = external
+      }
       notifyData()
     })
 
@@ -162,6 +187,19 @@ const WRITE_DEBOUNCE_MS = 250
 
 let writeTimer: ReturnType<typeof setTimeout> | null = null
 let waiting: Array<(ok: boolean) => void> = []
+let pendingTabBase: AppData | null = null
+
+/** يحفظ الإضافات والتعديلات والحذف المحلي الذي لم يصل إلى القرص بعد. */
+function mergeTabRows<T extends { id: string }>(base: T[], local: T[], external: T[]): T[] {
+  const before = new Map(base.map(r => [r.id, r]))
+  const current = new Map(local.map(r => [r.id, r]))
+  const result = new Map(external.map(r => [r.id, r]))
+  for (const id of before.keys()) if (!current.has(id)) result.delete(id)
+  for (const row of local) {
+    if (JSON.stringify(before.get(row.id)) !== JSON.stringify(row)) result.set(row.id, row)
+  }
+  return [...result.values()]
+}
 
 async function runWrite(): Promise<void> {
   writeTimer = null
@@ -170,9 +208,15 @@ async function runWrite(): Promise<void> {
   const snapshot = data
   try {
     await adapter.write(snapshot)
+    pendingTabBase = data === snapshot ? null : snapshot
     setStatus({ error: null })
     resolvers.forEach((r) => r(true))
   } catch {
+    if (data === snapshot && pendingTabBase) {
+      data = pendingTabBase
+      pendingTabBase = null
+      notifyData()
+    }
     setStatus({
       error: 'لم تُحفظ آخر التغييرات على هذا الجهاز. قد تكون مساحة التخزين ممتلئة.',
     })
@@ -200,6 +244,7 @@ function commit(patch: Partial<AppData>): Promise<boolean> {
     return Promise.resolve(false)
   }
   const next = { ...data, ...patch }
+  pendingTabBase ??= data
   data = { ...next, syncMeta: stampChanges(data, next) }
   notifyData()
   return new Promise<boolean>((resolve) => {
@@ -211,19 +256,27 @@ function commit(patch: Partial<AppData>): Promise<boolean> {
 
 /** استبدال كامل (استعادة نسخة / مسح / بيانات تجريبية) — يتجاوز التأجيل */
 async function replaceAll(next: AppData): Promise<boolean> {
+  const previous = data
   data = next
   notifyData()
   if (writeTimer !== null) {
     clearTimeout(writeTimer)
     writeTimer = null
-    waiting.forEach((r) => r(true))
-    waiting = []
   }
+  const resolvers = waiting
+  waiting = []
   try {
     await adapter.write(next)
+    pendingTabBase = null
+    resolvers.forEach(r => r(true))
     setStatus({ error: null, readOnly: false })
     return true
   } catch {
+    if (data === next) {
+      data = previous
+      notifyData()
+    }
+    resolvers.forEach(r => r(false))
     setStatus({ error: 'تعذّر الحفظ على هذا الجهاز — المساحة قد تكون ممتلئة.' })
     return false
   }
@@ -335,19 +388,16 @@ export function exportSnapshot(): string {
  * إلا أصوات الوالدين. الملف يكبر، وهذا ثمن مقبول لضمانة لا تُنقَض.
  */
 export async function exportSnapshotWithMedia(): Promise<string> {
+  const snapshot = data
   const voices = await Promise.all(
-    data.voices.map(async (v) => {
+    snapshot.voices.map(async (v) => {
       if (v.dataUrl || !v.localKey) return v
       const blob = await getAudio(v.localKey)
-      if (!blob) return v
-      try {
-        return { ...v, dataUrl: await blobToDataUrl(blob) }
-      } catch {
-        return v
-      }
+      if (!blob) throw new Error('تعذّرت قراءة أحد التسجيلات. لم تُنشأ نسخة احتياطية كاملة؛ حاولوا مجددًا.')
+      return { ...v, dataUrl: await blobToDataUrl(blob) }
     }),
   )
-  return JSON.stringify({ ...data, voices }, null, 2)
+  return JSON.stringify({ ...snapshot, voices }, null, 2)
 }
 
 /**
@@ -361,7 +411,7 @@ async function hydrateMedia(next: AppData): Promise<AppData> {
     next.voices.map(async (v) => {
       if (!v.dataUrl) return v
       try {
-        const key = v.localKey ?? newMediaKey()
+        const key = newMediaKey()
         await putAudio(key, await dataUrlToBlob(v.dataUrl))
         return { ...v, localKey: key, dataUrl: undefined }
       } catch {
@@ -371,8 +421,6 @@ async function hydrateMedia(next: AppData): Promise<AppData> {
     }),
   )
   const hydrated = { ...next, voices }
-  // تنظيف ما لم يعد مذكورًا في البيانات الجديدة
-  await keepOnly(voices.flatMap((v) => (v.localKey ? [v.localKey] : [])))
   return hydrated
 }
 
@@ -390,7 +438,17 @@ export async function importSnapshot(
   if (!migrated) {
     return { ok: false, error: 'الملف لا يبدو نسخة احتياطية من «طفلنا».' }
   }
-  const saved = await replaceAll(await hydrateMedia(migrated))
+  const previousKeys = data.voices.flatMap(v => v.localKey ? [v.localKey] : [])
+  const hydrated = await hydrateMedia(migrated)
+  const saved = await replaceAll(hydrated)
+  // لا نمسّ الأصوات القديمة إلا بعد تثبيت البيانات البديلة بنجاح.
+  if (saved) {
+    await keepOnly(data.voices.flatMap(v => v.localKey ? [v.localKey] : []))
+  } else {
+    for (const voice of hydrated.voices) {
+      if (voice.localKey && !previousKeys.includes(voice.localKey)) await deleteAudio(voice.localKey)
+    }
+  }
   return saved
     ? { ok: true }
     : { ok: false, error: 'تعذّر حفظ النسخة على هذا الجهاز — المساحة قد تكون ممتلئة.' }
@@ -566,11 +624,12 @@ export function addVoice(v: Omit<VoiceNote, 'id'>): Promise<boolean> {
 export function updateVoice(id: string, patch: Partial<Pick<VoiceNote, 'title'>>) {
   return commit({ voices: data.voices.map((v) => (v.id === id ? { ...v, ...patch } : v)) })
 }
-export function deleteVoice(id: string) {
-  // الملف الصوتي يُحذف من مخزن الوسائط أيضًا، وإلا بقي يشغل المساحة بلا صاحب
+export async function deleteVoice(id: string): Promise<boolean> {
   const key = data.voices.find((v) => v.id === id)?.localKey
-  if (key) void deleteAudio(key)
-  return commit({ voices: data.voices.filter((v) => v.id !== id) })
+  const saved = await commit({ voices: data.voices.filter((v) => v.id !== id) })
+  // لا نحذف الملف قبل أن يثبت حذف مرجعه، ولا إذا عاد المرجع أثناء الانتظار.
+  if (saved && key && !data.voices.some(v => v.localKey === key)) await deleteAudio(key)
+  return saved
 }
 
 // --- الكبسولة الزمنية ---
@@ -1135,9 +1194,10 @@ export function clearSyncedFamilyId(): Promise<boolean> {
 
 /** يمسح كل شيء ويعود لشاشة البداية — لا رجعة، تسبقه رسالة تأكيد في الواجهة */
 export async function resetAllData() {
-  // المسح يشمل مخزن الوسائط، وإلا بقيت التسجيلات تشغل المساحة بعد «مسح كل شيء»
-  await keepOnly([])
-  return replaceAll(emptyData())
+  const saved = await replaceAll(emptyData())
+  // حتى المسح الصريح لا يحذف الوسائط إذا فشل حفظ الحالة البديلة.
+  if (saved) await keepOnly(data.voices.flatMap(v => v.localKey ? [v.localKey] : []))
+  return saved
 }
 
 /** يملأ التطبيق ببيانات تجريبية لاستعراض الواجهات */

@@ -60,7 +60,8 @@ function tx<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequ
       new Promise<T>((resolve, reject) => {
         const transaction = db.transaction(STORE, mode)
         const request = run(transaction.objectStore(STORE))
-        request.onsuccess = () => resolve(request.result)
+        // نجاح الطلب لا يضمن تثبيت المعاملة على القرص.
+        transaction.oncomplete = () => resolve(request.result)
         request.onerror = () => reject(request.error ?? new Error('فشلت عملية على مخزن الوسائط'))
         transaction.onabort = () =>
           reject(transaction.error ?? new Error('أُلغيت عملية مخزن الوسائط'))

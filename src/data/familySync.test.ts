@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { LocalStorageAdapter } from './storage'
 
 // =============================================================
 // اختبارات مزامنة العائلة — بلا اتصال فعلي بـ Firebase.
@@ -140,6 +141,8 @@ type AppData = import('./types').AppData
 const PHOTO_DATA_URL = 'data:image/png;base64,AAAAPHOTO'
 const VOICE_DATA_URL = 'data:audio/webm;base64,BBBBVOICE'
 
+afterEach(() => vi.restoreAllMocks())
+
 beforeEach(async () => {
   fake.configured = true
   fake.store.clear()
@@ -189,6 +192,20 @@ describe('createFamilySync', () => {
 })
 
 describe('joinFamilySync', () => {
+  it('لا يعلن نجاح الربط إذا تعذّر حفظ البيانات الواردة محليًا', async () => {
+    const created = await createFamilySync()
+    stopFamilySync()
+    await flush()
+    vi.spyOn(LocalStorageAdapter.prototype, 'write').mockRejectedValueOnce(new Error('quota'))
+
+    const result = await joinFamilySync(created.code!)
+
+    expect(result.ok).toBe(false)
+    expect(getFamilySyncState().hydrated).toBe(false)
+    expect(getFamilySyncState().status).toBe('error')
+    expect(localStorage.getItem('tafalna:sync:v1')).toBeNull()
+  })
+
   it('يرفض الربط برمز غير موجود ولا يُنشئ عائلة جديدة به', async () => {
     const missingCode = 'Z'.repeat(43)
     const result = await joinFamilySync(missingCode)
@@ -316,6 +333,53 @@ describe('حلقة الدفع↔الصدى — أخطر عيب في المزام
 })
 
 describe('الكتابة التنافسية وإعادة الاتصال', () => {
+  it('يحفظ إضافتي الجهازين في السحابة ويبلّغ بفشل التثبيت المحلي ثم يستعيدهما عند إعادة الاتصال', async () => {
+    const created = await createFamilySync()
+    const code = created.code!
+    await addJournal({ text: 'محلي', date: '2026-08-10T00:00:00.000Z', author: 'mom' })
+    const remote = fake.store.get(code)!
+    remote.journal = [{ id: 'other-device', text: 'من الجهاز الآخر', date: '2026-08-11T00:00:00.000Z', author: 'dad' }]
+    fake.store.set(code, remote)
+    const write = vi.spyOn(LocalStorageAdapter.prototype, 'write').mockRejectedValue(new Error('quota'))
+
+    await pushToCloud(code, syncableSnapshot(code))
+
+    expect((fake.store.get(code)!.journal as Array<{ text: string }>).map((j) => j.text))
+      .toEqual(expect.arrayContaining(['محلي', 'من الجهاز الآخر']))
+    expect(getFamilySyncState().status).toBe('error')
+    expect(getFamilySyncState().hydrated).toBe(false)
+
+    write.mockRestore()
+    window.dispatchEvent(new Event('online'))
+    await vi.waitFor(() => expect(getFamilySyncState().hydrated).toBe(true))
+    const persisted = JSON.parse(localStorage.getItem('tafalna:v2')!) as AppData
+    expect(persisted.journal.map((j) => j.text))
+      .toEqual(expect.arrayContaining(['محلي', 'من الجهاز الآخر']))
+  })
+
+  it('يعيد محاولة حفظ اللقطة نفسها بعد فشل الحفظ المحلي ولا يعدّها صدى ناجحًا', async () => {
+    const created = await createFamilySync()
+    const code = created.code!
+    const write = vi.spyOn(LocalStorageAdapter.prototype, 'write')
+      .mockRejectedValueOnce(new Error('quota'))
+    const remote = {
+      ...fake.store.get(code)!,
+      journal: [{ id: 'after-save-failure', text: 'لا تضيع', date: '2026-08-11T00:00:00.000Z', author: 'dad' }],
+    }
+    fake.store.set(code, remote)
+    fake.listeners.get(code)!.forEach((cb) => cb({ exists: () => true, data: () => remote }))
+
+    await vi.waitFor(() => expect(getFamilySyncState().status).toBe('error'))
+    expect(getFamilySyncState().hydrated).toBe(false)
+    const writesAfterFailure = write.mock.calls.length
+
+    window.dispatchEvent(new Event('online'))
+    await vi.waitFor(() => expect(getFamilySyncState().hydrated).toBe(true))
+    expect(write.mock.calls.length).toBeGreaterThan(writesAfterFailure)
+    const persisted = JSON.parse(localStorage.getItem('tafalna:v2')!) as AppData
+    expect(persisted.journal.map((j) => j.id)).toContain('after-save-failure')
+  })
+
   it('يضم آخر نسخة السحابة قبل الكتابة فلا يضيع تعديل الطرف الآخر', async () => {
     const created = await createFamilySync()
     const code = created.code!
@@ -416,7 +480,7 @@ describe('استئناف المزامنة — لا إذن بالدفع قبل ق
     expect(getFamilySyncState().hydrated).toBe(false) // الجسر لا يدفع شيئًا
 
     fake.pending.forEach((fire) => fire()) // وصلت اللقطة أخيرًا
-    expect(getFamilySyncState().hydrated).toBe(true)
+    await vi.waitFor(() => expect(getFamilySyncState().hydrated).toBe(true))
   })
 })
 

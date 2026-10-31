@@ -47,6 +47,13 @@ export interface FamilySyncState {
    * يقول «متصل»، أي قبل أن يقرأ ما كتبه الطرف الآخر في غيابه — فيدهسه.
    */
   hydrated: boolean
+  /**
+   * ختم آخر تعديل لكل سجل **كما ثبت فعلًا في السحابة** (`syncMeta.rev`).
+   *
+   * هذا ما يُبنى عليه إقرار «تزامن مع العائلة» لسجل بعينه: لا وقت آخر
+   * مزامنة عام ولا نجاح الاتصال. لا يثبت أن الجهاز الآخر استلم السجل.
+   */
+  cloudRev: Record<string, string>
 }
 
 const IDLE_STATE: FamilySyncState = {
@@ -55,6 +62,7 @@ const IDLE_STATE: FamilySyncState = {
   error: null,
   lastSyncedAt: null,
   hydrated: false,
+  cloudRev: {},
 }
 
 let state: FamilySyncState = IDLE_STATE
@@ -251,7 +259,12 @@ function attachListener(code: string): void {
       // الإذن بالدفع يُمنح قبل فحص الصدى: حتى لو كان الوارد هو ما دفعناه
       // نحن، فقد صرنا نعرف ما في السحابة — وهذا كل ما ينتظره الجسر
       if (json === lastSeenJSON) {
-        setState({ status: 'connected', error: null, hydrated: true })
+        setState({
+          status: 'connected',
+          error: null,
+          hydrated: true,
+          cloudRev: remote.syncMeta?.rev ?? {},
+        })
         return // صدى كتابتنا نحن — ليس تغييرًا خارجيًا
       }
       // وصول اللقطة ليس نجاحًا للحفظ المحلي. لا نسجّلها كصدى محفوظ
@@ -273,6 +286,7 @@ function attachListener(code: string): void {
           error: null,
           hydrated: true,
           lastSyncedAt: new Date().toISOString(),
+          cloudRev: remote.syncMeta?.rev ?? {},
         })
       })
     },
@@ -303,7 +317,7 @@ export async function createFamilySync(): Promise<{
   bindNetworkEvents()
   cancelReconnect()
   reconnectAttempt = 0
-  setState({ status: 'connecting', error: null })
+  setState({ status: 'connecting', error: null, cloudRev: {} })
   try {
     await ensureAnonymousAuth()
 
@@ -324,7 +338,7 @@ export async function createFamilySync(): Promise<{
     lastSeenJSON = canonicalJSON(payload)
 
     persistCode(code)
-    setState({ status: 'connected', code, error: null, hydrated: false })
+    setState({ status: 'connected', code, error: null, hydrated: false, cloudRev: payload.syncMeta?.rev ?? {} })
     attachListener(code)
     setState({
       status: 'connected',
@@ -359,7 +373,7 @@ export async function joinFamilySync(rawCode: string): Promise<{ ok: boolean; er
   bindNetworkEvents()
   cancelReconnect()
   reconnectAttempt = 0
-  setState({ status: 'connecting', error: null })
+  setState({ status: 'connecting', error: null, cloudRev: {} })
   try {
     await ensureAnonymousAuth()
     const snap = await getDoc(familyDoc(code))
@@ -375,7 +389,7 @@ export async function joinFamilySync(rawCode: string): Promise<{ ok: boolean; er
     lastSeenJSON = canonicalJSON(remote)
 
     persistCode(code)
-    setState({ status: 'connected', code, error: null, hydrated: false })
+    setState({ status: 'connected', code, error: null, hydrated: false, cloudRev: remote.syncMeta?.rev ?? {} })
     attachListener(code)
     setState({
       status: 'connected',
@@ -458,7 +472,12 @@ async function writeSnapshot(code: string, snapshot: SyncedFields): Promise<void
   if (state.code !== code || state.status === 'idle') return
 
   const json = canonicalJSON(snapshot)
-  if (json === lastSeenJSON) return
+  if (json === lastSeenJSON) {
+    // السحابة تحمل هذه اللقطة نفسها: كل ما فيها مُقَرّ به
+    const rev = snapshot.syncMeta?.rev ?? {}
+    if (state.cloudRev !== rev) setState({ cloudRev: rev })
+    return
+  }
   try {
     const ref = familyDoc(code)
     let committed = snapshot
@@ -498,7 +517,11 @@ async function writeSnapshot(code: string, snapshot: SyncedFields): Promise<void
     // التسجيل بعد نجاح الكتابة لا قبلها: كان الفشل يُسجّل المحتوى كأنه
     // «وصل»، فلا يُعاد رفعه أبدًا ويبقى الطرف الآخر على نسخة أقدم بصمت.
     lastSeenJSON = committedJSON
-    setState({ error: null, lastSyncedAt: new Date().toISOString() })
+    setState({
+      error: null,
+      lastSyncedAt: new Date().toISOString(),
+      cloudRev: committed.syncMeta?.rev ?? {},
+    })
   } catch {
     if (state.code !== code) return
     setState({

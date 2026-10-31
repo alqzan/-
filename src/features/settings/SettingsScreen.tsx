@@ -20,6 +20,7 @@ import { audioUsage } from '../../data/mediaStore'
 import { localDateInputValue, localDateToIso } from '../../lib/localDate'
 import type { Gender } from '../../data/types'
 import FamilySyncCard from './FamilySyncCard'
+import TrackPrefsCard from './TrackPrefsCard'
 import { stopFamilySync } from '../../data/familySync'
 
 /**
@@ -179,6 +180,8 @@ export default function SettingsScreen() {
       </Card>
 
       <FamilySyncCard />
+
+      <TrackPrefsCard />
 
       {/* ===== المساحة ===== */}
       <div className="eyebrow mb-2.5 mt-7">المساحة على هذا الجهاز</div>

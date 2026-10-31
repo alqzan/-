@@ -34,10 +34,13 @@ import type { Parent } from '../data/types'
 export default function VoiceForm({
   author,
   authorPicker,
+  memoryId,
   onDone,
 }: {
   author: Parent
   authorPicker: React.ReactNode
+  /** يضيف التسجيل إلى هذه الذكرى (مرجع اختياري) */
+  memoryId?: string
   onDone: (message: string) => void
 }) {
   const [phase, setPhase] = useState<'idle' | 'recording' | 'ready'>('idle')
@@ -154,6 +157,7 @@ export default function VoiceForm({
       title: title.trim() || undefined,
       date: localDateToIso(date),
       author,
+      ...(memoryId ? { memoryId } : {}),
     })
     setBusy(false)
     if (ok) {

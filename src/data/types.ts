@@ -153,6 +153,12 @@ export interface Photo {
   authorUid?: string
   /** مميّزة بالقلب — تظهر في «المفضلة» وفي كتاب الذكريات */
   favorite?: boolean
+  /**
+   * الذكرى (JournalEntry.id) التي أُضيفت هذه الوسيطة إليها — اختياري وإضافي.
+   * الغياب يعني وسيطة مستقلة كما كانت دائمًا. إن لم توجد الذكرى (حُذفت أو
+   * لم تصل من الجهاز الآخر) تُعرض الوسيطة مستقلة ولا يُفقد منها شيء.
+   */
+  memoryId?: string
 }
 
 /**
@@ -183,6 +189,12 @@ export interface VoiceNote {
   date: string
   author: Parent
   authorUid?: string
+  /**
+   * الذكرى (JournalEntry.id) التي أُضيفت هذه الوسيطة إليها — اختياري وإضافي.
+   * الغياب يعني وسيطة مستقلة كما كانت دائمًا. إن لم توجد الذكرى (حُذفت أو
+   * لم تصل من الجهاز الآخر) تُعرض الوسيطة مستقلة ولا يُفقد منها شيء.
+   */
+  memoryId?: string
 }
 
 export interface JournalEntry {

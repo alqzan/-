@@ -21,6 +21,7 @@ import {
 import { Button, EmptyState, Field, Sheet, cx } from '../../components/ui'
 import { useCapture } from '../../components/Capture'
 import VoicePlayer from '../../components/VoicePlayer'
+import RecordSyncLine from '../../components/RecordSyncLine'
 import { buildShareCard, shareCard } from '../../lib/shareCard'
 import Confirm from '../../components/Confirm'
 import {
@@ -42,6 +43,7 @@ import { photoSrc } from '../../lib/image'
 import { useNow } from '../../lib/useNow'
 import {
   buildStory,
+  sameDayItems,
   chapterize,
   filterStory,
   searchStory,
@@ -369,7 +371,34 @@ function StoryEntry({ item, onOpen }: { item: StoryItem; onOpen: () => void }) {
             <VoicePlayer voice={item.voice} />
           </div>
         )}
+        {item.attachments && <AttachmentStrip attachments={item.attachments} />}
       </div>
+    </div>
+  )
+}
+
+/** الصور والتسجيلات المضافة إلى ذكرى: مصغّرات للصور ومشغّل لكل تسجيل */
+function AttachmentStrip({ attachments }: { attachments: NonNullable<StoryItem['attachments']> }) {
+  const { photos, voices } = attachments
+  if (photos.length === 0 && voices.length === 0) return null
+  return (
+    <div className="px-4 pb-4 -mt-1 space-y-3">
+      {photos.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto">
+          {photos.map((p) => (
+            <img
+              key={p.id}
+              src={photoSrc(p)}
+              alt={p.caption ?? 'صورة من الذكرى'}
+              className="w-20 h-20 rounded-xl object-cover border border-line shrink-0"
+              loading="lazy"
+            />
+          ))}
+        </div>
+      )}
+      {voices.map((v) => (
+        <VoicePlayer key={v.id} voice={v} />
+      ))}
     </div>
   )
 }
@@ -413,6 +442,26 @@ function MilestoneStoryEntry({
 
 // ============ تفاصيل العنصر ============
 
+/** صفحة المحطة: ما وُثّق في اليوم نفسه، للعرض فقط */
+function SameDayMemories({ item }: { item: StoryItem }) {
+  const data = useAppData()
+  const related = useMemo(() => sameDayItems(buildStory(data), item), [data, item])
+  if (related.length === 0) return null
+  return (
+    <div className="card !bg-paper-100 mb-4">
+      <div className="eyebrow mb-2">من اليوم نفسه</div>
+      <ul className="space-y-1.5">
+        {related.map((r) => (
+          <li key={r.key} className="text-[13px] text-ink-600 flex items-center gap-2">
+            <KindIcon kind={r.kind} className="w-3.5 h-3.5 shrink-0" />
+            <span className="line-clamp-1">{r.title || r.body || KIND_LABEL[r.kind]}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () => void }) {
   const data = useAppData()
   const [editing, setEditing] = useState(false)
@@ -420,7 +469,7 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
   const [title, setTitle] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [sharing, setSharing] = useState(false)
-  const { toast } = useCapture()
+  const { toast, open: openCapture } = useCapture()
 
   // نُهيّئ حقول التعديل عند فتح عنصر جديد
   const key = item?.key ?? ''
@@ -491,6 +540,9 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
         title={item.title || KIND_LABEL[item.kind]}
         subtitle={`${formatDate(item.date)}${item.author ? ` • بقلم ${parentLabel(item.author)}` : ''}`}
       >
+        {item.kind !== 'birth' && (
+          <RecordSyncLine id={item.id} mediaOnly={item.kind === 'photo' || item.kind === 'voice'} />
+        )}
         {item.photo && (
           <img
             src={photoSrc(item.photo)}
@@ -506,6 +558,22 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
             <VoicePlayer voice={item.voice} />
           </div>
         )}
+        {(item.kind === 'milestone' || item.kind === 'birth') && (
+          <SameDayMemories item={item} />
+        )}
+        {item.attachments?.photos.map((p) => (
+          <img
+            key={p.id}
+            src={photoSrc(p)}
+            alt={p.caption ?? 'صورة من الذكرى'}
+            className="w-full rounded-2xl border border-line mb-4"
+          />
+        ))}
+        {item.attachments?.voices.map((v) => (
+          <div key={v.id} className="card !bg-paper-100 mb-4">
+            <VoicePlayer voice={v} />
+          </div>
+        ))}
 
         {editing ? (
           <>
@@ -572,6 +640,28 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
                   <ShareIcon className="w-4 h-4" /> {sharing ? 'جارٍ التجهيز…' : 'مشاركة'}
                 </button>
               )}
+              {item.kind === 'letter' && (
+                <>
+                  <button
+                    onClick={() => {
+                      onClose()
+                      openCapture('photo', { memoryId: item.id })
+                    }}
+                    className="btn-ghost"
+                  >
+                    <CameraIcon className="w-4 h-4" /> إضافة صورة
+                  </button>
+                  <button
+                    onClick={() => {
+                      onClose()
+                      openCapture('voice', { memoryId: item.id })
+                    }}
+                    className="btn-ghost"
+                  >
+                    <MicIcon className="w-4 h-4" /> إضافة صوت
+                  </button>
+                </>
+              )}
               {editable && (
                 <button onClick={() => setEditing(true)} className="btn-ghost">
                   <EditIcon className="w-4 h-4" /> تعديل
@@ -593,7 +683,11 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
       <Confirm
         open={confirmDelete}
         title="حذف نهائي"
-        message="بيُحذف من الذكريات ومن الكتاب، ولا يمكن التراجع. متأكدين؟"
+        message={
+          item.attachments?.photos.length || item.attachments?.voices.length
+            ? 'بتُحذف هذه الذكرى ولا يمكن التراجع، أما صورها وتسجيلاتها فتبقى في الحكاية. متأكدين؟'
+            : 'بيُحذف من الذكريات ومن الكتاب، ولا يمكن التراجع. متأكدين؟'
+        }
         confirmLabel="احذف"
         onConfirm={remove}
         onCancel={() => setConfirmDelete(false)}

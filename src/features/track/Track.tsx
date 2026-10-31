@@ -27,7 +27,7 @@ import { MedsToday, NewbornHero, PregnancyHero } from '../today/Today'
 import { getPregnancyProgress } from '../../lib/pregnancy'
 import { dayKeyOf, dayPlan, dayProgress } from '../../lib/meds'
 import { formatDuration, relativeFromNow } from '../../lib/format'
-import { isSameLocalDay, localDateInputValue, localDateToIso } from '../../lib/localDate'
+import { ageInMonths, isSameLocalDay, localDateInputValue, localDateToIso } from '../../lib/localDate'
 import { useNow } from '../../lib/useNow'
 import type { AppData } from '../../data/types'
 
@@ -44,7 +44,9 @@ export default function Track() {
   return (
     <>
       <header className="pt-6 pb-5">
-        <div className="eyebrow">{born ? 'رعاية المولود' : 'الحمل والتجهيز'}</div>
+        <div className="eyebrow">
+          {born ? (data.child.bornAt && ageInMonths(data.child.bornAt) >= 12 ? 'رعاية الطفل' : 'رعاية المولود') : 'الحمل والتجهيز'}
+        </div>
         <h1 className="title-lg mt-1.5">المتابعة</h1>
       </header>
 
@@ -175,7 +177,10 @@ function BabyTools() {
   const lastGrowth = [...data.growth].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   )[0]
-  const dueVaccines = data.vaccines.filter((v) => !v.givenAt).length
+  // المستحق الآن فقط: جرعة بعد سنوات لا تُحسب «متبقّية» على أم لم يحن موعدها
+  const ageMonths = data.child.bornAt ? ageInMonths(data.child.bornAt) : 0
+  const pendingVaccines = data.vaccines.filter((v) => !v.givenAt)
+  const dueVaccines = pendingVaccines.filter((v) => v.dueMonths <= ageMonths).length
   const upcoming = data.appointments.filter((a) => new Date(a.dateTime).getTime() >= now).length
   const shopping = progressOf(data.checklist.filter((c) => c.list === 'shopping'))
   const meds = medsSummary(data, now)
@@ -221,7 +226,13 @@ function BabyTools() {
           to="/track/vaccines"
           icon={<SyringeIcon className="w-5 h-5" />}
           label="التطعيمات"
-          value={dueVaccines > 0 ? `${dueVaccines} متبقّية` : 'مكتملة'}
+          value={
+            dueVaccines > 0
+              ? `${dueVaccines} مستحقة`
+              : pendingVaccines.length > 0
+                ? 'لا شي مستحق الآن'
+                : 'مكتملة'
+          }
         />
         <ToolRow
           to="/track/meds"

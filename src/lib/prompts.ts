@@ -51,6 +51,30 @@ const BABY_PROMPTS = [
   'اكتبوا له شي تبونه يقراه لمّا يصير أب.',
 ]
 
+/** بعد السنة الأولى: الكلام والمشي والمشاكسة والأسئلة الصغيرة */
+const TODDLER_PROMPTS = [
+  'وش الكلمة الجديدة اللي قالها هالأسبوع؟ وكيف نطقها؟',
+  'وش اللعبة اللي ما يفارقها هالأيام؟',
+  'اكتبوا عن موقف عناد ضحّككم بعد ما عدّى.',
+  'وش أكلته وأعجبته، ووش رفضه بإصرار؟',
+  'وش الجملة اللي يكررها ويضحك عليها كل البيت؟',
+  'صفوا مشيته أو ركضته اليوم.',
+  'وش الشي اللي صار يسويه لحاله بعد ما كنتوا تسوونه له؟',
+  'وش السؤال اللي سأله اليوم وما عرفتوا كيف تجاوبون؟',
+  'وش الأغنية أو الكرتون اللي يطلبه كل يوم؟',
+  'مين أحب الناس إلى قلبه هالفترة؟ وكيف يعبّر لهم؟',
+  'وش أول مرة سوّى فيها شي بروحه وكان فخورًا؟',
+  'اكتبوا عن مكان أخذتوه له وكيف كان ردّ فعله.',
+  'وش الشي اللي يخاف منه، وكيف تطمّنونه؟',
+  'كيف يقول تصبحون على خير؟',
+  'وش الحركة أو الكلمة اللي تذكّركم بنفسكم وأنتم صغار؟',
+  'وش القصة اللي يطلب تعيدونها كل ليلة؟',
+  'وش الشي الصغير اللي ودّكم تحتفظون به من عمره هذا قبل ما يكبر؟',
+  'صفوا ضحكته اليوم، ومن أي شي ضحك؟',
+  'وش اللي تغيّر فيه من الشهر الماضي؟',
+  'اكتبوا له رسالة تقرأها لمّا يصير في المدرسة.',
+]
+
 /** رقم اليوم في السنة — أساس الثبات: التاريخ لا العشوائية */
 function dayOfYear(now: Date): number {
   const start = new Date(now.getFullYear(), 0, 0)
@@ -63,8 +87,12 @@ function dayOfYear(now: Date): number {
  * المباعدة بخطوة ثلث القائمة تضمن ألّا تتكرّر الفكرة (فـ٢×الخطوة أصغر من
  * طول القائمة دائمًا)، وألّا تكون الثلاث متجاورة في القائمة فتتشابه نبرتها.
  */
-export function promptsForToday(born: boolean, now: Date = new Date()): string[] {
-  const list = born ? BABY_PROMPTS : PREGNANCY_PROMPTS
+export function promptsForToday(
+  born: boolean,
+  now: Date = new Date(),
+  ageMonths?: number,
+): string[] {
+  const list = !born ? PREGNANCY_PROMPTS : (ageMonths ?? 0) >= 12 ? TODDLER_PROMPTS : BABY_PROMPTS
   const base = dayOfYear(now) % list.length
   const step = Math.max(1, Math.floor(list.length / 3))
   return [0, 1, 2].map((k) => list[(base + k * step) % list.length])
@@ -74,6 +102,6 @@ export function promptsForToday(born: boolean, now: Date = new Date()): string[]
  * سؤال اليوم — أولى أفكار اليوم بعينها، حتى يبقى سؤال الرئيسية
  * وسؤال نافذة الإضافة شيئًا واحدًا لا اثنين متنافرين.
  */
-export function promptOfTheDay(born: boolean, now: Date = new Date()): string {
-  return promptsForToday(born, now)[0]
+export function promptOfTheDay(born: boolean, now: Date = new Date(), ageMonths?: number): string {
+  return promptsForToday(born, now, ageMonths)[0]
 }

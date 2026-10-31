@@ -6,11 +6,11 @@ import VoicePlayer from '../../components/VoicePlayer'
 import { formatClock } from '../../lib/audio'
 import { EmbraceMark, Monogram } from '../../components/illustrations'
 import { useAppData } from '../../data/dataService'
-import { formatDate, parentLabel, pluralAr } from '../../lib/format'
+import { formatDate, parentLabel } from '../../lib/format'
 import { photoSrc } from '../../lib/image'
 import { getPregnancyProgress } from '../../lib/pregnancy'
-import { ageInDays } from '../../lib/localDate'
 import { stageLabel } from './timeline'
+import { bookAgeLabel, groupByPart } from './bookStructure'
 import type { Photo, VoiceNote } from '../../data/types'
 
 type Scope = 'favorites' | 'all'
@@ -28,7 +28,16 @@ type Scope = 'favorites' | 'all'
 type Entry =
   | { kind: 'photo'; date: string; photo: Photo }
   | { kind: 'voice'; date: string; voice: VoiceNote }
-  | { kind: 'journal'; date: string; title?: string; text: string; author: 'mom' | 'dad' }
+  | {
+      kind: 'journal'
+      date: string
+      title?: string
+      text: string
+      author: 'mom' | 'dad'
+      /** وسائط أُضيفت إلى هذه الذكرى — تُعرض داخلها لا بجانبها */
+      photos?: Photo[]
+      voices?: VoiceNote[]
+    }
   | { kind: 'milestone'; date: string; title: string; note?: string }
   | { kind: 'capsule'; date: string; title: string; message: string; author: 'mom' | 'dad' }
 
@@ -41,9 +50,17 @@ export default function MemoryBook() {
   /** كل الذكريات في خيط زمني واحد */
   const timeline = useMemo<Entry[]>(() => {
     const photos = scope === 'favorites' && favorites.length ? favorites : data.photos
+    // وسائط مربوطة بذكرى موجودة تُعرض داخلها؛ أما إن غابت الذكرى فتبقى
+    // مستقلة كما كانت، فلا يختفي شيء من الكتاب بأي حال
+    const memoryIds = new Set(data.journal.map((j) => j.id))
+    const inMemory = (m?: string) => !!m && memoryIds.has(m)
     const entries: Entry[] = [
-      ...photos.map((p): Entry => ({ kind: 'photo', date: p.date, photo: p })),
-      ...data.voices.map((v): Entry => ({ kind: 'voice', date: v.date, voice: v })),
+      ...photos
+        .filter((p) => !inMemory(p.memoryId))
+        .map((p): Entry => ({ kind: 'photo', date: p.date, photo: p })),
+      ...data.voices
+        .filter((v) => !inMemory(v.memoryId))
+        .map((v): Entry => ({ kind: 'voice', date: v.date, voice: v })),
       ...data.journal.map(
         (j): Entry => ({
           kind: 'journal',
@@ -51,6 +68,8 @@ export default function MemoryBook() {
           title: j.title,
           text: j.text,
           author: j.author,
+          photos: photos.filter((p) => p.memoryId === j.id),
+          voices: data.voices.filter((v) => v.memoryId === j.id),
         }),
       ),
       ...data.milestones
@@ -97,9 +116,13 @@ export default function MemoryBook() {
         }),
         stage: stageLabel(data.child, new Date(year, month - 1, 15)),
         entries,
+        date: entries[0].date,
       }
     })
   }, [timeline, data.child])
+
+  /** أجزاء الكتاب حسب العمر: الحمل، السنة الأولى، الثانية… */
+  const parts = useMemo(() => groupByPart(chapters, data.child.bornAt), [chapters, data.child.bornAt])
 
   const progress = getPregnancyProgress(data.child.lmpDate, data.child.dueDate)
   const childName = data.child.name || 'طفلنا'
@@ -177,10 +200,7 @@ export default function MemoryBook() {
               <>
                 وصل إلى الدنيا في {formatDate(data.child.bornAt)}
                 <br />
-                {(() => {
-                  const days = ageInDays(data.child.bornAt)
-                  return `عمره اليوم ${pluralAr(days, 'يوم واحد', 'يومان', 'أيام', 'يومًا')}`
-                })()}
+                {`عمره اليوم ${bookAgeLabel(data.child.bornAt)}`}
               </>
             ) : data.child.dueDate ? (
               <>
@@ -222,8 +242,39 @@ export default function MemoryBook() {
           </p>
         )}
 
-        {/* --- الفصول --- */}
-        {chapters.map((chapter) => (
+        {/* --- الفهرس: يظهر حين يتعدّد الأجزاء --- */}
+        {parts.length > 1 && (
+          <div role="navigation" aria-label="فهرس الكتاب" className="book-toc mb-12">
+            <h2 className="font-display font-bold text-[20px] text-ink-900 text-center mb-4">
+              في هذا الكتاب
+            </h2>
+            <ol className="space-y-2.5 max-w-xs mx-auto">
+              {parts.map(({ part, items }) => (
+                <li key={part.key} className="flex items-baseline gap-2">
+                  <a href={`#part-${part.key}`} className="font-medium text-ink-800">
+                    {part.title}
+                  </a>
+                  <span className="flex-1 border-b border-dotted border-line" />
+                  <span className="text-[12px] text-ink-400 tnum">
+                    {items.reduce((n, c) => n + c.entries.length, 0)}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {/* --- الأجزاء والفصول --- */}
+        {parts.map(({ part, items: partChapters }) => (
+        <div key={part.key} id={`part-${part.key}`} className="book-part">
+          {parts.length > 1 && (
+            <div className="text-center py-10">
+              <p className="eyebrow">{part.subtitle}</p>
+              <h2 className="font-display font-bold text-[30px] text-ink-900 mt-2">{part.title}</h2>
+              <span className="book-rule" />
+            </div>
+          )}
+        {partChapters.map((chapter) => (
           <section key={chapter.key} className="book-chapter mb-10">
             <h2 className="book-chapter-title text-center mb-6">
               <span className="block font-display font-bold text-[20px] text-ink-900">
@@ -240,6 +291,8 @@ export default function MemoryBook() {
               ))}
             </div>
           </section>
+        ))}
+        </div>
         ))}
 
         {/* --- الكبسولات التي لم تُفتح بعد --- */}
@@ -280,6 +333,8 @@ export default function MemoryBook() {
           <div className="book-rule" />
           <p className="font-serif text-ink-600 leading-relaxed">
             كل صفحة هنا كُتبت بحبّ لـ{childName}.
+            <br />
+            وما زالت الحكاية تُكتب.
           </p>
           <p className="text-[11px] text-ink-400 mt-2">
             من تطبيق «طفلنا» • {formatDate(new Date())}
@@ -368,6 +423,28 @@ function BookEntry({ entry }: { entry: Entry }) {
         {parentLabel(entry.author)} • {day}
       </div>
       <p className="prose-note whitespace-pre-wrap">{entry.text}</p>
+      {entry.photos && entry.photos.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          {entry.photos.map((p) => (
+            <img
+              key={p.id}
+              src={photoSrc(p)}
+              alt={p.caption ?? 'صورة من الذكرى'}
+              className="w-full aspect-square object-cover rounded-xl border border-line"
+            />
+          ))}
+        </div>
+      )}
+      {entry.voices?.map((v) => (
+        <div key={v.id} className="mt-3">
+          <div className="print:hidden">
+            <VoicePlayer voice={v} />
+          </div>
+          <div className="hidden print:block text-[13px] text-ink-500">
+            تسجيل مدّته {formatClock(v.durationSec)} — يُسمع داخل التطبيق.
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

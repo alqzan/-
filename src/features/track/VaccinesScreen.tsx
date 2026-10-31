@@ -9,17 +9,20 @@ import {
   setVaccineGiven,
   useAppData,
 } from '../../data/dataService'
-import { formatShortDate } from '../../lib/format'
+import { formatShortDate, pluralAr } from '../../lib/format'
 import { ageInMonths, localDateInputValue, localDateToIso } from '../../lib/localDate'
 import type { VaccineDose } from '../../data/types'
 
 function groupLabel(months: number): string {
   if (months === 0) return 'عند الولادة'
-  if (months < 12) return `عمر ${months} أشهر`
+  if (months < 12) return `عمر ${pluralAr(months, 'شهر', 'شهرين', 'أشهر', 'شهرًا')}`
   if (months === 12) return 'عمر سنة'
   if (months === 18) return 'عمر سنة ونصف'
-  if (months % 12 === 0) return `عمر ${months / 12} سنوات`
-  return `عمر ${months} شهرًا`
+  if (months % 12 === 0) {
+    const years = months / 12
+    return `عمر ${pluralAr(years, 'سنة', 'سنتين', 'سنوات', 'سنة')}`
+  }
+  return `عمر ${pluralAr(months, 'شهر', 'شهرين', 'أشهر', 'شهرًا')}`
 }
 
 export default function VaccinesScreen() {

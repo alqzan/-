@@ -259,6 +259,7 @@
   .prose-note {
     /* نص الرسائل والذكريات — سيرف للقراءة الطويلة */
     @apply font-serif text-[15.5px] leading-[1.9] text-ink-700;
+    overflow-wrap: anywhere;
   }
 
   /* فاصل زخرفي بنقطة في المنتصف */
@@ -362,8 +363,21 @@
     padding-top: 22vh;
   }
 
-  .book-chapter {
+  /* كل جزء يبدأ صفحة جديدة؛ الفصول الشهرية تتتابع داخله بلا صفحات شبه فارغة */
+  .book-toc {
+    break-after: page;
+  }
+
+  .book-part {
     break-before: page;
+  }
+
+  .book-part:first-of-type {
+    break-before: auto;
+  }
+
+  .book-chapter-title {
+    break-after: avoid;
   }
 
   .book-chapter-title,

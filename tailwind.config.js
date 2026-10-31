@@ -13,11 +13,11 @@ export default {
       colors: {
         // ===== الهوية: ورق دافئ + حبر + طين =====
         paper: {
-          50: '#FDFBF7',
-          100: '#F8F3EA',
-          200: '#F1E9DB',
-          300: '#E7DCC9',
-          400: '#D8C9B2',
+          50: 'rgb(var(--paper-50) / <alpha-value>)',
+          100: 'rgb(var(--paper-100) / <alpha-value>)',
+          200: 'rgb(var(--paper-200) / <alpha-value>)',
+          300: 'rgb(var(--paper-300) / <alpha-value>)',
+          400: 'rgb(var(--paper-400) / <alpha-value>)',
         },
         ink: {
           900: '#1B1714',
@@ -31,14 +31,14 @@ export default {
           100: '#E7DFD3',
         },
         clay: {
-          50: '#FBF1EB',
-          100: '#F4DED1',
-          200: '#E8C0AB',
-          300: '#D49B7C',
-          400: '#C0703F',
-          500: '#A9532A',
-          600: '#8C4020',
-          700: '#6E301A',
+          50: 'rgb(var(--clay-50) / <alpha-value>)',
+          100: 'rgb(var(--clay-100) / <alpha-value>)',
+          200: 'rgb(var(--clay-200) / <alpha-value>)',
+          300: 'rgb(var(--clay-300) / <alpha-value>)',
+          400: 'rgb(var(--clay-400) / <alpha-value>)',
+          500: 'rgb(var(--clay-500) / <alpha-value>)',
+          600: 'rgb(var(--clay-600) / <alpha-value>)',
+          700: 'rgb(var(--clay-700) / <alpha-value>)',
         },
         moss: {
           50: '#F0F3EE',
@@ -54,7 +54,7 @@ export default {
           500: '#96762F',
           600: '#775C22',
         },
-        line: '#E8DFD1',
+        line: 'rgb(var(--line) / <alpha-value>)',
       },
       borderRadius: {
         card: '1.125rem',

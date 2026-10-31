@@ -20,7 +20,9 @@ import {
 } from '../../components/icons'
 import { Button, Card, Field, Sheet, cx } from '../../components/ui'
 import { useCapture } from '../../components/Capture'
+import PregnancyAgeEditor from '../../components/PregnancyAgeEditor'
 import { updateChild, useAppData } from '../../data/dataService'
+import { MedsToday, NewbornHero, PregnancyHero } from '../today/Today'
 import { getPregnancyProgress } from '../../lib/pregnancy'
 import { dayKeyOf, dayPlan, dayProgress } from '../../lib/meds'
 import { formatDuration, relativeFromNow } from '../../lib/format'
@@ -36,6 +38,7 @@ import type { AppData } from '../../data/types'
 export default function Track() {
   const data = useAppData()
   const born = !!data.child.bornAt
+  const now = useNow(60000)
 
   return (
     <>
@@ -43,6 +46,18 @@ export default function Track() {
         <div className="eyebrow">{born ? 'رعاية المولود' : 'الحمل والتجهيز'}</div>
         <h1 className="title-lg mt-1.5">المتابعة</h1>
       </header>
+
+      {born ? (
+        <NewbornHero />
+      ) : (
+        <>
+          <PregnancyHero />
+          <div className="mt-2">
+            <PregnancyAgeEditor />
+          </div>
+        </>
+      )}
+      <MedsToday now={now} />
 
       {born ? <BabyTools /> : <PregnancyTools />}
     </>
@@ -69,25 +84,7 @@ function PregnancyTools() {
 
   return (
     <>
-      <Group title="الحمل">
-        <ToolRow
-          to="/track/development"
-          icon={<BellyIcon className="w-5 h-5" />}
-          label="تطوّر الجنين"
-          value={p ? `الأسبوع ${p.week}` : '—'}
-        />
-        <ToolRow
-          to="/track/kicks"
-          icon={<FootIcon className="w-5 h-5" />}
-          label="الركلات"
-          value={todayKicks > 0 ? `${todayKicks} اليوم` : lastKick ? relativeFromNow(lastKick.startedAt) : 'ابدأوا'}
-        />
-        <ToolRow
-          to="/track/contractions"
-          icon={<WaveIcon className="w-5 h-5" />}
-          label="الانقباضات"
-          value={data.contractions.length > 0 ? `${data.contractions.length} مسجّلة` : 'ابدأوا'}
-        />
+      <Group title="الصحة والمواعيد">
         <ToolRow
           to="/track/appointments"
           icon={<CalendarIcon className="w-5 h-5" />}
@@ -110,27 +107,59 @@ function PregnancyTools() {
         />
       </Group>
 
-      <Group title="التجهيزات">
-        <ToolRow
-          to="/track/names"
-          icon={<TagIcon className="w-5 h-5" />}
-          label="الأسماء"
-          value={votedNames > 0 ? `${votedNames} متفق عليها` : `${data.names.length} اقتراح`}
-        />
-        <ToolRow
-          to="/track/hospital"
-          icon={<BagIcon className="w-5 h-5" />}
-          label="شنطة المستشفى"
-          value={`${hospital.done}/${hospital.total}`}
-        />
-        <ToolRow
-          to="/track/shopping"
-          icon={<ListIcon className="w-5 h-5" />}
-          label="مشتريات المولود"
-          value={`${shopping.done}/${shopping.total}`}
-          last
-        />
-      </Group>
+      <details className="card mt-7 !p-0 overflow-hidden">
+        <summary className="cursor-pointer min-h-[52px] flex items-center px-4 py-3 text-sm font-medium text-ink-600">
+          أدوات إضافية وسجلاتها
+        </summary>
+        <div className="border-t border-line">
+          <ToolRow
+            to="/track/development"
+            icon={<BellyIcon className="w-5 h-5" />}
+            label="تطوّر الجنين"
+            value={p ? `الأسبوع ${p.week}` : '—'}
+          />
+          <ToolRow
+            to="/track/contractions"
+            icon={<WaveIcon className="w-5 h-5" />}
+            label="الانقباضات"
+            value={data.contractions.length > 0 ? `${data.contractions.length} مسجّلة` : 'ابدأوا'}
+          />
+          <ToolRow
+            to="/track/kicks"
+            icon={<FootIcon className="w-5 h-5" />}
+            label="الركلات"
+            value={todayKicks > 0 ? `${todayKicks} اليوم` : lastKick ? relativeFromNow(lastKick.startedAt) : 'اختياري'}
+            last
+          />
+        </div>
+      </details>
+
+      <details className="card mt-4 !p-0 overflow-hidden">
+        <summary className="cursor-pointer min-h-[52px] flex items-center px-4 py-3 text-sm font-medium text-ink-600">
+          التجهيزات
+        </summary>
+        <div className="border-t border-line">
+          <ToolRow
+            to="/track/names"
+            icon={<TagIcon className="w-5 h-5" />}
+            label="الأسماء"
+            value={votedNames > 0 ? `${votedNames} متفق عليها` : `${data.names.length} اقتراح`}
+          />
+          <ToolRow
+            to="/track/hospital"
+            icon={<BagIcon className="w-5 h-5" />}
+            label="شنطة المستشفى"
+            value={`${hospital.done}/${hospital.total}`}
+          />
+          <ToolRow
+            to="/track/shopping"
+            icon={<ListIcon className="w-5 h-5" />}
+            label="مشتريات المولود"
+            value={`${shopping.done}/${shopping.total}`}
+            last
+          />
+        </div>
+      </details>
 
       <BirthCard />
     </>
@@ -217,21 +246,26 @@ function BabyTools() {
         />
       </Group>
 
-      <Group title="التجهيزات">
-        <ToolRow
-          to="/track/shopping"
-          icon={<ListIcon className="w-5 h-5" />}
-          label="مشتريات المولود"
-          value={`${shopping.done}/${shopping.total}`}
-        />
-        <ToolRow
-          to="/track/hospital"
-          icon={<BagIcon className="w-5 h-5" />}
-          label="شنطة المستشفى"
-          value="محفوظة"
-          last
-        />
-      </Group>
+      <details className="card mt-4 !p-0 overflow-hidden">
+        <summary className="cursor-pointer min-h-[52px] flex items-center px-4 py-3 text-sm font-medium text-ink-600">
+          التجهيزات
+        </summary>
+        <div className="border-t border-line">
+          <ToolRow
+            to="/track/shopping"
+            icon={<ListIcon className="w-5 h-5" />}
+            label="مشتريات المولود"
+            value={`${shopping.done}/${shopping.total}`}
+          />
+          <ToolRow
+            to="/track/hospital"
+            icon={<BagIcon className="w-5 h-5" />}
+            label="شنطة المستشفى"
+            value="محفوظة"
+            last
+          />
+        </div>
+      </details>
     </>
   )
 }

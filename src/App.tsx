@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
-import { Route, Routes, useLocation } from 'react-router-dom'
+import { Link, Route, Routes, useLocation } from 'react-router-dom'
 import BottomNav from './components/BottomNav'
 import { CaptureProvider } from './components/Capture'
 import { EmbraceMark } from './components/illustrations'
+import { SettingsIcon } from './components/icons'
+import GenderTheme from './components/GenderTheme'
 import Today from './features/today/Today'
 import Story from './features/story/Story'
 import MemoryBook from './features/story/MemoryBook'
@@ -38,7 +40,14 @@ export default function App() {
     window.scrollTo(0, 0)
   }, [location.pathname])
 
-  if (status.loading) return <BootScreen />
+  if (status.loading) {
+    return (
+      <>
+        <GenderTheme />
+        <BootScreen />
+      </>
+    )
+  }
 
   // التحذير يسبق كل شيء — بما في ذلك شاشة البداية.
   // حين تتعذّر قراءة البيانات المحفوظة يبدو التطبيق وكأنه جديد تمامًا،
@@ -54,43 +63,57 @@ export default function App() {
   }
 
   return (
-    <CaptureProvider>
-      <FamilySyncBridge />
-      <div className="app-shell">
-        <StatusBanner status={status} />
-        <main className="screen animate-rise" key={location.pathname}>
-          <Routes>
-            <Route path="/" element={<Today />} />
+    <>
+      <GenderTheme />
+      <CaptureProvider>
+        <FamilySyncBridge />
+        <div className="app-shell">
+          <StatusBanner status={status} />
+          <main className="screen animate-rise" key={location.pathname}>
+            <Routes>
+              <Route path="/" element={<Track />} />
+              <Route path="/today" element={<Today />} />
 
-            <Route path="/story" element={<Story />} />
-            <Route path="/story/book" element={<MemoryBook />} />
-            <Route path="/story/capsules" element={<CapsulesScreen />} />
-            <Route path="/story/milestones" element={<MilestonesScreen />} />
+              <Route path="/story" element={<Story />} />
+              <Route path="/story/book" element={<MemoryBook />} />
+              <Route path="/story/capsules" element={<CapsulesScreen />} />
+              <Route path="/story/milestones" element={<MilestonesScreen />} />
 
-            <Route path="/track" element={<Track />} />
-            <Route path="/track/development" element={<DevelopmentScreen />} />
-            <Route path="/track/kicks" element={<KicksScreen />} />
-            <Route path="/track/contractions" element={<ContractionsScreen />} />
-            <Route path="/track/appointments" element={<AppointmentsScreen />} />
-            <Route path="/track/mom" element={<MomScreen />} />
-            <Route path="/track/meds" element={<MedsScreen />} />
-            <Route path="/track/feeding" element={<FeedingScreen />} />
-            <Route path="/track/diapers" element={<DiapersScreen />} />
-            <Route path="/track/sleep" element={<SleepScreen />} />
-            <Route path="/track/growth" element={<GrowthScreen />} />
-            <Route path="/track/vaccines" element={<VaccinesScreen />} />
-            <Route path="/track/names" element={<NamesScreen />} />
-            <Route path="/track/hospital" element={<ChecklistScreen list="hospital" />} />
-            <Route path="/track/shopping" element={<ChecklistScreen list="shopping" />} />
+              <Route path="/track" element={<Track />} />
+              <Route path="/track/development" element={<DevelopmentScreen />} />
+              <Route path="/track/kicks" element={<KicksScreen />} />
+              <Route path="/track/contractions" element={<ContractionsScreen />} />
+              <Route path="/track/appointments" element={<AppointmentsScreen />} />
+              <Route path="/track/mom" element={<MomScreen />} />
+              <Route path="/track/meds" element={<MedsScreen />} />
+              <Route path="/track/feeding" element={<FeedingScreen />} />
+              <Route path="/track/diapers" element={<DiapersScreen />} />
+              <Route path="/track/sleep" element={<SleepScreen />} />
+              <Route path="/track/growth" element={<GrowthScreen />} />
+              <Route path="/track/vaccines" element={<VaccinesScreen />} />
+              <Route path="/track/names" element={<NamesScreen />} />
+              <Route path="/track/hospital" element={<ChecklistScreen list="hospital" />} />
+              <Route path="/track/shopping" element={<ChecklistScreen list="shopping" />} />
 
-            <Route path="/settings" element={<SettingsScreen />} />
+              <Route path="/settings" element={<SettingsScreen />} />
 
-            <Route path="*" element={<Today />} />
-          </Routes>
-        </main>
-        <BottomNav />
-      </div>
-    </CaptureProvider>
+              <Route path="*" element={<Track />} />
+            </Routes>
+          </main>
+          <Link
+            to="/settings"
+            aria-label="الإعدادات"
+            title="الإعدادات"
+            className="absolute left-3 top-[calc(env(safe-area-inset-top)+0.375rem)] z-30
+                       w-10 h-10 rounded-full border border-line bg-paper-50 text-ink-400
+                       grid place-items-center transition hover:text-ink-800 print:hidden"
+          >
+            <SettingsIcon className="w-[18px] h-[18px]" />
+          </Link>
+          <BottomNav />
+        </div>
+      </CaptureProvider>
+    </>
   )
 }
 

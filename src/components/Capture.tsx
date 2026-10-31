@@ -74,9 +74,16 @@ type CaptureKind =
   | 'growth'
   | 'mom'
 
+/** `memoryId`: الوسيطة المحفوظة تُضاف إلى هذه الذكرى (مرجع اختياري) */
+interface CapturePrefill {
+  title?: string
+  text?: string
+  memoryId?: string
+}
+
 interface CaptureApi {
   /** يفتح لوحة التوثيق — بنوع محدّد أو على شاشة الاختيار */
-  open: (kind?: CaptureKind, prefill?: { title?: string; text?: string }) => void
+  open: (kind?: CaptureKind, prefill?: CapturePrefill) => void
   /** رسالة تأكيد قصيرة أسفل الشاشة */
   toast: (message: string) => void
 }
@@ -136,7 +143,7 @@ function useCaptureShortcut(open: CaptureApi['open']) {
 export function CaptureProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const [kind, setKind] = useState<CaptureKind | null>(null)
-  const [prefill, setPrefill] = useState<{ title?: string; text?: string }>({})
+  const [prefill, setPrefill] = useState<CapturePrefill>({})
   const [message, setMessage] = useState<string | null>(null)
   const timer = useRef<number | null>(null)
 
@@ -244,8 +251,8 @@ function CaptureSheet({
 }: {
   open: boolean
   kind: CaptureKind | null
-  prefill: { title?: string; text?: string }
-  onPick: (k: CaptureKind, prefill?: { title?: string; text?: string }) => void
+  prefill: CapturePrefill
+  onPick: (k: CaptureKind, prefill?: CapturePrefill) => void
   onBack: () => void
   onClose: () => void
   onDone: (message: string) => void
@@ -265,10 +272,10 @@ function CaptureSheet({
       {kind === null && (
         <ChooserView born={born} onPick={onPick} onDone={onDone} onClose={onClose} />
       )}
-      {kind === 'photo' && <PhotoForm onDone={onDone} />}
+      {kind === 'photo' && <PhotoForm memoryId={prefill.memoryId} onDone={onDone} />}
       {kind === 'letter' && <LetterForm prefill={prefill} onDone={onDone} />}
       {kind === 'quickMemory' && <LetterForm prefill={{}} quick onDone={onDone} />}
-      {kind === 'voice' && <VoiceFormShell onDone={onDone} />}
+      {kind === 'voice' && <VoiceFormShell memoryId={prefill.memoryId} onDone={onDone} />}
       {kind === 'milestone' && <MilestoneForm onDone={onDone} />}
       {kind === 'capsule' && <CapsuleForm onDone={onDone} />}
       {kind === 'appointment' && <AppointmentForm onDone={onDone} />}
@@ -664,12 +671,13 @@ function QuickButton({
  * غلاف نموذج الصوت: يمسك «بقلم مَن» هنا كي يبقى `VoiceForm` مشغولًا
  * بالتسجيل وحده، ويستخدم منتقي الكاتب نفسه الذي تستخدمه بقية النماذج.
  */
-function VoiceFormShell({ onDone }: { onDone: (m: string) => void }) {
+function VoiceFormShell({ onDone, memoryId }: { onDone: (m: string) => void; memoryId?: string }) {
   const [author, setAuthor] = useState<Parent>(lastAuthor())
   return (
     <VoiceForm
       author={author}
       authorPicker={<AuthorPicker value={author} onChange={setAuthor} />}
+      memoryId={memoryId}
       onDone={onDone}
     />
   )
@@ -713,7 +721,7 @@ function SaveBar({
   )
 }
 
-function PhotoForm({ onDone }: { onDone: (m: string) => void }) {
+function PhotoForm({ onDone, memoryId }: { onDone: (m: string) => void; memoryId?: string }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null)
   const [caption, setCaption] = useState('')
   const [date, setDate] = useState(localDateInputValue())
@@ -782,9 +790,10 @@ function PhotoForm({ onDone }: { onDone: (m: string) => void }) {
             caption: caption.trim() || undefined,
             date: localDateToIso(date),
             author,
+            ...(memoryId ? { memoryId } : {}),
           })
           setBusy(false)
-          if (ok) onDone('حُفظت الصورة في الحكاية')
+          if (ok) onDone(memoryId ? 'أُضيفت الصورة إلى الذكرى' : 'حُفظت الصورة في الحكاية')
           else setError('المساحة على الجهاز ممتلئة — احذفوا صورًا أو خذوا نسخة احتياطية.')
         }}
       />

@@ -50,6 +50,8 @@ export interface StoryItem {
   locked?: boolean
   /** التسجيل الصوتي — يُشغَّل داخل البطاقة */
   voice?: VoiceNote
+  /** وسائط أُضيفت إلى هذه الذكرى (صور/تسجيلات) */
+  attachments?: { photos: Photo[]; voices: VoiceNote[] }
 }
 
 export interface StoryChapter {
@@ -105,7 +107,7 @@ function voiceItem(v: VoiceNote): StoryItem {
   }
 }
 
-function letterItem(j: JournalEntry): StoryItem {
+function letterItem(j: JournalEntry, attachments?: { photos: Photo[]; voices: VoiceNote[] }): StoryItem {
   return {
     key: `letter:${j.id}`,
     id: j.id,
@@ -114,6 +116,7 @@ function letterItem(j: JournalEntry): StoryItem {
     title: j.title,
     body: j.text,
     author: j.author,
+    ...(attachments ? { attachments } : {}),
   }
 }
 
@@ -197,10 +200,24 @@ function formatDay(iso: string): string {
  * لا سجلًّا مفردًا، وإقحام «٣٫٤ كجم» بين رسالة وصورة يقطع نبرة الحكاية.
  */
 export function buildStory(data: AppData, now: Date = new Date()): StoryItem[] {
+  // الوسائط المربوطة بذكرى موجودة تُعرض داخلها لا بجانبها. الربط مرجع
+  // اختياري على الوسيطة؛ إن لم توجد الذكرى (حُذفت أو لم تصل) تبقى الوسيطة
+  // عنصرًا مستقلًا كما كانت، فلا يختفي شيء بأي حال.
+  const memoryIds = new Set(data.journal.map((j) => j.id))
+  const attached = (m?: string): m is string => !!m && memoryIds.has(m)
+  const attachments = new Map<string, { photos: Photo[]; voices: VoiceNote[] }>()
+  const bucket = (id: string) => {
+    let b = attachments.get(id)
+    if (!b) attachments.set(id, (b = { photos: [], voices: [] }))
+    return b
+  }
+  for (const p of data.photos) if (attached(p.memoryId)) bucket(p.memoryId).photos.push(p)
+  for (const v of data.voices) if (attached(v.memoryId)) bucket(v.memoryId).voices.push(v)
+
   const items: StoryItem[] = [
-    ...data.photos.map(photoItem),
-    ...data.journal.map(letterItem),
-    ...data.voices.map(voiceItem),
+    ...data.photos.filter((p) => !attached(p.memoryId)).map(photoItem),
+    ...data.journal.map((j) => letterItem(j, attachments.get(j.id))),
+    ...data.voices.filter((v) => !attached(v.memoryId)).map(voiceItem),
     ...data.milestones.map(milestoneItem).filter(isItem),
     ...data.capsules.map((c) => capsuleItem(c, now)),
     ...data.appointments.map((a) => appointmentItem(a, now)).filter(isItem),
@@ -214,10 +231,31 @@ function isItem(v: StoryItem | null): v is StoryItem {
   return v !== null
 }
 
+/**
+ * ذكريات اليوم نفسه — اقتراح للعرض داخل صفحة المحطة فقط. لا يُخزَّن ولا
+ * يربط شيئًا ولا ينقل سجلًّا؛ الاختيار الصريح للربط خطوة لاحقة منفصلة.
+ */
+export function sameDayItems(items: StoryItem[], target: StoryItem): StoryItem[] {
+  const day = (iso: string) => {
+    const d = new Date(iso)
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+  }
+  const wanted = day(target.date)
+  return items.filter(
+    (i) => i.key !== target.key && !i.locked && i.kind !== 'birth' && day(i.date) === wanted,
+  )
+}
+
 export function filterStory(items: StoryItem[], filter: StoryFilter): StoryItem[] {
   if (filter === 'all') return items
   const kinds = KIND_OF_FILTER[filter]
-  return items.filter((i) => kinds.includes(i.kind))
+  // ذكرى فيها صور أو تسجيلات تظهر أيضًا تحت «صور»/«صوت» كي لا تغيب عن مرشّحها
+  return items.filter(
+    (i) =>
+      kinds.includes(i.kind) ||
+      (filter === 'photo' && !!i.attachments?.photos.length) ||
+      (filter === 'voice' && !!i.attachments?.voices.length),
+  )
 }
 
 /**

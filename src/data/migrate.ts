@@ -261,6 +261,7 @@ const photo = (r: Record<string, unknown>): Photo | null => {
     author: parentOf(r.author),
     authorUid: str(r.authorUid),
     favorite: bool(r.favorite),
+    memoryId: str(r.memoryId),
   }
 }
 
@@ -294,6 +295,7 @@ const voice = (r: Record<string, unknown>): VoiceNote | null => {
     date: d,
     author: parentOf(r.author),
     authorUid: str(r.authorUid),
+    memoryId: str(r.memoryId),
   }
 }
 

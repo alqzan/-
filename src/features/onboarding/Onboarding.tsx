@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Button, Card, Field, FieldGroup, Segmented } from '../../components/ui'
 import { EmbraceMark } from '../../components/illustrations'
+import GenderTheme from '../../components/GenderTheme'
 import { completeSetup } from '../../data/dataService'
 import { localDateToIso } from '../../lib/localDate'
 import type { Gender } from '../../data/types'
@@ -56,6 +57,7 @@ export default function Onboarding() {
       }}
     >
       <div className="mx-auto max-w-[27rem]">
+        <GenderTheme gender={gender} />
         <div className="text-center mb-8">
           <EmbraceMark className="w-28 h-20 mx-auto text-clay-300" />
           <p className="eyebrow mt-4">طفلنا</p>

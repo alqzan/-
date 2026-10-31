@@ -14,8 +14,8 @@ import { localDateInputValue, localDateToIso } from '../../lib/localDate'
 import type { Milestone } from '../../data/types'
 
 // =============================================================
-// المعالم — قائمة «أوّل مرة» جاهزة، وكل واحدة تُسجَّل بتاريخها وذكرى مكتوبة.
-// المسجَّل يدخل الحكاية تلقائيًا في مكانه الزمني.
+// محطات الطفل — قائمة «أوّل مرة» جاهزة، وكل واحدة تُسجَّل بتاريخها وذكرى مكتوبة.
+// المسجَّل يدخل الذكريات في مكانه الزمني.
 // =============================================================
 
 export default function MilestonesScreen() {
@@ -24,7 +24,7 @@ export default function MilestonesScreen() {
   const [selected, setSelected] = useState<Milestone | null>(null)
   const achieved = data.milestones.filter((m) => m.achievedAt).length
 
-  // النسخة الحيّة من المعلم المفتوح حتى تنعكس التعديلات فورًا
+  // النسخة الحيّة من المحطة المفتوحة حتى تنعكس التعديلات فورًا
   const current = selected
     ? (data.milestones.find((m) => m.id === selected.id) ?? null)
     : null
@@ -37,13 +37,13 @@ export default function MilestonesScreen() {
   return (
     <>
       <ScreenHeader
-        title="المعالم"
+        title="أحداث الطفل"
         subtitle={`${achieved} من ${data.milestones.length} تحقّقت`}
         action={
           <button
             onClick={() => setOpen(true)}
             className="btn-icon !bg-ink-900 !text-paper-50 !border-ink-900 shrink-0 mt-0.5"
-            aria-label="معلم جديد"
+            aria-label="محطة جديدة"
           >
             <PlusIcon className="w-5 h-5" />
           </button>
@@ -52,7 +52,7 @@ export default function MilestonesScreen() {
 
       <Card className="mb-5">
         <p className="text-[13px] text-ink-500 leading-relaxed mb-3">
-          اضغطوا على أي معلم لتسجيل تاريخه وكتابة ذكرى عنه — ويظهر بعدها في الحكاية.
+          هنا محطات النمو التي تتابعونها، ومع كل واحدة يمكنكم تسجيل تاريخها وذكرى عنها لتظهر في الذكريات.
         </p>
         <ProgressBar value={data.milestones.length ? achieved / data.milestones.length : 0} />
       </Card>
@@ -115,7 +115,7 @@ function MilestoneSheet({
   const [note, setNote] = useState('')
   const [loadedId, setLoadedId] = useState<string | undefined>()
 
-  // إعادة التعبئة عند فتح معلم مختلف
+  // إعادة التعبئة عند فتح محطة مختلفة
   if (milestone && milestone.id !== loadedId) {
     setLoadedId(milestone.id)
     setDate(milestone.achievedAt ? milestone.achievedAt.slice(0, 10) : localDateInputValue())
@@ -168,7 +168,7 @@ function MilestoneSheet({
                   onClose()
                 }}
               >
-                إلغاء تحقّق المعلم
+                إلغاء تسجيل المحطة
               </Button>
             )}
 
@@ -178,9 +178,9 @@ function MilestoneSheet({
                 className="w-full !text-clay-600"
                 onClick={() =>
                   confirm({
-                    title: 'حذف هذا المعلم؟',
-                    message: 'بيُحذف المعلم والذكرى المكتوبة عنه نهائيًا.',
-                    confirmLabel: 'حذف المعلم',
+                    title: 'حذف هذه المحطة؟',
+                    message: 'بتُحذف المحطة والذكرى المكتوبة عنها نهائيًا.',
+                    confirmLabel: 'حذف المحطة',
                     onConfirm: () => {
                       void deleteMilestone(milestone.id)
                       onClose()
@@ -188,7 +188,7 @@ function MilestoneSheet({
                   })
                 }
               >
-                <TrashIcon className="w-5 h-5" /> حذف المعلم
+                <TrashIcon className="w-5 h-5" /> حذف المحطة
               </Button>
             )}
           </>
@@ -210,8 +210,8 @@ function AddMilestoneSheet({ open, onClose }: { open: boolean; onClose: () => vo
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="معلم جديد">
-      <Field label="العنوان">
+    <Sheet open={open} onClose={onClose} title="محطة جديدة">
+      <Field label="اسم المحطة">
         <input
           className="input"
           value={title}
@@ -221,7 +221,7 @@ function AddMilestoneSheet({ open, onClose }: { open: boolean; onClose: () => vo
         />
       </Field>
       <Button className="w-full mt-2" onClick={submit} disabled={!title.trim()}>
-        إضافة المعلم
+        إضافة المحطة
       </Button>
     </Sheet>
   )

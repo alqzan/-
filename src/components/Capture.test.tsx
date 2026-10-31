@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { CaptureProvider, useCapture } from './Capture'
 import { promptsForToday } from '../lib/prompts'
+import { boot, exportSnapshot, updateJournal } from '../data/dataService'
+import { emptyData } from '../data/seed'
+import * as dataService from '../data/dataService'
+import type { AppData } from '../data/types'
 
 // =============================================================
 // نافذة التوثيق في وضع الحمل.
@@ -29,6 +33,14 @@ function renderCapture() {
 
 const ideas = promptsForToday(false)
 
+beforeAll(async () => {
+  const seeded = emptyData()
+  localStorage.setItem('tafalna:v2', JSON.stringify(seeded))
+  await boot()
+})
+
+const snapshot = (): AppData => JSON.parse(exportSnapshot()) as AppData
+
 describe('نافذة التوثيق — الفتح والإغلاق', () => {
   it('تفتح على شاشة الاختيارات وتُغلق بزر الإغلاق', () => {
     renderCapture()
@@ -45,6 +57,55 @@ describe('نافذة التوثيق — الفتح والإغلاق', () => {
     renderCapture()
 
     expect(screen.queryByRole('button', { name: 'رجوع' })).toBeNull()
+  })
+})
+
+describe('الذكرى السريعة والمواعيد', () => {
+  it('تعرض الذكرى السريعة وموعدًا جديدًا مباشرةً في شاشة الالتقاط', () => {
+    renderCapture()
+
+    expect(screen.getByRole('button', { name: /ذكرى سريعة/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /موعد جديد/ })).toBeTruthy()
+  })
+
+  it('يحفظ نصًا بلا عنوان في اليوميات ويظل قابلًا للتحرير', async () => {
+    const before = snapshot().journal.length
+    renderCapture()
+    fireEvent.click(screen.getByRole('button', { name: /ذكرى سريعة/ }))
+
+    const note = screen.getByLabelText('الذكرى') as HTMLTextAreaElement
+    fireEvent.change(note, { target: { value: 'اشترينا أول ملابس له اليوم' } })
+    const save = screen.getByRole('button', { name: 'حفظ الذكرى' })
+    fireEvent.click(save)
+    fireEvent.click(save)
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    const saved = snapshot().journal
+    expect(saved).toHaveLength(before + 1)
+    expect(saved[0]).toMatchObject({
+      text: 'اشترينا أول ملابس له اليوم',
+      author: 'mom',
+    })
+    expect(saved[0].title).toBeUndefined()
+
+    await updateJournal(saved[0].id, { text: 'عدّلنا ذكرى الملابس' })
+    expect(snapshot().journal[0]).toMatchObject({ id: saved[0].id, text: 'عدّلنا ذكرى الملابس' })
+  })
+
+  it('يبقي الذكرى مفتوحة ونصها كما هو إذا تعذّر الحفظ', async () => {
+    const save = vi.spyOn(dataService, 'addJournal').mockResolvedValue(false)
+    renderCapture()
+    fireEvent.click(screen.getByRole('button', { name: /ذكرى سريعة/ }))
+
+    const note = screen.getByLabelText('الذكرى') as HTMLTextAreaElement
+    fireEvent.change(note, { target: { value: 'زرنا المستشفى اليوم' } })
+    fireEvent.click(screen.getByRole('button', { name: 'حفظ الذكرى' }))
+
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/لم تُحفظ/))
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(note.value).toBe('زرنا المستشفى اليوم')
+    expect(screen.queryByText('حُفظت الذكرى')).toBeNull()
+    save.mockRestore()
   })
 })
 

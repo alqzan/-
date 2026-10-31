@@ -30,8 +30,8 @@ export function daysSinceBackup(): number | null {
  * لأن نسخة بلا أصوات ليست نسخة. تُعطَّل فقط في مسار الانهيار حيث لا
  * يصحّ انتظار قراءة مخزن الوسائط.
  */
-export async function downloadBackup(includeMedia = true): Promise<string> {
-  const json = includeMedia ? await exportSnapshotWithMedia() : exportSnapshot()
+export async function downloadBackup(includeMedia = true, allowMissing = false): Promise<string> {
+  const json = includeMedia ? await exportSnapshotWithMedia({ allowMissing }) : exportSnapshot()
   const filename = `tafalna-backup-${localDateInputValue()}.json`
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -44,7 +44,8 @@ export async function downloadBackup(includeMedia = true): Promise<string> {
   // نحرّر الرابط بعد أن يلتقطه المتصفح
   setTimeout(() => URL.revokeObjectURL(url), 1000)
   try {
-    if (includeMedia) localStorage.setItem(LAST_BACKUP_KEY, localDateInputValue())
+    // النسخة الناقصة (allowMissing) لا تُحتسب كاملة: يبقى التذكير قائمًا
+    if (includeMedia && !allowMissing) localStorage.setItem(LAST_BACKUP_KEY, localDateInputValue())
   } catch {
     // تسجيل تاريخ النسخة ثانوي — لا يمنع نجاح التنزيل
   }

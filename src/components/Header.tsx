@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { BackIcon } from './icons'
 import type { ReactNode } from 'react'
 
@@ -18,11 +18,14 @@ export function ScreenHeader({
   action?: ReactNode
 }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  // فتح الشاشة مباشرة (رابط أو اختصار تطبيق) لا سجلّ قبلها: نرجع للرئيسية بدل ألّا يحدث شيء
+  const goBack = () => (location.key === 'default' ? navigate('/') : navigate(-1))
   return (
     <header className="flex items-start gap-3 pt-5 pb-5 print:hidden">
       {back && (
         <button
-          onClick={() => navigate(-1)}
+          onClick={goBack}
           className="btn-icon shrink-0 mt-0.5"
           aria-label="رجوع"
         >

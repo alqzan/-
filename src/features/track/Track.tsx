@@ -1,4 +1,7 @@
 import { useState, type ReactNode } from 'react'
+import { sleepMinutesOn } from '../../lib/sleep'
+import BirthdayNudge from '../../components/BirthdayNudge'
+import BackupNudge from '../../components/BackupNudge'
 import { useHiddenTools, type HideableTool } from '../../lib/trackPrefs'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -61,8 +64,11 @@ export default function Track() {
         </>
       )}
       <MedsToday now={now} />
+      {born && <BirthdayNudge />}
 
       {born ? <BabyTools /> : <PregnancyTools />}
+
+      <BackupNudge />
     </>
   )
 }
@@ -168,12 +174,12 @@ function BabyTools() {
   const data = useAppData()
   const now = useNow(30000)
 
-  const feeds = data.feedings.filter((f) => isSameLocalDay(f.startedAt))
+  const feeds = data.feedings.filter(
+    (f) => (f.kind === 'breast' || f.kind === 'bottle') && isSameLocalDay(f.startedAt),
+  )
   const diapers = data.diapers.filter((d) => isSameLocalDay(d.time))
   const openSleep = data.sleep.find((s) => !s.endedAt)
-  const sleepMin = data.sleep
-    .filter((s) => s.endedAt && isSameLocalDay(s.startedAt))
-    .reduce((sum, s) => sum + (new Date(s.endedAt!).getTime() - new Date(s.startedAt).getTime()) / 60000, 0)
+  const sleepMin = sleepMinutesOn(data.sleep)
   const lastGrowth = [...data.growth].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   )[0]

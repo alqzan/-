@@ -254,7 +254,8 @@ export interface ChecklistItem {
 
 // ===== رعاية المولود (تُفعّل بعد الولادة — مرحلة لاحقة) =====
 
-export type FeedingKind = 'breast' | 'bottle'
+/** حليب (طبيعي/رضّاعة) ثم أطعمة وأشربة للأكبر سنًا: طعام، كوب، وجبة خفيفة */
+export type FeedingKind = 'breast' | 'bottle' | 'solid' | 'cup' | 'snack'
 export type BreastSide = 'left' | 'right'
 
 export interface Feeding {
@@ -264,9 +265,11 @@ export interface Feeding {
   durationMin?: number
   side?: BreastSide
   amountMl?: number
+  /** وصف حر لطعام أو شراب (عصيدة، موز…) */
+  note?: string
 }
 
-export type DiaperKind = 'wet' | 'dirty' | 'both'
+export type DiaperKind = 'wet' | 'dirty' | 'both' | 'potty'
 
 export interface Diaper {
   id: string

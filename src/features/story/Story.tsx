@@ -154,6 +154,7 @@ export default function Story() {
               <button
                 key={f.value}
                 onClick={() => setFilter(f.value)}
+                aria-pressed={filter === f.value}
                 className={cx(
                   'shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition duration-200',
                   filter === f.value
@@ -193,6 +194,7 @@ export default function Story() {
         {searching && (
           <input
             className="input mt-2.5 !py-2.5"
+            aria-label="بحث في الحكاية"
             placeholder="ابحثوا في الرسائل والتعليقات…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -489,7 +491,11 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
   if (!item) return null
 
   const editable = ['photo', 'letter', 'milestone', 'voice'].includes(item.kind)
-  const deletable = ['photo', 'letter', 'milestone', 'capsule', 'voice'].includes(item.kind)
+  // المحطات الجاهزة لا تُحذف من هنا (شاشة الأحداث لا تحذفها أيضًا ولا تعيدها)
+  const builtInMilestone =
+    item.kind === 'milestone' && !!data.milestones.find((m) => m.id === item.id)?.builtIn
+  const deletable =
+    ['photo', 'letter', 'milestone', 'capsule', 'voice'].includes(item.kind) && !builtInMilestone
   // الكبسولة المقفلة لا تُشارَك: نصّها سرّ حتى موعده
   const shareable = !item.locked
 
@@ -538,12 +544,17 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
   }
 
   const remove = async () => {
-    if (item.kind === 'photo') await deletePhoto(item.id)
-    else if (item.kind === 'letter') await deleteJournal(item.id)
-    else if (item.kind === 'milestone') await deleteMilestone(item.id)
-    else if (item.kind === 'capsule') await deleteCapsule(item.id)
-    else if (item.kind === 'voice') await deleteVoice(item.id)
+    let ok = true
+    if (item.kind === 'photo') ok = await deletePhoto(item.id)
+    else if (item.kind === 'letter') ok = await deleteJournal(item.id)
+    else if (item.kind === 'milestone') ok = await deleteMilestone(item.id)
+    else if (item.kind === 'capsule') ok = await deleteCapsule(item.id)
+    else if (item.kind === 'voice') ok = await deleteVoice(item.id)
     setConfirmDelete(false)
+    if (!ok) {
+      toast('لم يتم الحذف — تعذّر حفظ التغيير على هذا الجهاز')
+      return
+    }
     onClose()
     toast('حُذف العنصر')
   }

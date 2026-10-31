@@ -387,16 +387,37 @@ export function exportSnapshot(): string {
  * بدون هذا يكون «النسخ الاحتياطي» كذبة لطيفة: ملف يستعيد كل شيء
  * إلا أصوات الوالدين. الملف يكبر، وهذا ثمن مقبول لضمانة لا تُنقَض.
  */
-export async function exportSnapshotWithMedia(): Promise<string> {
+/** تعذّرت قراءة ملف صوتي واحد أو أكثر عند تجهيز النسخة الكاملة */
+export class MissingMediaError extends Error {
+  readonly missing: number
+  constructor(missing: number) {
+    super(
+      `تعذّرت قراءة ${missing} من التسجيلات الصوتية. لم تُنشأ نسخة احتياطية كاملة؛ حاولوا مجددًا، أو نزّلوا نسخة بدون التسجيلات التي تعذّرت قراءتها.`,
+    )
+    this.name = 'MissingMediaError'
+    this.missing = missing
+  }
+}
+
+/**
+ * `allowMissing`: خيار صريح يختاره المستخدم بعد الفشل — تُنزَّل النسخة وتبقى
+ * التسجيلات المفقودة كمرجع فقط. الافتراضي صارم: لا نسخة «كاملة» ناقصة بصمت.
+ */
+export async function exportSnapshotWithMedia(options: { allowMissing?: boolean } = {}): Promise<string> {
   const snapshot = data
+  let missing = 0
   const voices = await Promise.all(
     snapshot.voices.map(async (v) => {
       if (v.dataUrl || !v.localKey) return v
       const blob = await getAudio(v.localKey)
-      if (!blob) throw new Error('تعذّرت قراءة أحد التسجيلات. لم تُنشأ نسخة احتياطية كاملة؛ حاولوا مجددًا.')
+      if (!blob) {
+        missing += 1
+        return v
+      }
       return { ...v, dataUrl: await blobToDataUrl(blob) }
     }),
   )
+  if (missing > 0 && !options.allowMissing) throw new MissingMediaError(missing)
   return JSON.stringify({ ...snapshot, voices }, null, 2)
 }
 
@@ -726,6 +747,7 @@ export function addFeeding(f: {
   durationMin?: number
   side?: BreastSide
   amountMl?: number
+  note?: string
 }) {
   const entry: Feeding = { ...f, id: uid() }
   return commit({ feedings: [entry, ...data.feedings] })

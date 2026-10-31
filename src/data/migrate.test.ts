@@ -256,4 +256,26 @@ describe('دفتر التغييرات (syncMeta)', () => {
     expect(result).not.toBeNull()
     expect(result!.syncMeta).toEqual({ rev: {}, deleted: {} })
   })
+
+  it('أنواع التغذية والمرحاض الجديدة تُحفظ، والبيانات القديمة وغير المعروف كما كانا', () => {
+    const base = emptyData()
+    const out = migrate({
+      ...JSON.parse(JSON.stringify(base)),
+      setupComplete: true,
+      feedings: [
+        { id: 'f1', startedAt: '2026-01-01T08:00:00.000Z', kind: 'breast', side: 'left' },
+        { id: 'f2', startedAt: '2026-01-01T09:00:00.000Z', kind: 'solid', note: 'عصيدة' },
+        { id: 'f3', startedAt: '2026-01-01T10:00:00.000Z', kind: 'cup', amountMl: 200 },
+        { id: 'f4', startedAt: '2026-01-01T11:00:00.000Z', kind: 'غريب' },
+      ],
+      diapers: [
+        { id: 'd1', time: '2026-01-01T08:00:00.000Z', kind: 'both' },
+        { id: 'd2', time: '2026-01-01T09:00:00.000Z', kind: 'potty' },
+      ],
+    })!
+    expect(out.feedings.map((f) => f.kind)).toEqual(['breast', 'solid', 'cup', 'bottle'])
+    expect(out.feedings[1]!.note).toBe('عصيدة')
+    expect(out.feedings[2]!.amountMl).toBe(200)
+    expect(out.diapers.map((d) => d.kind)).toEqual(['both', 'potty'])
+  })
 })

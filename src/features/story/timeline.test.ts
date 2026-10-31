@@ -126,6 +126,24 @@ describe('buildStory', () => {
     expect(capsule.date).toBe('2026-05-01T12:00:00.000Z')
   })
 
+  it('كبسولة حلّ موعدها ولم تُفتح تبقى مغلقة في الحكاية، وبعد فتحها يظهر نصّها', () => {
+    const capsule = {
+      id: 'c2',
+      title: 'إلى ابننا',
+      message: 'اقرأها الآن',
+      author: 'mom' as const,
+      openAt: '2026-06-01T12:00:00.000Z',
+      createdAt: '2026-05-01T12:00:00.000Z',
+      isOpened: false,
+    }
+    const [closed] = buildStory(makeData({ capsules: [capsule] }), NOW)
+    expect(closed.locked).toBe(true)
+    expect(closed.body).toBeUndefined()
+    const [opened] = buildStory(makeData({ capsules: [{ ...capsule, isOpened: true }] }), NOW)
+    expect(opened.locked).toBe(false)
+    expect(opened.body).toBe('اقرأها الآن')
+  })
+
   it('يضيف يوم الولادة كعنصر في الحكاية', () => {
     const base = emptyData()
     const data = makeData({

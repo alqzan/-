@@ -362,10 +362,11 @@ const feeding = (r: Record<string, unknown>): Feeding | null => {
   return {
     id: id(r.id),
     startedAt,
-    kind: oneOf(r.kind, ['breast', 'bottle'] as const) ?? 'bottle',
+    kind: oneOf(r.kind, ['breast', 'bottle', 'solid', 'cup', 'snack'] as const) ?? 'bottle',
     durationMin: num(r.durationMin),
     side: oneOf(r.side, ['left', 'right'] as const),
     amountMl: num(r.amountMl),
+    note: str(r.note),
   }
 }
 
@@ -375,7 +376,7 @@ const diaper = (r: Record<string, unknown>): Diaper | null => {
   return {
     id: id(r.id),
     time,
-    kind: oneOf(r.kind, ['wet', 'dirty', 'both'] as const) ?? 'wet',
+    kind: oneOf(r.kind, ['wet', 'dirty', 'both', 'potty'] as const) ?? 'wet',
   }
 }
 

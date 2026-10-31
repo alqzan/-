@@ -36,6 +36,7 @@ import {
   updatePhoto,
   useAppData,
 } from '../../data/dataService'
+import LifeEvents from './LifeEvents'
 import { formatDate, parentLabel, pluralAr } from '../../lib/format'
 import { photoSrc } from '../../lib/image'
 import { useNow } from '../../lib/useNow'
@@ -58,9 +59,9 @@ import {
 const FILTERS: Array<{ value: StoryFilter; label: string }> = [
   { value: 'all', label: 'الكل' },
   { value: 'photo', label: 'صور' },
-  { value: 'letter', label: 'رسائل' },
+  { value: 'letter', label: 'ذكريات مكتوبة' },
   { value: 'voice', label: 'أصوات' },
-  { value: 'milestone', label: 'لحظات' },
+  { value: 'milestone', label: 'محطات' },
 ]
 
 export default function Story() {
@@ -91,8 +92,17 @@ export default function Story() {
   return (
     <>
       <header className="pt-6 pb-4">
-        <div className="eyebrow">سيرة {data.child.name || 'صغيرنا'}</div>
-        <h1 className="title-lg mt-1.5">الحكاية</h1>
+        <div className="eyebrow">من بداية الحمل إلى اليوم</div>
+        <div className="flex items-center justify-between gap-3 mt-1.5">
+          <h1 className="title-lg">الذكريات</h1>
+          <button
+            type="button"
+            onClick={() => open('quickMemory')}
+            className="btn-outline !py-2 !px-3 shrink-0 text-[13px]"
+          >
+            <FeatherIcon className="w-4 h-4" /> اكتبوا ذكرى
+          </button>
+        </div>
         <p className="text-[13px] text-ink-400 mt-1.5">
           {pluralAr(stats.photos, 'صورة واحدة', 'صورتان', 'صور', 'صورة')}
           {' • '}
@@ -100,12 +110,14 @@ export default function Story() {
           {' • '}
           {pluralAr(stats.voices, 'تسجيل واحد', 'تسجيلان', 'تسجيلات', 'تسجيلًا')}
           {' • '}
-          {pluralAr(stats.milestones, 'لحظة واحدة', 'لحظتان', 'لحظات', 'لحظة')}
+          {pluralAr(stats.milestones, 'محطة واحدة', 'محطتان', 'محطات', 'محطة')}
         </p>
       </header>
 
-      {/* أبواب الحكاية الثلاثة */}
-      <div className="grid grid-cols-3 gap-2.5">
+      <LifeEvents stage={data.child.bornAt ? 'child' : 'pregnancy'} milestones={data.milestones} />
+
+      {/* أدوات الذكريات تبقى خفيفة؛ مساحة الخيط للمحتوى نفسه. */}
+      <nav aria-label="أدوات الذكريات" className="flex items-center gap-4 border-y border-line py-2.5">
         <DoorButton
           icon={<StoryIcon className="w-5 h-5" />}
           label="الكتاب"
@@ -113,7 +125,7 @@ export default function Story() {
         />
         <DoorButton
           icon={<StarIcon className="w-5 h-5" />}
-          label="المعالم"
+          label="أحداث الطفل"
           onClick={() => navigate('/story/milestones')}
         />
         <DoorButton
@@ -121,7 +133,7 @@ export default function Story() {
           label="الكبسولات"
           onClick={() => navigate('/story/capsules')}
         />
-      </div>
+      </nav>
 
       {/* الفلاتر والبحث */}
       {/* يلتصق تحت شريط الحالة لا خلفه (الصفحة تمتدّ خلف الشقّ) */}
@@ -185,7 +197,7 @@ export default function Story() {
       {empty ? (
         <EmptyState
           icon={<CameraIcon className="w-6 h-6" />}
-          title={query || filter !== 'all' || favoritesOnly ? 'ما فيه شي هنا' : 'الحكاية ما بدأت بعد'}
+          title={query || filter !== 'all' || favoritesOnly ? 'ما فيه شي هنا' : 'الذكريات ما بدأت بعد'}
           hint={
             query || filter !== 'all' || favoritesOnly
               ? 'جرّبوا فلترًا آخر أو امسحوا البحث.'
@@ -239,10 +251,11 @@ function DoorButton({
   return (
     <button
       onClick={onClick}
-      className="card card-press !p-3 flex flex-col items-center gap-1.5 text-ink-700"
+      type="button"
+      className="flex items-center gap-1.5 text-[12px] font-medium text-ink-500 hover:text-ink-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-clay-500 rounded-lg"
     >
-      <span className="text-clay-500">{icon}</span>
-      <span className="text-[13px] font-medium">{label}</span>
+      <span className="text-clay-500 [&>svg]:w-4 [&>svg]:h-4">{icon}</span>
+      <span>{label}</span>
     </button>
   )
 }
@@ -251,9 +264,9 @@ function DoorButton({
 
 const KIND_LABEL: Record<StoryItem['kind'], string> = {
   photo: 'صورة',
-  letter: 'رسالة',
+  letter: 'ذكرى مكتوبة',
   voice: 'رسالة صوتية',
-  milestone: 'لحظة أولى',
+  milestone: 'محطة كبيرة',
   capsule: 'رسالة للمستقبل',
   appointment: 'موعد',
   birth: 'الولادة',
@@ -280,6 +293,10 @@ function KindIcon({ kind, className }: { kind: StoryItem['kind']; className?: st
 function StoryEntry({ item, onOpen }: { item: StoryItem; onOpen: () => void }) {
   const day = new Date(item.date).getDate()
   const highlight = item.kind === 'birth' || item.kind === 'milestone'
+
+  if (highlight) {
+    return <MilestoneStoryEntry item={item} onOpen={onOpen} day={day} />
+  }
 
   return (
     <div className="relative pb-4">
@@ -353,6 +370,43 @@ function StoryEntry({ item, onOpen }: { item: StoryItem; onOpen: () => void }) {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function MilestoneStoryEntry({
+  item,
+  onOpen,
+  day,
+}: {
+  item: StoryItem
+  onOpen: () => void
+  day: number
+}) {
+  const birth = item.kind === 'birth'
+  return (
+    <div className="relative pb-4">
+      <span className="timeline-node timeline-node-active" />
+      <button
+        onClick={onOpen}
+        className="card card-press !p-0 overflow-hidden w-full text-right"
+      >
+        <div className="flex min-h-[6.5rem]">
+          <div className={cx('w-1.5 shrink-0', birth ? 'bg-brass-400' : 'bg-clay-400')} />
+          <div className="p-4 flex-1 min-w-0">
+            <div className={cx('flex items-center gap-2 text-[11px] mb-2', birth ? 'text-brass-700' : 'text-clay-600')}>
+              <StarIcon className="w-3.5 h-3.5" />
+              <span>{birth ? 'يوم الولادة' : 'محطة كبيرة'}</span>
+              <span className="text-ink-200">•</span>
+              <span className="tnum">{day} {new Date(item.date).toLocaleDateString('ar', { month: 'long' })}</span>
+            </div>
+            <h3 className="font-display font-bold text-[18px] text-ink-900 leading-snug">
+              {item.title}
+            </h3>
+            {item.body && <p className="prose-note mt-1.5 line-clamp-3">{item.body}</p>}
+          </div>
+        </div>
+      </button>
     </div>
   )
 }
@@ -539,7 +593,7 @@ function DetailSheet({ item, onClose }: { item: StoryItem | null; onClose: () =>
       <Confirm
         open={confirmDelete}
         title="حذف نهائي"
-        message="بيُحذف من الحكاية ومن كتاب الذكريات ولا يمكن التراجع. متأكدين؟"
+        message="بيُحذف من الذكريات ومن الكتاب، ولا يمكن التراجع. متأكدين؟"
         confirmLabel="احذف"
         onConfirm={remove}
         onCancel={() => setConfirmDelete(false)}

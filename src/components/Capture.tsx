@@ -65,6 +65,7 @@ import type { AppointmentType, Mood, Parent } from '../data/types'
 type CaptureKind =
   | 'photo'
   | 'letter'
+  | 'quickMemory'
   | 'voice'
   | 'milestone'
   | 'capsule'
@@ -222,6 +223,7 @@ function ToastHost({ message }: { message: string | null }) {
 const TITLES: Record<CaptureKind, string> = {
   photo: 'صورة',
   letter: 'رسالة',
+  quickMemory: 'ذكرى سريعة',
   voice: 'رسالة صوتية',
   milestone: 'لحظة أولى',
   capsule: 'رسالة للمستقبل',
@@ -264,6 +266,7 @@ function CaptureSheet({
       )}
       {kind === 'photo' && <PhotoForm onDone={onDone} />}
       {kind === 'letter' && <LetterForm prefill={prefill} onDone={onDone} />}
+      {kind === 'quickMemory' && <LetterForm prefill={{}} quick onDone={onDone} />}
       {kind === 'voice' && <VoiceFormShell onDone={onDone} />}
       {kind === 'milestone' && <MilestoneForm onDone={onDone} />}
       {kind === 'capsule' && <CapsuleForm onDone={onDone} />}
@@ -301,13 +304,27 @@ const MEMORIES: Array<{ kind: CaptureKind; label: string; hint: string; icon: Re
   { kind: 'photo', label: 'صورة', hint: 'بالصورة', icon: <CameraIcon className="w-6 h-6" /> },
   { kind: 'voice', label: 'صوت', hint: 'بصوتكم', icon: <MicIcon className="w-6 h-6" /> },
   { kind: 'letter', label: 'رسالة', hint: 'بالكلمات', icon: <FeatherIcon className="w-6 h-6" /> },
+  { kind: 'appointment', label: 'موعد جديد', hint: 'للمستشفى أو غيره', icon: <CalendarIcon className="w-6 h-6" /> },
 ]
 
 function MemorySection({ onPick }: { onPick: (k: CaptureKind) => void }) {
   return (
     <section>
       <div className="eyebrow mb-2.5">احفظوا الذكرى</div>
-      <div className="grid grid-cols-3 gap-2.5">
+      <button
+        onClick={() => onPick('quickMemory')}
+        className="card card-press w-full !p-4 mb-2.5 flex items-center gap-3 text-right
+                   !bg-clay-50 !border-clay-100 min-h-[4.75rem]"
+      >
+        <span className="w-11 h-11 rounded-full bg-white text-clay-500 grid place-items-center shrink-0">
+          <FeatherIcon className="w-5 h-5" />
+        </span>
+        <span>
+          <span className="block font-display font-bold text-[15px] text-ink-900">ذكرى سريعة</span>
+          <span className="block text-[12px] text-ink-400 mt-0.5">اشترينا أول ملابس له… أو زرنا المستشفى اليوم</span>
+        </span>
+      </button>
+      <div className="grid grid-cols-2 gap-2.5">
         {MEMORIES.map((m) => (
           <button
             key={m.kind}
@@ -770,9 +787,11 @@ function PhotoForm({ onDone }: { onDone: (m: string) => void }) {
 
 function LetterForm({
   prefill,
+  quick = false,
   onDone,
 }: {
   prefill: { title?: string; text?: string }
+  quick?: boolean
   onDone: (m: string) => void
 }) {
   const [title, setTitle] = useState(prefill.title ?? '')
@@ -780,43 +799,79 @@ function LetterForm({
   const [date, setDate] = useState(localDateInputValue())
   const [author, setAuthor] = useState<Parent>(lastAuthor())
   const [busy, setBusy] = useState(false)
+  const running = useRef(false)
+  const [error, setError] = useState<string | null>(null)
 
   return (
     <div>
-      <Field label="عنوان (اختياري)">
+      {!quick && <Field label="عنوان (اختياري)">
         <input
           className="input"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="مثلًا: أول مرة سمعنا قلبك"
         />
-      </Field>
-      <Field label="الرسالة">
+      </Field>}
+      <Field label={quick ? 'الذكرى' : 'الرسالة'}>
         <textarea
-          className="input font-serif leading-[1.9] min-h-[9rem]"
+          className={cx('input font-serif leading-[1.9]', quick ? 'min-h-[7rem]' : 'min-h-[9rem]')}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="اكتبوا له كما تكلّمونه…"
+          placeholder={quick ? 'اكتبوا أي شيء تبغون تذكرونه…' : 'اكتبوا له كما تكلّمونه…'}
           autoFocus
         />
       </Field>
-      <Field label="التاريخ">
-        <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
-      </Field>
-      <AuthorPicker value={author} onChange={setAuthor} />
+      {quick ? (
+        <details className="mb-3 rounded-2xl border border-line bg-paper-100 px-4 py-2.5">
+          <summary className="min-h-[36px] cursor-pointer text-[13px] text-ink-500 flex items-center">
+            تفاصيل إضافية (اختياري)
+          </summary>
+          <div className="pt-3">
+            <Field label="عنوان (اختياري)">
+              <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
+            </Field>
+            <Field label="التاريخ">
+              <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+            </Field>
+            <AuthorPicker value={author} onChange={setAuthor} />
+          </div>
+        </details>
+      ) : (
+        <>
+          <Field label="التاريخ">
+            <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+          </Field>
+          <AuthorPicker value={author} onChange={setAuthor} />
+        </>
+      )}
+      {error && <p role="alert" className="text-clay-600 text-sm mb-3">{error}</p>}
       <SaveBar
         busy={busy}
         disabled={!text.trim()}
+        label={quick ? 'حفظ الذكرى' : 'حفظ'}
         onSave={async () => {
+          if (running.current || !text.trim()) return
+          running.current = true
           setBusy(true)
-          await addJournal({
-            title: title.trim() || undefined,
-            text: text.trim(),
-            date: localDateToIso(date),
-            author,
-          })
-          setBusy(false)
-          onDone('حُفظت الرسالة')
+          setError(null)
+          try {
+            const saved = await addJournal({
+              title: title.trim() || undefined,
+              text: text.trim(),
+              date: localDateToIso(date),
+              author,
+            })
+            if (!saved) {
+              setError(`لم تُحفظ ${quick ? 'الذكرى' : 'الرسالة'}. بقي النص هنا — حاولوا مرة أخرى.`)
+              return
+            }
+            onDone(quick ? 'حُفظت الذكرى' : 'حُفظت الرسالة')
+          } catch {
+            setError(`لم تُحفظ ${quick ? 'الذكرى' : 'الرسالة'}. بقي النص هنا — حاولوا مرة أخرى.`)
+          } finally {
+            running.current = false
+            setBusy(false)
+          }
         }}
       />
     </div>

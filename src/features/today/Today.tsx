@@ -16,6 +16,7 @@ import {
 } from '../../components/icons'
 import { FetalFigure, Monogram } from '../../components/illustrations'
 import { useCapture } from '../../components/Capture'
+import PregnancyAgeEditor from '../../components/PregnancyAgeEditor'
 import { toggleDose, useAppData } from '../../data/dataService'
 import { getPregnancyProgress, trimesterLabel } from '../../lib/pregnancy'
 import { getFetalWeek } from '../../lib/fetalData'
@@ -72,7 +73,16 @@ export default function Today() {
         </h1>
       </header>
 
-      {born ? <NewbornHero /> : <PregnancyHero />}
+      {born ? (
+        <NewbornHero />
+      ) : (
+        <>
+          <PregnancyHero />
+          <div className="mt-2">
+            <PregnancyAgeEditor />
+          </div>
+        </>
+      )}
 
       {/* جرعات اليوم — أعلى ما في الشاشة بعد المرحلة، لأنها الشيء الوحيد
           هنا الذي يفوت وقته: الذكرى تُوثَّق متى ما كان، والجرعة لا. */}
@@ -236,7 +246,7 @@ function untilLabel(iso: string, now: number): string {
 
 // ============ بطاقات المرحلة ============
 
-function PregnancyHero() {
+export function PregnancyHero() {
   const data = useAppData()
   const navigate = useNavigate()
   const p = getPregnancyProgress(data.child.lmpDate, data.child.dueDate)
@@ -299,7 +309,7 @@ function PregnancyHero() {
   )
 }
 
-function NewbornHero() {
+export function NewbornHero() {
   const data = useAppData()
   const navigate = useNavigate()
   const bornAt = data.child.bornAt!
@@ -356,7 +366,7 @@ function AgeCell({ value, label }: { value: number; label: string }) {
  * مكانها. الرحلة الطبيعية «فتحت التطبيق ← أخذت الحبة ← أشّرت عليها»
  * لا تستحقّ ثلاث نقرات وشاشتين، والجدول الكامل يبقى خلف السهم.
  */
-function MedsToday({ now }: { now: number }) {
+export function MedsToday({ now }: { now: number }) {
   const data = useAppData()
   const navigate = useNavigate()
   const nowDate = new Date(now)

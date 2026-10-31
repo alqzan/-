@@ -133,7 +133,10 @@ function milestoneItem(m: Milestone): StoryItem | null {
 }
 
 function capsuleItem(c: TimeCapsule, now: Date): StoryItem {
-  const locked = new Date(c.openAt).getTime() > now.getTime()
+  const future = new Date(c.openAt).getTime() > now.getTime()
+  // حلّ موعدها ولم تُفتح بعد: تبقى مغلقة هنا كما في شاشة الكبسولات والكتاب،
+  // فلا يُكشف نصّها قبل أن يفتحها الوالدان بأنفسهما
+  const locked = future || !c.isOpened
   return {
     key: `capsule:${c.id}`,
     id: c.id,
@@ -144,7 +147,11 @@ function capsuleItem(c: TimeCapsule, now: Date): StoryItem {
     body: locked ? undefined : c.message,
     author: c.author,
     locked,
-    meta: locked ? `تُفتح في ${formatDay(c.openAt)}` : `فُتحت في ${formatDay(c.openAt)}`,
+    meta: future
+      ? `تُفتح في ${formatDay(c.openAt)}`
+      : locked
+        ? 'حان موعدها — افتحوها من شاشة الكبسولات'
+        : `فُتحت في ${formatDay(c.openAt)}`,
   }
 }
 

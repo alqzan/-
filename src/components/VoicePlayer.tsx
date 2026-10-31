@@ -67,7 +67,10 @@ export default function VoicePlayer({
     if (src) return src
     if (voice?.dataUrl) return voice.dataUrl
     if (voice?.remoteUrl) return voice.remoteUrl
-    if (!voice?.localKey) return null
+    if (!voice?.localKey) {
+      setFailed(true)
+      return null
+    }
     if (objectUrlRef.current) return objectUrlRef.current
 
     setLoading(true)

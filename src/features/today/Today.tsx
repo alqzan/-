@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Card, ProgressBar, ProgressRing, StatTile, cx } from '../../components/ui'
 import {
-  ArchiveIcon,
   CheckIcon,
   ChevronLeftIcon,
   BottleIcon,
@@ -22,7 +21,7 @@ import { getPregnancyProgress, trimesterLabel } from '../../lib/pregnancy'
 import { getFetalWeek } from '../../lib/fetalData'
 import { formatDate, formatTime, pluralAr, relativeFromNow } from '../../lib/format'
 import { ageInDays, ageInMonths, isSameLocalDay } from '../../lib/localDate'
-import { daysSinceBackup } from '../../lib/backup'
+import BackupNudge from '../../components/BackupNudge'
 import { photoSrc } from '../../lib/image'
 import { promptOfTheDay } from '../../lib/prompts'
 import { useNow } from '../../lib/useNow'
@@ -56,8 +55,6 @@ export default function Today() {
   const story = buildStory(data, new Date(now))
   const recent = story.slice(0, 6)
   const hasContent = recent.length > 0
-  const sinceBackup = daysSinceBackup()
-  const needsBackup = hasContent && (sinceBackup === null || sinceBackup > 30)
   const prompt = promptOfTheDay(
     born,
     new Date(),
@@ -217,25 +214,7 @@ export default function Today() {
         </Card>
       )}
 
-      {/* تذكير بالنسخة الاحتياطية — البيانات محفوظة على هذا الجهاز فقط */}
-      {needsBackup && (
-        <Card
-          onClick={() => navigate('/settings')}
-          className="mt-7 !bg-brass-50 !border-brass-100 flex items-center gap-3.5"
-        >
-          <span className="w-10 h-10 rounded-full bg-white/70 text-brass-500 grid place-items-center shrink-0">
-            <ArchiveIcon className="w-5 h-5" />
-          </span>
-          <span className="flex-1">
-            <span className="block font-medium text-ink-900 text-[15px]">احفظوا نسخة من ذكرياتكم</span>
-            <span className="block text-[12px] text-ink-500 mt-0.5 leading-relaxed">
-              {sinceBackup === null
-                ? 'ما أُخذت نسخة احتياطية بعد — كل شيء محفوظ على هذا الجهاز فقط.'
-                : `آخر نسخة قبل ${pluralAr(sinceBackup, 'يوم', 'يومين', 'أيام', 'يومًا')}.`}
-            </span>
-          </span>
-        </Card>
-      )}
+      <BackupNudge />
     </>
   )
 }

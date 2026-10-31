@@ -60,10 +60,10 @@ export default function ChecklistScreen({ list }: { list: ChecklistName }) {
           <div className="text-sm font-bold text-ink-500 mb-2 px-1">{cat}</div>
           <div className="space-y-2">
             {list.map((it) => (
+              <div key={it.id} className="flex items-center gap-1">
               <button
-                key={it.id}
                 onClick={() => toggleChecklistItem(it.id)}
-                className="card !p-3 w-full flex items-center gap-3 text-start active:scale-[0.99] transition"
+                className="card !p-3 flex-1 min-w-0 flex items-center gap-3 text-start active:scale-[0.99] transition"
               >
                 <span
                   className={cx(
@@ -74,18 +74,17 @@ export default function ChecklistScreen({ list }: { list: ChecklistName }) {
                   <CheckIcon className="w-4 h-4" />
                 </span>
                 <span className={cx('flex-1', it.done && 'line-through text-ink-300')}>{it.label}</span>
-                {!it.builtIn && (
-                  <span
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      void deleteChecklistItem(it.id)
-                    }}
-                    className="text-ink-300 hover:text-clay-600 p-1"
-                  >
-                    <TrashIcon className="w-5 h-5" />
-                  </span>
-                )}
               </button>
+              {!it.builtIn && (
+                <button
+                  onClick={() => void deleteChecklistItem(it.id)}
+                  aria-label={`حذف ${it.label}`}
+                  className="text-ink-300 hover:text-clay-600 p-2 shrink-0"
+                >
+                  <TrashIcon className="w-5 h-5" />
+                </button>
+              )}
+              </div>
             ))}
           </div>
         </div>

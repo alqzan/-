@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import BackupNudge from '../../components/BackupNudge'
 import { useHiddenTools, type HideableTool } from '../../lib/trackPrefs'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -63,6 +64,8 @@ export default function Track() {
       <MedsToday now={now} />
 
       {born ? <BabyTools /> : <PregnancyTools />}
+
+      <BackupNudge />
     </>
   )
 }

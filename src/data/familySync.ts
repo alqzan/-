@@ -254,13 +254,26 @@ function attachListener(code: string): void {
         setState({ status: 'connected', error: null, hydrated: true })
         return // صدى كتابتنا نحن — ليس تغييرًا خارجيًا
       }
-      lastSeenJSON = json
-      void mergeSyncedData(remote)
-      setState({
-        status: 'connected',
-        error: null,
-        hydrated: true,
-        lastSyncedAt: new Date().toISOString(),
+      // وصول اللقطة ليس نجاحًا للحفظ المحلي. لا نسجّلها كصدى محفوظ
+      // قبل اكتمال الكتابة، وإلا تجاهلنا اللقطة نفسها عند إعادة المحاولة.
+      void mergeSyncedData(remote).then((saved) => {
+        if (generation !== listenerGeneration || state.code !== code) return
+        if (!saved) {
+          setState({
+            status: 'error',
+            hydrated: false,
+            error: 'وصلت التحديثات لكن تعذّر حفظها على هذا الجهاز. تحقّقوا من المساحة وخذوا نسخة احتياطية.',
+          })
+          scheduleReconnect(code)
+          return
+        }
+        lastSeenJSON = json
+        setState({
+          status: 'connected',
+          error: null,
+          hydrated: true,
+          lastSyncedAt: new Date().toISOString(),
+        })
       })
     },
     () => {
@@ -357,8 +370,9 @@ export async function joinFamilySync(rawCode: string): Promise<{ ok: boolean; er
     }
 
     const remote = stripSyncMeta(snap.data() as Record<string, unknown>)
+    const saved = await mergeSyncedData(remote)
+    if (!saved) throw new Error('Local sync save failed')
     lastSeenJSON = canonicalJSON(remote)
-    await mergeSyncedData(remote)
 
     persistCode(code)
     setState({ status: 'connected', code, error: null, hydrated: false })
@@ -478,7 +492,9 @@ async function writeSnapshot(code: string, snapshot: SyncedFields): Promise<void
     // إذا ضمّت المعاملة كتابة الطرف الآخر، ثبّت الاتحاد على هذا الجهاز
     // أيضًا قبل أن نعلن أن ما رأيناه هو آخر نسخة.
     const committedJSON = canonicalJSON(committed)
-    if (committedJSON !== json) await mergeSyncedData(committed)
+    if (committedJSON !== json && !(await mergeSyncedData(committed))) {
+      throw new Error('Local sync save failed')
+    }
     // التسجيل بعد نجاح الكتابة لا قبلها: كان الفشل يُسجّل المحتوى كأنه
     // «وصل»، فلا يُعاد رفعه أبدًا ويبقى الطرف الآخر على نسخة أقدم بصمت.
     lastSeenJSON = committedJSON

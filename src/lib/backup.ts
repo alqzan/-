@@ -31,13 +31,7 @@ export function daysSinceBackup(): number | null {
  * يصحّ انتظار قراءة مخزن الوسائط.
  */
 export async function downloadBackup(includeMedia = true): Promise<string> {
-  let json: string
-  try {
-    json = includeMedia ? await exportSnapshotWithMedia() : exportSnapshot()
-  } catch {
-    // تعذّر جلب الصوت: ننزّل البيانات على الأقل بدل ألّا ننزّل شيئًا
-    json = exportSnapshot()
-  }
+  const json = includeMedia ? await exportSnapshotWithMedia() : exportSnapshot()
   const filename = `tafalna-backup-${localDateInputValue()}.json`
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -50,7 +44,7 @@ export async function downloadBackup(includeMedia = true): Promise<string> {
   // نحرّر الرابط بعد أن يلتقطه المتصفح
   setTimeout(() => URL.revokeObjectURL(url), 1000)
   try {
-    localStorage.setItem(LAST_BACKUP_KEY, localDateInputValue())
+    if (includeMedia) localStorage.setItem(LAST_BACKUP_KEY, localDateInputValue())
   } catch {
     // تسجيل تاريخ النسخة ثانوي — لا يمنع نجاح التنزيل
   }

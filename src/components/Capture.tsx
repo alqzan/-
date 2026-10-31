@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { useHiddenTools } from '../lib/trackPrefs'
 import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
@@ -463,7 +464,7 @@ function QuickTrackSection({
   const [open, setOpen] = useState(false)
   const openSleep = data.sleep.find((s) => !s.endedAt)
 
-  const items: Array<{
+  const allItems: Array<{
     key: string
     label: string
     icon: ReactNode
@@ -552,6 +553,12 @@ function QuickTrackSection({
         },
       ]
 
+  // أدوات أخفاها المستخدم من المتابعة لا تظهر كاختصار أيضًا (عرض فقط)
+  const hiddenTools = useHiddenTools()
+  const items = allItems.filter(
+    (i) => !(i.key === 'kick' && hiddenTools.includes('kicks')) &&
+      !(i.key === 'contraction' && hiddenTools.includes('contractions')),
+  )
   const spans = quickSpans(items.length)
 
   return (

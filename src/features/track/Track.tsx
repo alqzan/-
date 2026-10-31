@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { useHiddenTools, type HideableTool } from '../../lib/trackPrefs'
 import { useNavigate } from 'react-router-dom'
 import {
   BabyIcon,
@@ -103,63 +104,56 @@ function PregnancyTools() {
           label="الأدوية والعلاج"
           value={meds.value}
           highlight={meds.pending}
-          last
         />
       </Group>
 
-      <details className="card mt-7 !p-0 overflow-hidden">
-        <summary className="cursor-pointer min-h-[52px] flex items-center px-4 py-3 text-sm font-medium text-ink-600">
-          أدوات إضافية وسجلاتها
-        </summary>
-        <div className="border-t border-line">
+      <OptionalSection title="أدوات إضافية وسجلاتها" className="mt-7" tools={['development', 'contractions', 'kicks']}>
           <ToolRow
             to="/track/development"
+          tool="development"
             icon={<BellyIcon className="w-5 h-5" />}
             label="تطوّر الجنين"
             value={p ? `الأسبوع ${p.week}` : '—'}
           />
           <ToolRow
             to="/track/contractions"
+          tool="contractions"
             icon={<WaveIcon className="w-5 h-5" />}
             label="الانقباضات"
             value={data.contractions.length > 0 ? `${data.contractions.length} مسجّلة` : 'ابدأوا'}
           />
           <ToolRow
             to="/track/kicks"
+          tool="kicks"
             icon={<FootIcon className="w-5 h-5" />}
             label="الركلات"
             value={todayKicks > 0 ? `${todayKicks} اليوم` : lastKick ? relativeFromNow(lastKick.startedAt) : 'اختياري'}
-            last
           />
-        </div>
-      </details>
+        </OptionalSection>
 
-      <details className="card mt-4 !p-0 overflow-hidden">
-        <summary className="cursor-pointer min-h-[52px] flex items-center px-4 py-3 text-sm font-medium text-ink-600">
-          التجهيزات
-        </summary>
-        <div className="border-t border-line">
+      <OptionalSection title="التجهيزات" className="mt-4" tools={['names', 'hospital', 'shopping']}>
           <ToolRow
             to="/track/names"
+          tool="names"
             icon={<TagIcon className="w-5 h-5" />}
             label="الأسماء"
             value={votedNames > 0 ? `${votedNames} متفق عليها` : `${data.names.length} اقتراح`}
           />
           <ToolRow
             to="/track/hospital"
+          tool="hospital"
             icon={<BagIcon className="w-5 h-5" />}
             label="شنطة المستشفى"
             value={`${hospital.done}/${hospital.total}`}
           />
           <ToolRow
             to="/track/shopping"
+          tool="shopping"
             icon={<ListIcon className="w-5 h-5" />}
             label="مشتريات المولود"
             value={`${shopping.done}/${shopping.total}`}
-            last
           />
-        </div>
-      </details>
+        </OptionalSection>
 
       <BirthCard />
     </>
@@ -213,7 +207,6 @@ function BabyTools() {
                 : 'ما نام بعد'
           }
           highlight={!!openSleep}
-          last
         />
       </Group>
 
@@ -242,30 +235,25 @@ function BabyTools() {
           icon={<CalendarIcon className="w-5 h-5" />}
           label="المواعيد"
           value={upcoming > 0 ? `${upcoming} قادمة` : 'ما فيه مواعيد'}
-          last
         />
       </Group>
 
-      <details className="card mt-4 !p-0 overflow-hidden">
-        <summary className="cursor-pointer min-h-[52px] flex items-center px-4 py-3 text-sm font-medium text-ink-600">
-          التجهيزات
-        </summary>
-        <div className="border-t border-line">
+      <OptionalSection title="التجهيزات" className="mt-4" tools={['shopping', 'hospital']}>
           <ToolRow
             to="/track/shopping"
+          tool="shopping"
             icon={<ListIcon className="w-5 h-5" />}
             label="مشتريات المولود"
             value={`${shopping.done}/${shopping.total}`}
           />
           <ToolRow
             to="/track/hospital"
+          tool="hospital"
             icon={<BagIcon className="w-5 h-5" />}
             label="شنطة المستشفى"
             value="محفوظة"
-            last
           />
-        </div>
-      </details>
+        </OptionalSection>
     </>
   )
 }
@@ -350,6 +338,30 @@ function BirthCard() {
 
 // ============ عناصر مشتركة ============
 
+/** قسم مطوي من أدوات اختيارية؛ يختفي كله إن أُخفيت كل أدواته */
+function OptionalSection({
+  title,
+  className,
+  tools,
+  children,
+}: {
+  title: string
+  className: string
+  tools: HideableTool[]
+  children: ReactNode
+}) {
+  const hidden = useHiddenTools()
+  if (tools.every((t) => hidden.includes(t))) return null
+  return (
+    <details className={cx('card !p-0 overflow-hidden', className)}>
+      <summary className="cursor-pointer min-h-[52px] flex items-center px-4 py-3 text-sm font-medium text-ink-600">
+        {title}
+      </summary>
+      <div className="border-t border-line">{children}</div>
+    </details>
+  )
+}
+
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mt-7 first:mt-0">
@@ -364,23 +376,26 @@ function ToolRow({
   icon,
   label,
   value,
-  last,
   highlight,
+  tool,
 }: {
   to: string
   icon: ReactNode
   label: string
   value: string
-  last?: boolean
   highlight?: boolean
+  /** أداة اختيارية يمكن إخفاؤها من الإعدادات (عرض فقط، البيانات كما هي) */
+  tool?: HideableTool
 }) {
   const navigate = useNavigate()
+  const hidden = useHiddenTools()
+  if (tool && hidden.includes(tool)) return null
   return (
     <button
       onClick={() => navigate(to)}
       className={cx(
         'flex items-center gap-3 w-full text-right px-4 py-3.5 transition active:bg-paper-100',
-        !last && 'border-b border-line',
+        'border-b border-line last:border-b-0',
       )}
     >
       <span
